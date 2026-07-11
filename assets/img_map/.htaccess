@@ -1,0 +1,6 @@
+# Cache longue durée pour fonds statiques (réduire lag au changement Atlas/Routes/Satellite).
+<IfModule mod_headers.c>
+  <FilesMatch "\.(webp|jpg|jpeg|png)$">
+    Header set Cache-Control "public, max-age=2592000"
+  </FilesMatch>
+</IfModule>

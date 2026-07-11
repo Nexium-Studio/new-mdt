@@ -1,0 +1,33 @@
+<?php
+/**
+ * Copiez ce fichier vers config.local.php ou laissez install.php le générer.
+ * Ne commitez pas config.local.php (secrets Discord, etc.).
+ */
+declare(strict_types=1);
+
+define('SITE_URL', 'https://mdt.votredomaine.com');
+define('SITE_NAME', 'MDT');
+define('ADMIN_EMAIL', 'admin@votredomaine.com');
+
+define('DISCORD_CLIENT_ID', '');
+define('DISCORD_CLIENT_SECRET', '');
+
+define('BOT_API_URL', '');
+define('BOT_API_SECRET', '');
+define('BOT_API_TIMEOUT', 20);
+
+define('ANTHROPIC_API_KEY', '');
+
+define('MDT_TIMEZONE', 'Europe/Paris');
+define('MDT_DISPLAY_ERRORS', false);
+
+/**
+ * OBLIGATOIRE pour la licence Nexium : même valeur que API_SECRET_KEY
+ * dans api.nexium-studio.com/config/config.php (sinon 0 produit + misconfigured_hmac).
+ */
+define('NEXIUM_API_HMAC_KEY', '');
+
+/** Base URL du site Nexium Studio (déploiement public contenant /api/mdt/check-updates.php). */
+// define('NEXIUM_UPDATES_API_BASE', 'https://nexium-studio.com');
+/** Désactiver la vérification SSL uniquement en dev local (true en production). */
+// define('NEXIUM_UPDATES_VERIFY_SSL', true);

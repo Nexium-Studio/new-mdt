@@ -1,0 +1,47 @@
+Revue OAuth Discord — MDT (web + tablette FiveM)
+================================================
+
+Fichiers concernés
+------------------
+- config/config.php          SITE_URL, DISCORD_REDIRECT_URI, cookies de session
+- auth/discord-login.php     redirection vers authorize Discord (flux navigateur classique)
+- auth/discord-callback.php  échange code → token → users ; crée la session PHP
+- auth/discord-ingame.php    tablette : code 6 chiffres + polling (pas d’OAuth dans le CEF)
+- auth/discord-link.php      téléphone/PC : saisie du code puis OAuth ; liaison discord_id
+
+Flux 1 — Connexion web (navigateur classique)
+---------------------------------------------
+1. Utilisateur → discord-login.php
+2. Discord → discord-callback.php?code=...
+3. Session PHP, cookie sur le domaine SITE_URL (HTTPS, SameSite=None pour iframe/CEF si besoin)
+
+Flux 2 — Tablette FiveM (navigateur in-game limité)
+---------------------------------------------------
+1. Joueur déjà connecté MDT (compte sans discord_id) → discord-ingame.php génère un code dans discord_link_codes
+2. Sur un vrai navigateur → discord-link.php : saisie du code, redirection OAuth avec redirect_uri incluant discord_callback=1 et state=code
+3. Retour Discord avec ?code=...&state=... — le code OAuth est le paramètre **code** (corrigé dans discord-link.php ; l’ancien code_oauth ne correspondait pas à l’API Discord).
+4. Mise à jour users.discord_id ; la tablette poll jusqu’à liaison.
+
+Configuration à vérifier après changement de domaine (ex. mdt.nexium-studio.com)
+-------------------------------------------------------------------------------
+1. Portail développeur Discord : OAuth2 → Redirects, ajouter exactement :
+   - https://VOTRE_DOMAINE/auth/discord-callback.php
+   - Les URL utilisées par discord-link incluent des query strings (discord_callback, state) : enregistrer la même base que dans le code (Discord exige la correspondance exacte avec redirect_uri lors de l’échange du token — vérifier que l’URL enregistrée correspond à celle passée dans discordGetToken()).
+2. Plesk : PHP 8.4, HTTPS, session.save_path accessible.
+3. Option serveur : variable d’environnement MDT_SITE_URL=https://mdt.nexium-studio.com pour surcharger SITE_URL sans éditer le fichier (voir config.php).
+4. Cookies : le domaine des cookies est dérivé de SITE_URL (hôte du vhost). Ne pas mélanger plusieurs domaines sur le même compte sans configuration SSO commune.
+
+Collision de paramètres GET (corrigé dans discord-link.php)
+-----------------------------------------------------------
+- Discord renvoie `?code=` pour le jeton OAuth ; le formulaire de liaison utilisait aussi `code` pour le code 6 chiffres.
+- Désormais le code tablette ne se lit plus depuis `$_GET['code']` hors callback ; préfixe optionnel `link_code=` pour préremplir.
+
+Cohérence avec la base users
+----------------------------
+- users.discord_id lie le compte ; inchangé par les tables mdt_ref_*.
+- Le rôle applicatif reste users.role (enum) ; les grades catalogue v2 sont dans mdt_ref_* pour référence / migration progressive.
+
+Sécurité
+--------
+- Ne pas commiter DISCORD_CLIENT_SECRET ; préférer variables d’environnement en production.
+- CURLOPT_SSL_VERIFYPEER à false : à remplacer par true avec CA bundle en production.

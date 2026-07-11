@@ -1,0 +1,12 @@
+<?php
+/**
+ * Copiez ce fichier vers database.local.php et renseignez vos identifiants MySQL.
+ * Ne commitez pas database.local.php (mots de passe).
+ */
+declare(strict_types=1);
+
+define('DB_HOST', 'localhost');
+define('DB_NAME', 'mdt_service_public');
+define('DB_USER', 'votre_utilisateur_mysql');
+define('DB_PASS', 'votre_mot_de_passe');
+define('DB_CHARSET', 'utf8mb4');

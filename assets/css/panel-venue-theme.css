@@ -1,0 +1,341 @@
+/**
+ * Panels bars / nightlife (Yellow Jack, Tropical, etc.)
+ * S’appuie sur :root --panel-color et --panel-color-rgb (panel_theme_auto.php)
+ * + --company-color (alias optionnel dans le header)
+ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+    --pv-accent: var(--panel-color, var(--company-color, #f472b6));
+    --pv-rgb: var(--panel-color-rgb, 244, 114, 182);
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+    font-family: 'DM Sans', 'Inter', system-ui, sans-serif;
+    background: #07060d;
+    color: rgba(255, 255, 255, 0.88);
+    overflow-x: hidden;
+    font-size: 14.5px;
+    min-height: 100vh;
+}
+
+body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background:
+        radial-gradient(circle at 18% 35%, rgba(var(--pv-rgb), 0.09) 0%, transparent 52%),
+        radial-gradient(circle at 82% 18%, rgba(var(--pv-rgb), 0.05) 0%, transparent 45%),
+        #07060d;
+}
+
+body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.45;
+    background-image:
+        repeating-linear-gradient(0deg, transparent, transparent 43px, rgba(var(--pv-rgb), 0.04) 43px, rgba(var(--pv-rgb), 0.04) 44px),
+        repeating-linear-gradient(90deg, transparent, transparent 43px, rgba(var(--pv-rgb), 0.03) 43px, rgba(var(--pv-rgb), 0.03) 44px);
+}
+
+/* Sidebar — même structure que Haute Luxury, accents dynamiques */
+.company-sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 280px;
+    height: 100vh;
+    background: linear-gradient(165deg, #120f1e 0%, #07060d 100%);
+    border-right: 1px solid color-mix(in srgb, var(--pv-accent) 22%, transparent);
+    overflow-y: auto;
+    z-index: 1000;
+    box-shadow: 4px 0 36px rgba(0, 0, 0, 0.45);
+}
+
+.company-sidebar::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 1px;
+    height: 100%;
+    background: linear-gradient(180deg, transparent, var(--pv-accent), transparent);
+    opacity: 0.2;
+}
+
+.sidebar-header {
+    padding: 1.65rem 1.4rem 1.35rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--pv-accent) 14%, transparent);
+}
+
+.company-logo {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--pv-accent) 18%, transparent);
+    border: 1px solid color-mix(in srgb, var(--pv-accent) 38%, transparent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    margin-bottom: 0.85rem;
+    color: var(--pv-accent);
+    box-shadow: 0 8px 28px color-mix(in srgb, var(--pv-accent) 22%, transparent);
+}
+
+.company-logo--img {
+    padding: 6px;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.company-logo--img img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.company-name {
+    font-family: 'Orbitron', ui-monospace, sans-serif;
+    font-size: 1.05rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    color: #f8fafc;
+    margin-bottom: 0.2rem;
+}
+
+.company-subtitle {
+    font-size: 0.78rem;
+    color: #94a3b8;
+    font-weight: 500;
+}
+
+.sidebar-nav { padding: 1rem 0 1.5rem; }
+
+.nav-section-title {
+    padding: 0.85rem 1.5rem 0.35rem;
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: #64748b;
+}
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.72rem 1.5rem;
+    color: #94a3b8;
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 0.88rem;
+    transition: color 0.15s, background 0.15s;
+    border-left: 3px solid transparent;
+    position: relative;
+}
+
+.nav-item:hover {
+    color: #f1f5f9;
+    background: color-mix(in srgb, var(--pv-accent) 7%, transparent);
+}
+
+.nav-item.active {
+    color: var(--pv-accent);
+    background: color-mix(in srgb, var(--pv-accent) 11%, transparent);
+    border-left-color: var(--pv-accent);
+}
+
+.nav-item i { width: 1.1rem; text-align: center; }
+
+.main-content {
+    position: relative;
+    z-index: 1;
+    margin-left: 280px;
+    min-height: 100vh;
+}
+
+.company-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(10, 8, 18, 0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid color-mix(in srgb, var(--pv-accent) 16%, transparent);
+    padding: 1.1rem 1.85rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+}
+
+.page-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.28rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    color: #f8fafc;
+}
+
+.user-badge {
+    padding: 0.45rem 1rem;
+    background: color-mix(in srgb, var(--pv-accent) 10%, rgba(0, 0, 0, 0.35));
+    border: 1px solid color-mix(in srgb, var(--pv-accent) 28%, transparent);
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #cbd5e1;
+}
+
+.page-content { padding: 1.75rem 1.85rem 2.5rem; }
+
+.card {
+    background: linear-gradient(145deg, rgba(18, 15, 30, 0.92), rgba(10, 8, 18, 0.75));
+    border: 1px solid color-mix(in srgb, var(--pv-accent) 18%, transparent);
+    border-radius: 16px;
+    padding: 1.6rem;
+    margin-bottom: 1.35rem;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.card:hover {
+    border-color: color-mix(in srgb, var(--pv-accent) 32%, transparent);
+    box-shadow: 0 12px 40px color-mix(in srgb, var(--pv-accent) 12%, transparent);
+}
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.72rem 1.35rem;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 0.88rem;
+    cursor: pointer;
+    text-decoration: none;
+    border: none;
+    font-family: inherit;
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--pv-accent), color-mix(in srgb, var(--pv-accent) 55%, #000));
+    color: #fff;
+    box-shadow: 0 4px 18px color-mix(in srgb, var(--pv-accent) 28%, transparent);
+}
+
+.btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 26px color-mix(in srgb, var(--pv-accent) 35%, transparent);
+}
+
+.btn-secondary {
+    background: rgba(255, 255, 255, 0.06);
+    color: #e2e8f0;
+    border: 1px solid color-mix(in srgb, var(--pv-accent) 22%, transparent);
+}
+
+.btn-sm { padding: 0.48rem 0.95rem; font-size: 0.82rem; }
+
+.form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.25rem; }
+.form-full { grid-column: 1 / -1; }
+.form-group { display: flex; flex-direction: column; gap: 0.45rem; }
+.form-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #64748b;
+}
+.form-input, .form-select, .form-textarea {
+    width: 100%;
+    padding: 0.78rem 1rem;
+    background: rgba(0, 0, 0, 0.28);
+    border: 1px solid color-mix(in srgb, var(--pv-accent) 15%, rgba(255, 255, 255, 0.08));
+    border-radius: 10px;
+    color: #f1f5f9;
+    font-family: inherit;
+    font-size: 0.9rem;
+}
+.form-input:focus, .form-select:focus, .form-textarea:focus {
+    outline: none;
+    border-color: color-mix(in srgb, var(--pv-accent) 45%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--pv-accent) 15%, transparent);
+}
+.form-textarea { resize: vertical; min-height: 96px; }
+
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(4, 3, 10, 0.92);
+    backdrop-filter: blur(8px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+.modal-overlay:not(.hidden) { display: flex; }
+.modal {
+    background: linear-gradient(145deg, #14101f, #0a0812);
+    border: 1px solid color-mix(in srgb, var(--pv-accent) 28%, transparent);
+    border-radius: 18px;
+    width: 90%;
+    max-width: 700px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+}
+.modal-header {
+    padding: 1.35rem 1.6rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--pv-accent) 12%, transparent);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: color-mix(in srgb, var(--pv-accent) 5%, transparent);
+}
+.modal-header h2 { font-size: 1.05rem; font-weight: 700; color: #f8fafc; display: flex; align-items: center; gap: 0.65rem; }
+.modal-close {
+    width: 38px;
+    height: 38px;
+    border: 1px solid color-mix(in srgb, var(--pv-accent) 22%, transparent);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.04);
+    color: #94a3b8;
+    cursor: pointer;
+}
+.modal-close:hover { color: #f87171; background: rgba(248, 113, 113, 0.12); }
+.modal-body { padding: 1.5rem 1.6rem; overflow-y: auto; flex: 1; }
+.modal-footer {
+    padding: 1.1rem 1.6rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+}
+
+.alert {
+    padding: 0.9rem 1.2rem;
+    border-radius: 10px;
+    margin-bottom: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    font-size: 0.9rem;
+}
+.alert-success { background: rgba(34, 197, 94, 0.12); border: 1px solid rgba(34, 197, 94, 0.28); color: #4ade80; }
+.alert-error { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.28); color: #fca5a5; }
+.hidden { display: none !important; }
+
+@media (max-width: 1024px) {
+    .company-sidebar { transform: translateX(-100%); }
+    .main-content { margin-left: 0; }
+    .form-grid { grid-template-columns: 1fr; }
+}

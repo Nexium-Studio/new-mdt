@@ -1,0 +1,52 @@
+/**
+ * Premium Deluxe Motorsport — surcouche visuelle (indépendante de ls-motors.css).
+ * Ambiance : circuit, néon froid, touches orange compétition.
+ */
+body.dealership-panel.panel-pdm {
+    --pdm-orange: #f97316;
+    --pdm-cyan: #22d3ee;
+}
+
+body.dealership-panel.panel-pdm::before {
+    background:
+        radial-gradient(ellipse 100% 70% at 0% 0%, color-mix(in srgb, var(--company-color) 22%, transparent), transparent 55%),
+        radial-gradient(ellipse 90% 60% at 100% 10%, color-mix(in srgb, var(--pdm-orange) 12%, transparent), transparent 50%),
+        radial-gradient(ellipse 70% 50% at 50% 100%, color-mix(in srgb, var(--pdm-cyan) 8%, transparent), transparent 45%),
+        repeating-linear-gradient(
+            -12deg,
+            transparent,
+            transparent 2px,
+            rgba(255, 255, 255, 0.02) 2px,
+            rgba(255, 255, 255, 0.02) 3px
+        ),
+        linear-gradient(168deg, #05070f 0%, #030508 45%, #070b12 100%);
+}
+
+body.dealership-panel.panel-pdm .company-sidebar {
+    border-right: 1px solid color-mix(in srgb, var(--pdm-orange) 28%, transparent);
+    box-shadow:
+        4px 0 32px color-mix(in srgb, var(--company-color) 12%, transparent),
+        inset -1px 0 0 color-mix(in srgb, var(--pdm-cyan) 15%, transparent);
+}
+
+body.dealership-panel.panel-pdm .nav-item.active {
+    border-left: 3px solid var(--pdm-orange);
+    background: linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--pdm-orange) 18%, transparent),
+        color-mix(in srgb, var(--company-color) 8%, transparent)
+    );
+}
+
+body.dealership-panel.panel-pdm .lm-shift-hero::before {
+    background: linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--company-color) 35%, transparent),
+        color-mix(in srgb, var(--pdm-orange) 22%, transparent)
+    );
+}
+
+body.dealership-panel.panel-pdm .lm-header-slider__icon {
+    color: var(--pdm-cyan);
+    text-shadow: 0 0 20px color-mix(in srgb, var(--pdm-cyan) 40%, transparent);
+}

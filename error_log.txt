@@ -1,0 +1,274 @@
+[29-Apr-2026 18:02:13 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[29-Apr-2026 18:03:03 Europe/Paris] PHP Warning:  Undefined array key "draft" in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/doj/rapports.php on line 200
+[29-Apr-2026 18:03:07 Europe/Paris] PHP Warning:  Undefined array key "draft" in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/doj/rapports.php on line 200
+[29-Apr-2026 18:03:07 Europe/Paris] PHP Warning:  Cannot modify header information - headers already sent by (output started at /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/doj/includes/header.php:54) in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/doj/rapports.php on line 282
+[29-Apr-2026 18:03:27 Europe/Paris] PHP Warning:  Undefined array key "draft" in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/doj/rapports.php on line 200
+[29-Apr-2026 18:03:27 Europe/Paris] PHP Warning:  Cannot modify header information - headers already sent by (output started at /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/doj/includes/header.php:54) in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/doj/rapports.php on line 282
+[29-Apr-2026 18:05:58 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[29-Apr-2026 18:05:59 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[29-Apr-2026 18:06:04 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[29-Apr-2026 19:42:49 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[29-Apr-2026 19:42:52 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[29-Apr-2026 19:42:57 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[29-Apr-2026 19:45:12 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[29-Apr-2026 19:47:09 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[29-Apr-2026 19:47:10 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[29-Apr-2026 19:47:34 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[29-Apr-2026 20:09:20 Europe/Paris] PHP Warning:  Undefined variable $companyFaction in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/dashboard.php on line 8
+[29-Apr-2026 20:10:42 Europe/Paris] PHP Warning:  Undefined variable $companyFaction in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/dashboard.php on line 8
+[29-Apr-2026 20:12:10 Europe/Paris] PHP Warning:  Undefined variable $companyFaction in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/dashboard.php on line 8
+[29-Apr-2026 20:29:14 Europe/Paris] PHP Warning:  Undefined variable $companyFaction in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/avocats/dashboard.php on line 11
+[29-Apr-2026 20:33:04 Europe/Paris] PHP Warning:  Undefined variable $companyFaction in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/dashboard.php on line 8
+[29-Apr-2026 20:37:07 Europe/Paris] PHP Warning:  Undefined array key "draft" in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/doj/rapports.php on line 200
+[29-Apr-2026 20:37:11 Europe/Paris] PHP Warning:  Undefined array key "draft" in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/doj/rapports.php on line 200
+[29-Apr-2026 20:37:13 Europe/Paris] PHP Warning:  Undefined array key "draft" in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/doj/rapports.php on line 200
+[29-Apr-2026 20:37:13 Europe/Paris] PHP Warning:  Cannot modify header information - headers already sent by (output started at /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/doj/includes/header.php:54) in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/doj/rapports.php on line 282
+[29-Apr-2026 20:37:18 Europe/Paris] PHP Warning:  Undefined array key "draft" in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/doj/rapports.php on line 200
+[29-Apr-2026 20:37:18 Europe/Paris] PHP Warning:  Cannot modify header information - headers already sent by (output started at /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/doj/includes/header.php:54) in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/doj/rapports.php on line 282
+[29-Apr-2026 22:46:04 Europe/Paris] PHP Warning:  Undefined array key 0 in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/companies/taxi/tarifs.php on line 592
+[02-May-2026 23:49:22 Europe/Paris] PHP Warning:  Undefined variable $companyFaction in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/dashboard.php on line 8
+[02-May-2026 23:54:50 Europe/Paris] PHP Warning:  Undefined variable $activeLawId in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/lois.php on line 21
+[02-May-2026 23:55:07 Europe/Paris] PHP Warning:  Undefined variable $activeLawId in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/lois.php on line 50
+[02-May-2026 23:55:15 Europe/Paris] PHP Warning:  Undefined variable $activeLawId in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/lois.php on line 66
+[02-May-2026 23:56:33 Europe/Paris] PHP Warning:  Undefined variable $activeLawId in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/lois.php on line 75
+[02-May-2026 23:56:53 Europe/Paris] PHP Warning:  Undefined variable $activeLawId in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/lois.php on line 30
+[03-May-2026 00:16:41 Europe/Paris] PHP Warning:  Undefined variable $companyFaction in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/dashboard.php on line 8
+[03-May-2026 10:52:14 Europe/Paris] PHP Warning:  Undefined variable $companyFaction in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/dashboard.php on line 8
+[04-May-2026 21:11:24 Europe/Paris] PHP Warning:  Undefined variable $companyFaction in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/dashboard.php on line 8
+[05-May-2026 21:57:23 Europe/Paris] PHP Warning:  Undefined variable $companyFaction in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/avocats/dashboard.php on line 11
+[05-May-2026 21:57:47 Europe/Paris] PHP Warning:  Undefined variable $companyFaction in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/avocats/dashboard.php on line 11
+[05-May-2026 21:58:55 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[05-May-2026 22:01:57 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[05-May-2026 22:02:39 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[05-May-2026 22:25:37 Europe/Paris] PHP Warning:  Undefined variable $companyColor in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/companies/boat-house/includes/header.php on line 33
+[05-May-2026 22:25:41 Europe/Paris] PHP Warning:  Undefined variable $companyColor in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/companies/uwu-coffee/includes/header.php on line 33
+[07-May-2026 09:27:46 Europe/Paris] PHP Warning:  Undefined variable $companyFaction in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/dashboard.php on line 8
+[07-May-2026 09:36:46 Europe/Paris] PHP Warning:  Undefined variable $companyColor in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/companies/dynasty/includes/header.php on line 52
+[07-May-2026 09:42:31 Europe/Paris] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1247 Reference 'nb_dossiers' not supported (reference to group function) in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/usss/statistiques.php:87
+Stack trace:
+#0 /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/usss/statistiques.php(87): PDO->query()
+#1 {main}
+  thrown in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/usss/statistiques.php on line 87
+[10-May-2026 13:33:22 Europe/Paris] [BOT_API] URL: http://87.106.8.133:3001/api/password-reset | HTTP: 200 | Timeout: 20s | Error:  (0) | Response: {"success":true,"message":"DM sent successfully"}
+[10-May-2026 13:48:52 Europe/Paris] PHP Fatal error:  Uncaught Error: Call to undefined function academy_image_src() in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/academy/includes/_faction_homepage_engine.php:143
+Stack trace:
+#0 /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/academy/lspd.php(4): require()
+#1 {main}
+  thrown in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/academy/includes/_faction_homepage_engine.php on line 143
+[10-May-2026 13:49:00 Europe/Paris] PHP Fatal error:  Uncaught Error: Call to undefined function academy_image_src() in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/staff/extensions/academy/accueil.php:224
+Stack trace:
+#0 {main}
+  thrown in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/staff/extensions/academy/accueil.php on line 224
+[10-May-2026 13:49:06 Europe/Paris] PHP Fatal error:  Uncaught Error: Call to undefined function academy_image_src() in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/staff/extensions/academy/accueil.php:224
+Stack trace:
+#0 {main}
+  thrown in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/staff/extensions/academy/accueil.php on line 224
+[10-May-2026 13:49:12 Europe/Paris] PHP Fatal error:  Uncaught Error: Call to undefined function academy_image_src() in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/academy/includes/_faction_homepage_engine.php:143
+Stack trace:
+#0 /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/academy/lspd.php(4): require()
+#1 {main}
+  thrown in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/academy/includes/_faction_homepage_engine.php on line 143
+[10-May-2026 20:24:43 Europe/Paris] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1247 Reference 'nb_dossiers' not supported (reference to group function) in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/usss/statistiques.php:87
+Stack trace:
+#0 /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/usss/statistiques.php(87): PDO->query()
+#1 {main}
+  thrown in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/usss/statistiques.php on line 87
+[10-May-2026 20:43:14 Europe/Paris] PHP Warning:  Undefined variable $companyFaction in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/dashboard.php on line 8
+[10-May-2026 20:55:43 Europe/Paris] PHP Warning:  Undefined variable $companyFaction in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/dashboard.php on line 8
+[10-May-2026 20:58:52 Europe/Paris] PHP Warning:  Undefined array key "draft" in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/doj/rapports.php on line 200
+[10-May-2026 20:58:59 Europe/Paris] PHP Warning:  Undefined array key "draft" in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/doj/rapports.php on line 200
+[10-May-2026 21:01:21 Europe/Paris] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S22]: Column not found: 1247 Reference 'nb_dossiers' not supported (reference to group function) in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/usss/statistiques.php:87
+Stack trace:
+#0 /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/usss/statistiques.php(87): PDO->query()
+#1 {main}
+  thrown in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/usss/statistiques.php on line 87
+[11-May-2026 22:41:01 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[12-May-2026 17:59:11 Europe/Paris] PHP Warning:  Undefined variable $companyFaction in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/dashboard.php on line 8
+[12-May-2026 17:59:21 Europe/Paris] PHP Warning:  Undefined variable $companyFaction in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/dashboard.php on line 8
+[12-May-2026 17:59:31 Europe/Paris] PHP Warning:  Undefined variable $companyFaction in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/dashboard.php on line 8
+[13-May-2026 16:15:26 Europe/Paris] PHP Fatal error:  Uncaught DivisionByZeroError: Division by zero in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/companies/life-invader/dashboard.php:366
+Stack trace:
+#0 {main}
+  thrown in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/companies/life-invader/dashboard.php on line 366
+[14-May-2026 21:32:24 Europe/Paris] PHP Warning:  require_once(/var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/includes/mdt_company_confirm_load.php): Failed to open stream: No such file or directory in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/companies/haute-luxury/includes/footer.php on line 72
+[14-May-2026 21:32:24 Europe/Paris] PHP Fatal error:  Uncaught Error: Failed opening required '/var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/includes/mdt_company_confirm_load.php' (include_path='.:/opt/plesk/php/8.4/share/pear') in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/companies/haute-luxury/includes/footer.php:72
+Stack trace:
+#0 /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/companies/haute-luxury/dashboard.php(659): include()
+#1 {main}
+  thrown in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/companies/haute-luxury/includes/footer.php on line 72
+[14-May-2026 21:32:26 Europe/Paris] PHP Warning:  require_once(/var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/includes/mdt_company_confirm_load.php): Failed to open stream: No such file or directory in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/companies/haute-luxury/includes/footer.php on line 72
+[14-May-2026 21:32:26 Europe/Paris] PHP Fatal error:  Uncaught Error: Failed opening required '/var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/includes/mdt_company_confirm_load.php' (include_path='.:/opt/plesk/php/8.4/share/pear') in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/companies/haute-luxury/includes/footer.php:72
+Stack trace:
+#0 /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/companies/haute-luxury/stock.php(372): include()
+#1 {main}
+  thrown in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/companies/haute-luxury/includes/footer.php on line 72
+[14-May-2026 21:32:36 Europe/Paris] PHP Warning:  require_once(/var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/includes/mdt_company_confirm_load.php): Failed to open stream: No such file or directory in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/companies/haute-luxury/includes/footer.php on line 72
+[14-May-2026 21:32:36 Europe/Paris] PHP Fatal error:  Uncaught Error: Failed opening required '/var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/includes/mdt_company_confirm_load.php' (include_path='.:/opt/plesk/php/8.4/share/pear') in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/companies/haute-luxury/includes/footer.php:72
+Stack trace:
+#0 /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/companies/haute-luxury/stock.php(372): include()
+#1 {main}
+  thrown in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/companies/haute-luxury/includes/footer.php on line 72
+[14-May-2026 21:32:37 Europe/Paris] PHP Warning:  require_once(/var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/includes/mdt_company_confirm_load.php): Failed to open stream: No such file or directory in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/companies/haute-luxury/includes/footer.php on line 72
+[14-May-2026 21:32:37 Europe/Paris] PHP Fatal error:  Uncaught Error: Failed opening required '/var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/includes/mdt_company_confirm_load.php' (include_path='.:/opt/plesk/php/8.4/share/pear') in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/companies/haute-luxury/includes/footer.php:72
+Stack trace:
+#0 /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/companies/haute-luxury/stock.php(372): include()
+#1 {main}
+  thrown in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/companies/haute-luxury/includes/footer.php on line 72
+[19-May-2026 18:31:38 Europe/Paris] PHP Fatal error:  Uncaught TypeError: faction_acl_save_grade_permissions(): Argument #3 ($gradeName) must be of type string, array given, called in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/staff/users/roles.php on line 162 and defined in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/includes/faction_acl.php:408
+Stack trace:
+#0 /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/staff/users/roles.php(162): faction_acl_save_grade_permissions()
+#1 {main}
+  thrown in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/includes/faction_acl.php on line 408
+[19-May-2026 18:32:09 Europe/Paris] PHP Fatal error:  Uncaught TypeError: faction_acl_save_grade_permissions(): Argument #3 ($gradeName) must be of type string, array given, called in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/staff/users/roles.php on line 162 and defined in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/includes/faction_acl.php:408
+Stack trace:
+#0 /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/staff/users/roles.php(162): faction_acl_save_grade_permissions()
+#1 {main}
+  thrown in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/includes/faction_acl.php on line 408
+[19-May-2026 18:34:44 Europe/Paris] PHP Fatal error:  Uncaught TypeError: faction_acl_save_grade_permissions(): Argument #3 ($gradeName) must be of type string, array given, called in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/staff/users/roles.php on line 162 and defined in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/includes/faction_acl.php:453
+Stack trace:
+#0 /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/staff/users/roles.php(162): faction_acl_save_grade_permissions()
+#1 {main}
+  thrown in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/includes/faction_acl.php on line 453
+[19-May-2026 18:34:55 Europe/Paris] PHP Fatal error:  Uncaught TypeError: faction_acl_save_grade_permissions(): Argument #3 ($gradeName) must be of type string, array given, called in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/staff/users/roles.php on line 162 and defined in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/includes/faction_acl.php:453
+Stack trace:
+#0 /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/staff/users/roles.php(162): faction_acl_save_grade_permissions()
+#1 {main}
+  thrown in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/includes/faction_acl.php on line 453
+[19-May-2026 19:17:15 Europe/Paris] PHP Warning:  file_put_contents(/var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/panels/tuners-shop/info_vente.php): Failed to open stream: Permission denied in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/scripts/apply_rbac_panels.php on line 145
+[19-May-2026 19:17:15 Europe/Paris] PHP Warning:  file_put_contents(/var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/panels/tuners-shop/info_vente.php): Failed to open stream: Permission denied in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/scripts/apply_rbac_panels.php on line 151
+[19-May-2026 19:22:14 Europe/Paris] PHP Warning:  file_put_contents(/var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/panels/tuners-shop/info_vente.php): Failed to open stream: Permission denied in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/scripts/apply_rbac_panels.php on line 155
+[19-May-2026 20:08:32 Europe/Paris] PHP Warning:  file_put_contents(/var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/panels/tuners-shop/custom.php): Failed to open stream: Permission denied in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/scripts/apply_granular_rbac.php on line 221
+[19-May-2026 20:08:32 Europe/Paris] PHP Warning:  file_put_contents(/var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/panels/tuners-shop/depenses.php): Failed to open stream: Permission denied in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/scripts/apply_granular_rbac.php on line 221
+[19-May-2026 20:08:32 Europe/Paris] PHP Warning:  file_put_contents(/var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/panels/tuners-shop/info_vente.php): Failed to open stream: Permission denied in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/scripts/apply_granular_rbac.php on line 221
+[19-May-2026 20:08:32 Europe/Paris] PHP Warning:  file_put_contents(/var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/panels/tuners-shop/sanctions.php): Failed to open stream: Permission denied in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/scripts/apply_granular_rbac.php on line 221
+[19-May-2026 20:08:32 Europe/Paris] PHP Warning:  file_put_contents(/var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/panels/tuners-shop/stock.php): Failed to open stream: Permission denied in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/scripts/apply_granular_rbac.php on line 221
+[19-May-2026 20:37:52 Europe/Paris] PHP Fatal error:  Uncaught PDOException: SQLSTATE[HY000]: General error: 1267 Illegal mix of collations (utf8mb4_unicode_ci,IMPLICIT) and (utf8mb4_general_ci,IMPLICIT) for operation '=' in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/staff/users/mdt-roles.php:193
+Stack trace:
+#0 /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/staff/users/mdt-roles.php(193): PDO->query()
+#1 {main}
+  thrown in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/staff/users/mdt-roles.php on line 193
+[20-May-2026 16:02:28 Europe/Paris] PHP Warning:  Undefined array key "draft" in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/doj/rapports.php on line 200
+[20-May-2026 16:02:30 Europe/Paris] PHP Warning:  Undefined array key "draft" in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/doj/rapports.php on line 200
+[20-May-2026 16:02:30 Europe/Paris] PHP Warning:  Cannot modify header information - headers already sent by (output started at /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/doj/includes/header.php:54) in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/doj/rapports.php on line 282
+[20-May-2026 21:34:25 Europe/Paris] PHP Fatal error:  Uncaught Error: Call to undefined function is_demo_mode() in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/includes/header.php:5
+Stack trace:
+#0 /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/dashboard.php(6): include()
+#1 {main}
+  thrown in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/includes/header.php on line 5
+[20-May-2026 21:34:34 Europe/Paris] PHP Warning:  Undefined variable $companyFaction in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/avocats/dashboard.php on line 11
+[20-May-2026 21:34:36 Europe/Paris] PHP Warning:  Undefined variable $companyFaction in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/dashboard.php on line 8
+[20-May-2026 21:35:16 Europe/Paris] PHP Fatal error:  Uncaught Error: Call to undefined function is_demo_mode() in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/includes/header.php:5
+Stack trace:
+#0 /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/dashboard.php(6): include()
+#1 {main}
+  thrown in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/includes/header.php on line 5
+[20-May-2026 21:35:19 Europe/Paris] PHP Warning:  Undefined variable $companyFaction in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/dashboard.php on line 8
+[20-May-2026 21:35:33 Europe/Paris] PHP Fatal error:  Uncaught Error: Call to undefined function is_demo_mode() in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/includes/header.php:5
+Stack trace:
+#0 /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/dashboard.php(6): include()
+#1 {main}
+  thrown in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/includes/header.php on line 5
+[20-May-2026 21:35:35 Europe/Paris] PHP Fatal error:  Uncaught Error: Call to undefined function is_demo_mode() in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/doj/dashboard.php:5
+Stack trace:
+#0 {main}
+  thrown in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/doj/dashboard.php on line 5
+[20-May-2026 21:35:40 Europe/Paris] PHP Fatal error:  Uncaught Error: Call to undefined function is_demo_mode() in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/includes/header.php:5
+Stack trace:
+#0 /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/dashboard.php(6): include()
+#1 {main}
+  thrown in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/includes/header.php on line 5
+[20-May-2026 21:35:42 Europe/Paris] PHP Fatal error:  Uncaught Error: Call to undefined function is_demo_mode() in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/includes/header.php:5
+Stack trace:
+#0 /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/dashboard.php(6): include()
+#1 {main}
+  thrown in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/includes/header.php on line 5
+[20-May-2026 21:36:20 Europe/Paris] PHP Warning:  Undefined variable $companyFaction in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/dashboard.php on line 8
+[20-May-2026 21:36:22 Europe/Paris] PHP Warning:  Undefined variable $companyFaction in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/avocats/dashboard.php on line 11
+[20-May-2026 21:39:42 Europe/Paris] PHP Warning:  Undefined variable $companyFaction in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/avocats/dashboard.php on line 11
+[20-May-2026 21:39:43 Europe/Paris] PHP Warning:  Undefined variable $companyFaction in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/dashboard.php on line 8
+[20-May-2026 21:42:40 Europe/Paris] PHP Warning:  Undefined variable $companyFaction in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/dashboard.php on line 8
+[20-May-2026 21:45:43 Europe/Paris] PHP Warning:  Undefined array key "role" in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/panels/darknet/dashboard.php on line 124
+[28-May-2026 10:34:11 Europe/Paris] PHP Warning:  Undefined variable $companyFaction in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/dashboard.php on line 8
+[28-May-2026 10:35:51 Europe/Paris] PHP Warning:  Undefined variable $companyColor in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/companies/haute-luxury/includes/header.php on line 33
+[29-May-2026 20:26:33 Europe/Paris] PHP Warning:  Undefined variable $companyFaction in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/dashboard.php on line 8
+[31-May-2026 14:35:19 Europe/Paris] PHP Warning:  require_once(/var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/includes/stock_central.php): Failed to open stream: No such file or directory in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/staff/content/custom_stock.php on line 8
+[31-May-2026 14:35:19 Europe/Paris] PHP Fatal error:  Uncaught Error: Failed opening required '/var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/includes/stock_central.php' (include_path='.:/opt/plesk/php/8.4/share/pear') in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/staff/content/custom_stock.php:8
+Stack trace:
+#0 {main}
+  thrown in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/staff/content/custom_stock.php on line 8
+[02-Jun-2026 12:09:31 Europe/Paris] PHP Warning:  Undefined variable $companyFaction in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/dashboard.php on line 8
+[02-Jun-2026 17:52:32 Europe/Paris] PHP Warning:  Undefined variable $companyFaction in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/dashboard.php on line 8
+[04-Jun-2026 20:58:26 Europe/Paris] PHP Warning:  Undefined variable $companyFaction in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/dashboard.php on line 8
+[04-Jun-2026 23:21:08 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[04-Jun-2026 23:28:34 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[04-Jun-2026 23:28:35 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[05-Jun-2026 11:03:04 Europe/Paris] PHP Warning:  Undefined array key "draft" in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/doj/rapports.php on line 200
+[05-Jun-2026 11:03:14 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[05-Jun-2026 11:03:17 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[05-Jun-2026 11:03:20 Europe/Paris] PHP Warning:  Undefined array key "draft" in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/doj/rapports.php on line 200
+[05-Jun-2026 11:03:20 Europe/Paris] PHP Warning:  Cannot modify header information - headers already sent by (output started at /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/doj/includes/header.php:54) in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/doj/rapports.php on line 282
+[05-Jun-2026 11:56:49 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[05-Jun-2026 11:56:51 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[05-Jun-2026 11:56:53 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[05-Jun-2026 12:10:37 Europe/Paris] PHP Warning:  Undefined array key "draft" in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/doj/rapports.php on line 200
+[05-Jun-2026 12:34:05 Europe/Paris] PHP Warning:  Undefined array key "draft" in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/doj/rapports.php on line 200
+[05-Jun-2026 12:36:49 Europe/Paris] PHP Warning:  Undefined array key "draft" in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/doj/rapports.php on line 200
+[05-Jun-2026 12:37:20 Europe/Paris] PHP Warning:  Undefined array key "draft" in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/doj/rapports.php on line 200
+[05-Jun-2026 12:39:02 Europe/Paris] PHP Warning:  Undefined array key "draft" in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/doj/rapports.php on line 200
+[05-Jun-2026 13:02:40 Europe/Paris] PHP Warning:  Undefined array key "draft" in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/doj/rapports.php on line 200
+[05-Jun-2026 13:02:41 Europe/Paris] PHP Warning:  Undefined array key "draft" in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/doj/rapports.php on line 200
+[05-Jun-2026 13:02:41 Europe/Paris] PHP Warning:  Cannot modify header information - headers already sent by (output started at /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/doj/includes/header.php:55) in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/doj/rapports.php on line 282
+[05-Jun-2026 13:04:24 Europe/Paris] PHP Warning:  Undefined variable $companyFaction in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/dashboard.php on line 8
+[05-Jun-2026 14:15:03 Europe/Paris] PHP Warning:  Undefined array key "p" in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/panels/lsfd/statistiques.php on line 19
+[05-Jun-2026 14:15:03 Europe/Paris] PHP Warning:  Undefined array key "" in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/panels/lsfd/statistiques.php on line 20
+[06-Jun-2026 00:53:03 Europe/Paris] PHP Warning:  Undefined variable $companyFaction in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/dashboard.php on line 8
+[08-Jun-2026 23:58:34 Europe/Paris] PHP Warning:  Undefined array key "p" in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/panels/lsfd/statistiques.php on line 19
+[08-Jun-2026 23:58:34 Europe/Paris] PHP Warning:  Undefined array key "" in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/panels/lsfd/statistiques.php on line 20
+[18-Jun-2026 00:18:39 Europe/Paris] PHP Warning:  Undefined variable $companyFaction in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/dashboard.php on line 8
+[18-Jun-2026 00:19:43 Europe/Paris] PHP Warning:  Undefined variable $companyFaction in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/dashboard.php on line 8
+[18-Jun-2026 00:35:25 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[22-Jun-2026 01:26:03 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[22-Jun-2026 01:30:05 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[22-Jun-2026 01:30:09 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[22-Jun-2026 01:30:11 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[22-Jun-2026 01:30:16 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[22-Jun-2026 01:30:17 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[22-Jun-2026 01:30:25 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[22-Jun-2026 01:30:27 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[22-Jun-2026 01:30:28 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[22-Jun-2026 01:30:28 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[22-Jun-2026 01:30:29 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[22-Jun-2026 01:30:30 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[22-Jun-2026 01:30:39 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[22-Jun-2026 01:30:40 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[22-Jun-2026 01:30:49 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[22-Jun-2026 01:32:29 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[22-Jun-2026 01:35:35 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[22-Jun-2026 17:04:14 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[22-Jun-2026 17:51:16 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[23-Jun-2026 16:04:23 Europe/Paris] PHP Warning:  include(/var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/includes/header.php): Failed to open stream: No such file or directory in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/divisions.php on line 379
+[23-Jun-2026 16:04:23 Europe/Paris] PHP Warning:  include(): Failed opening '/var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/includes/header.php' for inclusion (include_path='.:/opt/plesk/php/8.4/share/pear') in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/divisions.php on line 379
+[23-Jun-2026 16:04:23 Europe/Paris] PHP Warning:  include(/var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/includes/footer.php): Failed to open stream: No such file or directory in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/divisions.php on line 942
+[23-Jun-2026 16:04:23 Europe/Paris] PHP Warning:  include(): Failed opening '/var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/includes/footer.php' for inclusion (include_path='.:/opt/plesk/php/8.4/share/pear') in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/divisions.php on line 942
+[23-Jun-2026 16:53:18 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[23-Jun-2026 17:20:35 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[23-Jun-2026 17:46:41 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[23-Jun-2026 17:46:44 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[23-Jun-2026 21:24:09 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[23-Jun-2026 21:24:10 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[23-Jun-2026 21:24:24 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[23-Jun-2026 21:24:42 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[23-Jun-2026 21:26:06 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[23-Jun-2026 21:43:38 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[23-Jun-2026 21:44:26 Europe/Paris] PHP Warning:  Undefined array key "record_id" in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/saisies.php on line 71
+[24-Jun-2026 01:34:39 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[24-Jun-2026 01:38:44 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[24-Jun-2026 01:42:27 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[24-Jun-2026 01:42:36 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[06-Jul-2026 11:41:11 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[06-Jul-2026 13:17:41 Europe/Paris] PHP Warning:  Undefined variable $companyFaction in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/gouv/dashboard.php on line 8
+[07-Jul-2026 02:57:44 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[07-Jul-2026 16:50:45 Europe/Paris] PHP Warning:  Undefined variable $companyColor in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/companies/triads/includes/header.php on line 39
+[11-Jul-2026 01:28:32 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[11-Jul-2026 01:29:24 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384
+[11-Jul-2026 01:30:41 Europe/Paris] PHP Warning:  Undefined variable $isEdit in /var/www/vhosts/nexium-studio.com/mdt.nexium-studio.com/pages/lspd/reports.php on line 1384

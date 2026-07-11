@@ -1,0 +1,6 @@
+Placez ici les fonds de carte GTA V (fichiers attendus par le MDT) :
+- Atlas.webp
+- Road.png
+- Satelite.jpg   (ou Satellite.jpg si orthographe corrigée)
+
+Aucune tuile externe : le panneau LSPD charge exclusivement ces fichiers.

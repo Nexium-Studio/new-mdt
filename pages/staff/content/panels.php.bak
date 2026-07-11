@@ -1,0 +1,794 @@
+<?php
+// pages/admin/content/panels.php
+define('STAFF_PANEL', true);
+require_once __DIR__ . '/../../../config/config.php';
+requireLogin();
+if (!hasRole(['*', 'Administrateur', 'Développeur', 'Staff'])) redirect(SITE_URL . '/pages/staff/dashboard.php');
+
+$db = Database::getInstance()->getConnection();
+$pageTitle  = 'Gestion des Panels';
+$breadcrumb = [['label' => 'Contenu'], ['label' => 'Panels']];
+$success = '';
+$error   = '';
+
+$allPanels = [
+    // Services publics
+    ['key' => 'DOJ',          'name' => 'DOJ',            'icon' => 'scale-balanced',     'color' => '#ef4444', 'cat' => 'Services Publics'],
+    ['key' => 'USSS',         'name' => 'USSS',           'icon' => 'id-card-clip',         'color' => '#334155', 'cat' => 'Services Publics'],
+    ['key' => 'LSPD',         'name' => 'LSPD',           'icon' => 'shield-halved',       'color' => '#2563eb', 'cat' => 'Services Publics'],
+    ['key' => 'LSSD',         'name' => 'LSSD',           'icon' => 'star',                'color' => '#10b981', 'cat' => 'Services Publics'],
+    ['key' => 'SAMS',         'name' => 'SAMS',           'icon' => 'kit-medical',         'color' => '#f43f5e', 'cat' => 'Services Publics'],
+    ['key' => 'GRUPP6',       'name' => 'Grupp 6',        'icon' => 'truck-shield',        'color' => '#64748b', 'cat' => 'Services Publics'],
+    ['key' => 'MARSHALS',     'name' => 'Marshals',       'icon' => 'shield-halved',       'color' => '#475569', 'cat' => 'Services Publics'],
+    ['key' => 'SUPERIOR_COURT_SA', 'name' => 'Superior court of S.A', 'icon' => 'gavel', 'color' => '#b45309', 'cat' => 'Services Publics'],
+    ['key' => 'LSFD',         'name' => 'LSFD',           'icon' => 'fire-flame-curved',   'color' => '#dc2626', 'cat' => 'Services Publics'],
+    ['key' => 'IRS_TREASURY', 'name' => 'Dept of Treasury (IRS)', 'icon' => 'landmark', 'color' => '#0f766e', 'cat' => 'Services Publics'],
+    // Bars & Boîtes
+    ['key' => 'HAUTE_LUXURY', 'name' => 'Haute Luxury',   'icon' => 'gem',                 'color' => '#f472b6', 'cat' => 'Bars & Boîtes'],
+    ['key' => 'BAHAMAS',      'name' => 'Bahamas',        'icon' => 'martini-glass-citrus','color' => '#06b6d4', 'cat' => 'Bars & Boîtes'],
+    ['key' => 'YELLOW_JACK',  'name' => 'Yellow Jack',    'icon' => 'whiskey-glass',       'color' => '#ca8a04', 'cat' => 'Bars & Boîtes'],
+    ['key' => 'TROPICAL',     'name' => 'Tropical',       'icon' => 'umbrella-beach',      'color' => '#14b8a6', 'cat' => 'Bars & Boîtes'],
+    ['key' => 'UNICORN',      'name' => 'Unicorn',        'icon' => 'horse',               'color' => '#ec4899', 'cat' => 'Bars & Boîtes'],
+    ['key' => 'BLACK_WOOD_SALOON', 'name' => 'Black Wood Saloon', 'icon' => 'mug-hot', 'color' => '#78350f', 'cat' => 'Bars & Boîtes'],
+    ['key' => 'TEQUI_LA_LA',  'name' => 'Tequi-la-la',    'icon' => 'martini-glass-citrus','color' => '#f97316', 'cat' => 'Bars & Boîtes'],
+    // Garages
+    ['key' => 'BENNYS',       'name' => "Benny's",        'icon' => 'phone', 'color' => '#f59e0b', 'cat' => 'Garages'],
+    ['key' => 'LS_CUSTOM',    'name' => 'LS Custom',      'icon' => 'toolbox',          'color' => '#8b5cf6', 'cat' => 'Garages'],
+    ['key' => 'LS_MOTORS',    'name' => 'LS Motors',      'icon' => 'car-rear',            'color' => '#3b82f6', 'cat' => 'Garages'],
+    ['key' => 'HEAVY_IMPOUND','name' => 'Heavy Impound',  'icon' => 'truck-ramp-box',      'color' => '#94a3b8', 'cat' => 'Garages'],
+    ['key' => 'TUNERS_SHOP',  'name' => 'Tuner\'s Shop',  'icon' => 'screwdriver-wrench', 'color' => '#eab308', 'cat' => 'Garages'],
+    ['key' => 'PREMIUM_DELUXE_MOTORS', 'name' => 'Premium Deluxe Motorsport', 'icon' => 'car-side', 'color' => '#6366f1', 'cat' => 'Garages'],
+    ['key' => 'HAYES_AUTO',   'name' => 'Hayes',          'icon' => 'wrench',              'color' => '#78716c', 'cat' => 'Garages'],
+    ['key' => 'HARMONY_REPAIR', 'name' => 'Harmony Repair', 'icon' => 'gears',             'color' => '#64748b', 'cat' => 'Garages'],
+    ['key' => 'LUXURY_AUTO',  'name' => 'Luxury Auto',    'icon' => 'car-rear',            'color' => '#a855f7', 'cat' => 'Garages'],
+    // Commerces
+    ['key' => 'DYNASTY',      'name' => 'Dynasty',        'icon' => 'city',                'color' => '#22c55e', 'cat' => 'Commerces'],
+    ['key' => 'LTD',          'name' => 'LTD Mirror Park','icon' => 'basket-shopping',     'color' => '#0ea5e9', 'cat' => 'Commerces'],
+    ['key' => 'LTD_LITTLE_SEOUL', 'name' => 'LTD Little Seoul', 'icon' => 'basket-shopping', 'color' => '#38bdf8', 'cat' => 'Commerces'],
+    ['key' => 'LTD_GRRAPESEED', 'name' => 'LTD Grapeseed', 'icon' => 'basket-shopping',     'color' => '#0ea5e9', 'cat' => 'Commerces'],
+    ['key' => 'LTD_STRAWBERRY', 'name' => 'LTD Strawberry', 'icon' => 'basket-shopping',    'color' => '#0ea5e9', 'cat' => 'Commerces'],
+    ['key' => 'LTD_BLAINE_COUNTY', 'name' => 'LTD Blaine County', 'icon' => 'basket-shopping', 'color' => '#0ea5e9', 'cat' => 'Commerces'],
+    ['key' => 'AMMUNATION',   'name' => 'Ammunation',     'icon' => 'gun',                 'color' => '#ef4444', 'cat' => 'Commerces'],
+    ['key' => 'LIFE_INVADER', 'name' => 'Life Invader',   'icon' => 'clapperboard',        'color' => '#6366f1', 'cat' => 'Commerces'],
+    ['key' => 'WEAZEL_NEWS',  'name' => 'Weazel News',    'icon' => 'newspaper',           'color' => '#38bdf8', 'cat' => 'Commerces'],
+    ['key' => 'ROSA_TATTOO',  'name' => 'Rosa Tattoo',    'icon' => 'pen-nib',             'color' => '#be185d', 'cat' => 'Commerces'],
+    ['key' => 'VANGELICO',    'name' => 'Vangelico',      'icon' => 'gem',                 'color' => '#10b981', 'cat' => 'Commerces'],
+    ['key' => 'POSTOP',       'name' => 'PostOP',         'icon' => 'truck-fast',          'color' => '#10b981', 'cat' => 'Commerces'],
+    ['key' => 'TAXI',         'name' => 'Taxi',           'icon' => 'taxi',                'color' => '#eab308', 'cat' => 'Commerces'],
+    ['key' => 'TRIADS',       'name' => 'Triads Records', 'icon' => 'compact-disc',        'color' => '#a855f7', 'cat' => 'Commerces'],
+    // Restaurants & Hôtels
+    ['key' => 'UWU_COFFEE',    'name' => 'UwU Coffee',      'icon' => 'mug-hot',             'color' => '#f472b6', 'cat' => 'Restaurants & Hôtels'],
+    ['key' => 'RESTAURANT_KOI','name' => 'Restaurant KOI',  'icon' => 'shrimp',              'color' => '#f87171', 'cat' => 'Restaurants & Hôtels'],
+    ['key' => 'UP_ATOM',       'name' => 'UP & Atom',       'icon' => 'burger',              'color' => '#fbbf24', 'cat' => 'Restaurants & Hôtels'],
+    ['key' => 'PEARLS_RESORT', 'name' => "Pearl's Resort",  'icon' => 'hotel',               'color' => '#d4a853', 'cat' => 'Restaurants & Hôtels'],
+    ['key' => 'BOAT_HOUSE',    'name' => 'Boat House',      'icon' => 'ship',                'color' => '#0284c7', 'cat' => 'Restaurants & Hôtels'],
+    ['key' => 'BURGER_SHOT',   'name' => 'Burger Shot',     'icon' => 'burger',              'color' => '#f59e0b', 'cat' => 'Restaurants & Hôtels'],
+    ['key' => 'HORNYS',        'name' => 'Horny\'s',        'icon' => 'drumstick-bite',      'color' => '#f43f5e', 'cat' => 'Restaurants & Hôtels'],
+    // Activités & Luxe
+    ['key' => 'DIAMOND_CASINO', 'name' => 'Diamond Casino', 'icon' => 'dice',                'color' => '#e11d48', 'cat' => 'Activités & Luxe'],
+    // Activités Illégales
+    ['key' => 'DARKNET',      'name' => 'DarkNet',        'icon' => 'network-wired',       'color' => '#7c3aed', 'cat' => 'Activités Illégales'],
+    // Cabinet d'Avocats
+    ['key' => 'AVOCATS', 'name' => "Cabinet d'Avocats", 'icon' => 'scale-balanced', 'color' => '#d97706', 'cat' => "Services Publics"],
+    // Gouvernement
+    ['key' => 'GOUV',         'name' => 'Gouvernement',   'icon' => 'landmark',            'color' => '#1d4ed8', 'cat' => 'Gouvernement'],
+];
+
+// ── LOAD ACTIVE STATES ──
+$activeStates = [];
+try {
+    $rows = $db->query("SELECT panel_key, is_active FROM admin_panels")->fetchAll();
+    foreach ($rows as $r) $activeStates[$r['panel_key']] = (bool)$r['is_active'];
+} catch (Exception $e) {}
+
+// ── LOAD CUSTOM PANELS FROM DB ──
+$customPanels = [];
+try {
+    $rows = $db->query("SELECT * FROM custom_panels ORDER BY category, created_at ASC")->fetchAll();
+    foreach ($rows as $r) {
+        $customPanels[] = [
+            'key'    => $r['panel_key'],
+            'name'   => $r['name'],
+            'icon'   => $r['icon'],
+            'color'  => $r['color'],
+            'cat'    => $r['category'] ?? 'Commerces',
+            'custom' => true,
+            'faction'=> $r['faction_key'] ?? '',
+        ];
+    }
+} catch (Exception $e) {}
+
+// Ajouter les panels custom aux validKeys pour le toggle
+$validCustomKeys = array_column($customPanels, 'key');
+
+// ── Panels divisions (faction_divisions) ──
+$divisionPanels = [];
+$validDivisionKeys = [];
+try {
+    $rows = $db->query(
+        "SELECT fd.panel_key, fd.name, fd.icon, fd.color, f.faction_key, f.name AS faction_name
+         FROM faction_divisions fd
+         INNER JOIN factions f ON f.id = fd.faction_id
+         ORDER BY f.name ASC, fd.sort_order ASC, fd.name ASC"
+    )->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($rows as $r) {
+        $divisionPanels[] = [
+            'key'    => $r['panel_key'],
+            'name'   => $r['name'],
+            'icon'   => $r['icon'] ?: 'layer-group',
+            'color'  => $r['color'] ?: '#64748b',
+            'cat'    => 'Divisions MDT',
+            'faction'=> $r['faction_key'],
+            'faction_name' => $r['faction_name'],
+        ];
+        $validDivisionKeys[] = $r['panel_key'];
+    }
+} catch (Exception $e) {}
+
+// ── TOGGLE ──
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $key   = $_POST['panel_key'] ?? '';
+    $state = (int)($_POST['state'] ?? 0);
+    $validKeys = array_merge(array_column($allPanels, 'key'), $validCustomKeys, $validDivisionKeys);
+    if (in_array($key, $validKeys, true)) {
+        try {
+            $db->prepare("INSERT INTO admin_panels (panel_key, is_active, updated_at) VALUES (?,?,NOW()) ON DUPLICATE KEY UPDATE is_active=?, updated_at=NOW()")->execute([$key, $state, $state]);
+            $activeStates[$key] = (bool)$state;
+            if (in_array($key, $validCustomKeys, true)) {
+                try {
+                    $db->prepare("UPDATE custom_panels SET is_active=? WHERE panel_key=?")->execute([$state, $key]);
+                } catch (Exception $e2) {
+                    /* colonne is_active absente sur anciennes bases */
+                }
+            }
+            if (in_array($key, $validDivisionKeys, true)) {
+                try {
+                    $db->prepare("UPDATE faction_divisions SET is_active = ?, updated_at = NOW() WHERE panel_key = ? LIMIT 1")->execute([$state, $key]);
+                } catch (Exception $e3) {
+                    /* table absente */
+                }
+            }
+            $newState = $state ? 'activé' : 'désactivé';
+            $success  = "Panel $key $newState.";
+        } catch (Exception $e) {
+            $error = 'Enregistrement impossible : ' . $e->getMessage();
+        }
+    } else {
+        $error = 'Clé de panel non reconnue ou non autorisée.';
+    }
+}
+
+// Group by category
+$grouped = [];
+foreach ($allPanels as $p) {
+    $grouped[$p['cat']][] = $p;
+}
+
+$totalPanels = count($allPanels) + count($customPanels) + count($divisionPanels);
+$validKeysForStats = array_merge(array_column($allPanels, 'key'), $validCustomKeys, $validDivisionKeys);
+$activeCount = 0;
+foreach ($validKeysForStats as $vk) {
+    if (!empty($activeStates[$vk])) {
+        $activeCount++;
+    }
+}
+include __DIR__ . '/../includes/header.php';
+?>
+
+<style>
+/* ════════════════════════════════════════════════════════════════ */
+/* PAGE LAYOUT & TYPOGRAPHY */
+/* ════════════════════════════════════════════════════════════════ */
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    gap: 20px;
+}
+.page-header-left h1 {
+    margin: 0 0 6px 0;
+    font-size: 2rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.page-header-left p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+}
+.page-header-right {
+    display: flex;
+    gap: 10px;
+}
+
+/* ════════════════════════════════════════════════════════════════ */
+/* ALERTS */
+/* ════════════════════════════════════════════════════════════════ */
+.alert {
+    padding: 14px 16px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.95rem;
+    animation: slideDown 0.3s ease-out;
+}
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+.alert-success {
+    background: rgba(34, 197, 94, 0.1);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    color: var(--green);
+}
+.alert-info {
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    color: var(--blue);
+}
+
+/* ════════════════════════════════════════════════════════════════ */
+/* PROGRESS CARD */
+/* ════════════════════════════════════════════════════════════════ */
+.progress-card {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 24px;
+}
+.progress-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+.progress-bar {
+    height: 8px;
+    background: var(--bg-overlay);
+    border-radius: 4px;
+    overflow: hidden;
+}
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--blue), #2563eb);
+    transition: width 0.3s ease;
+}
+
+/* ════════════════════════════════════════════════════════════════ */
+/* SECTIONS */
+/* ════════════════════════════════════════════════════════════════ */
+.panels-section {
+    margin-bottom: 40px;
+}
+
+.section-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 18px;
+    padding: 0 4px;
+}
+
+.section-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text);
+    white-space: nowrap;
+}
+
+.section-divider {
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+}
+
+.section-count {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+/* ════════════════════════════════════════════════════════════════ */
+/* PANELS GRID */
+/* ════════════════════════════════════════════════════════════════ */
+.panels-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 12px;
+}
+
+/* ════════════════════════════════════════════════════════════════ */
+/* PANEL ITEM CARD */
+/* ════════════════════════════════════════════════════════════════ */
+.panel-item {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.panel-item:hover {
+    border-color: var(--blue);
+    background: var(--bg-overlay);
+}
+
+.panel-item.active {
+    border-left: 3px solid;
+}
+
+.panel-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+
+.panel-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.panel-name {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--text);
+    margin-bottom: 2px;
+}
+
+.panel-key {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.panel-status {
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    flex-shrink: 0;
+}
+
+.panel-status.active {
+    background: rgba(34, 197, 94, 0.15);
+    color: var(--green);
+}
+
+.panel-status.inactive {
+    background: var(--bg-overlay);
+    color: var(--text-secondary);
+}
+
+.panel-custom-badge {
+    position: absolute;
+    top: 8px;
+    right: 52px;
+    font-size: 0.55rem;
+    font-weight: 700;
+    padding: 3px 7px;
+    background: rgba(168, 85, 247, 0.15);
+    border: 1px solid rgba(168, 85, 247, 0.3);
+    border-radius: 4px;
+    color: #a855f7;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+/* ════════════════════════════════════════════════════════════════ */
+/* TOGGLE SWITCH */
+/* ════════════════════════════════════════════════════════════════ */
+.toggle-form {
+    display: inline;
+    flex-shrink: 0;
+}
+
+.toggle {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+}
+
+.toggle input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--bg-overlay);
+    transition: all 0.3s ease;
+    border-radius: 24px;
+    border: 1px solid var(--border);
+}
+
+.toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 2px;
+    bottom: 2px;
+    background-color: white;
+    transition: all 0.3s ease;
+    border-radius: 50%;
+}
+
+input:checked + .toggle-slider {
+    background-color: var(--blue);
+    border-color: var(--blue);
+}
+
+input:checked + .toggle-slider:before {
+    transform: translateX(20px);
+}
+
+/* ════════════════════════════════════════════════════════════════ */
+/* CUSTOM PANELS HEADER */
+/* ════════════════════════════════════════════════════════════════ */
+.custom-section-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin: 40px 0 24px 0;
+    padding: 20px;
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0.05), rgba(139, 92, 246, 0.05));
+    border: 1px solid rgba(168, 85, 247, 0.2);
+    border-radius: 12px;
+}
+
+.custom-section-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(168, 85, 247, 0.15);
+    color: #a855f7;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+
+.custom-section-content {
+    flex: 1;
+}
+
+.custom-section-title {
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--text);
+}
+
+.custom-section-desc {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-top: 2px;
+}
+
+/* ════════════════════════════════════════════════════════════════ */
+/* BUTTONS */
+/* ════════════════════════════════════════════════════════════════ */
+.btn {
+    padding: 10px 16px;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+.btn:hover {
+    transform: translateY(-2px);
+}
+.btn-primary {
+    background: var(--blue);
+    color: white;
+}
+.btn-primary:hover {
+    background: #2563eb;
+}
+.btn-secondary {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    color: var(--text);
+}
+.btn-secondary:hover {
+    background: var(--bg-overlay);
+}
+.btn-sm {
+    padding: 8px 12px;
+    font-size: 0.85rem;
+}
+
+/* ════════════════════════════════════════════════════════════════ */
+/* RESPONSIVE */
+/* ════════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+    .panels-grid {
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    }
+    
+    .custom-section-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+    
+    .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
+</style>
+
+<!-- PAGE HEADER -->
+<div class="page-header">
+    <div class="page-header-left">
+        <h1>
+            <i class="fa-solid fa-list-check" style="color: var(--blue);"></i>
+            Gestion des Panels
+        </h1>
+        <p><?php echo $activeCount; ?> / <?php echo $totalPanels; ?> panels actifs sur votre MDT</p>
+    </div>
+    <div class="page-header-right">
+        <a href="mdt.php" class="btn btn-secondary">
+            <i class="fa-solid fa-sliders"></i> Personnalisation MDT
+        </a>
+    </div>
+</div>
+
+<!-- ALERTES -->
+<?php if ($success): ?>
+    <div class="alert alert-success">
+        <i class="fa-solid fa-check"></i>
+        <?php echo htmlspecialchars($success); ?>
+    </div>
+<?php endif; ?>
+<?php if ($error): ?>
+    <div class="alert alert-success" style="background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.35);color:#fecaca;">
+        <i class="fa-solid fa-circle-xmark"></i>
+        <?php echo htmlspecialchars($error); ?>
+    </div>
+<?php endif; ?>
+
+<div class="alert alert-info">
+    <i class="fa-solid fa-circle-info"></i>
+    <span>Les panels désactivés ne sont pas affichés dans le tableau de bord MDT. Les utilisateurs ayant la bonne faction peuvent toujours voir leur panel s'il est actif.</span>
+</div>
+
+<!-- PROGRESSION GLOBALE -->
+<div class="progress-card">
+    <div class="progress-label">
+        <span>Panels activés</span>
+        <span><?php echo $activeCount; ?> / <?php echo $totalPanels; ?></span>
+    </div>
+    <div class="progress-bar">
+        <div class="progress-fill" style="width: <?php echo round(($activeCount / $totalPanels) * 100); ?>%"></div>
+    </div>
+</div>
+
+<!-- PANELS PAR CATÉGORIE -->
+<?php foreach ($grouped as $catName => $panels): ?>
+<div class="panels-section">
+    <div class="section-header">
+        <h2 class="section-title"><?php echo $catName; ?></h2>
+        <div class="section-divider"></div>
+        <span class="section-count">
+            <?php echo count(array_filter(array_map(fn($p) => $activeStates[$p['key']] ?? false, $panels))); ?>/<?php echo count($panels); ?> actifs
+        </span>
+    </div>
+
+    <div class="panels-grid">
+        <?php foreach ($panels as $p):
+            $isActive = $activeStates[$p['key']] ?? false;
+        ?>
+        <div class="panel-item <?php echo $isActive ? 'active' : ''; ?>"
+             style="<?php echo $isActive ? 'border-left-color: ' . $p['color'] . ';' : ''; ?>">
+            
+            <div class="panel-icon" style="background: <?php echo $p['color']; ?>22; color: <?php echo $p['color']; ?>;">
+                <i class="fa-solid fa-<?php echo $p['icon']; ?>"></i>
+            </div>
+            
+            <div class="panel-content">
+                <div class="panel-name"><?php echo htmlspecialchars($p['name']); ?></div>
+                <div class="panel-key"><?php echo $p['key']; ?></div>
+            </div>
+            
+            <?php if ($isActive): ?>
+                <span class="panel-status active"><i class="fa-solid fa-circle" style="font-size: 6px;"></i> Actif</span>
+            <?php else: ?>
+                <span class="panel-status inactive">Inactif</span>
+            <?php endif; ?>
+            
+            <form method="POST" class="toggle-form">
+                <input type="hidden" name="panel_key" value="<?php echo $p['key']; ?>">
+                <input type="hidden" name="state" value="<?php echo $isActive ? '0' : '1'; ?>">
+                <label class="toggle" title="<?php echo $isActive ? 'Désactiver' : 'Activer'; ?>">
+                    <input type="checkbox" onchange="this.closest('form').submit()" <?php echo $isActive ? 'checked' : ''; ?>>
+                    <span class="toggle-slider"></span>
+                </label>
+            </form>
+        </div>
+        <?php endforeach; ?>
+    </div>
+</div>
+<?php endforeach; ?>
+
+<!-- PANELS DIVISIONS (faction_divisions) -->
+<?php if (!empty($divisionPanels)): ?>
+    <?php
+    $divGrouped = [];
+    foreach ($divisionPanels as $dp) {
+        $divGrouped[$dp['cat']][] = $dp;
+    }
+    $totalDiv = count($divisionPanels);
+    $totalDivActive = count(array_filter($divisionPanels, fn($p) => $activeStates[$p['key']] ?? false));
+    ?>
+    <div class="custom-section-header" style="border-color:rgba(59,130,246,.25);background:linear-gradient(135deg,rgba(59,130,246,.06),rgba(37,99,235,.04));">
+        <div class="custom-section-icon" style="background:rgba(59,130,246,.15);color:var(--blue);">
+            <i class="fa-solid fa-sitemap"></i>
+        </div>
+        <div class="custom-section-content">
+            <div class="custom-section-title">Divisions MDT</div>
+            <div class="custom-section-desc"><?php echo $totalDivActive; ?>/<?php echo $totalDiv; ?> actifs — catalogue et divisions créées dans Extensions → Divisions</div>
+        </div>
+        <a href="<?php echo SITE_URL; ?>/pages/staff/content/division.php" class="btn btn-secondary btn-sm">
+            <i class="fa-solid fa-gear"></i> Gérer les divisions
+        </a>
+    </div>
+    <?php foreach ($divGrouped as $catName => $dPanels): ?>
+    <div class="panels-section">
+        <div class="section-header">
+            <h2 class="section-title"><?php echo htmlspecialchars($catName); ?></h2>
+            <div class="section-divider"></div>
+        </div>
+        <div class="panels-grid">
+            <?php foreach ($dPanels as $p):
+                $isActive = $activeStates[$p['key']] ?? false;
+            ?>
+            <div class="panel-item <?php echo $isActive ? 'active' : ''; ?>"
+                 style="<?php echo $isActive ? 'border-left-color: ' . htmlspecialchars($p['color']) . ';' : ''; ?> position:relative;">
+                <div class="panel-custom-badge" style="background:rgba(59,130,246,.12);border-color:rgba(59,130,246,.3);color:#93c5fd;">Division</div>
+                <div class="panel-icon" style="background: <?php echo htmlspecialchars($p['color']); ?>22; color: <?php echo htmlspecialchars($p['color']); ?>;">
+                    <i class="fa-solid fa-<?php echo htmlspecialchars($p['icon']); ?>"></i>
+                </div>
+                <div class="panel-content">
+                    <div class="panel-name"><?php echo htmlspecialchars($p['name']); ?></div>
+                    <div class="panel-key"><?php echo htmlspecialchars($p['key']); ?> · <?php echo htmlspecialchars($p['faction_name'] ?? ''); ?></div>
+                </div>
+                <?php if ($isActive): ?>
+                    <span class="panel-status active"><i class="fa-solid fa-circle" style="font-size: 6px;"></i> Actif</span>
+                <?php else: ?>
+                    <span class="panel-status inactive">Inactif</span>
+                <?php endif; ?>
+                <form method="POST" class="toggle-form">
+                    <input type="hidden" name="panel_key" value="<?php echo htmlspecialchars($p['key']); ?>">
+                    <input type="hidden" name="state" value="<?php echo $isActive ? '0' : '1'; ?>">
+                    <label class="toggle" title="<?php echo $isActive ? 'Désactiver' : 'Activer'; ?>">
+                        <input type="checkbox" onchange="this.closest('form').submit()" <?php echo $isActive ? 'checked' : ''; ?>>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </form>
+            </div>
+            <?php endforeach; ?>
+        </div>
+    </div>
+    <?php endforeach; ?>
+<?php endif; ?>
+
+<!-- PANELS PERSONNALISÉS -->
+<?php if (!empty($customPanels)): ?>
+    <?php
+    $customGrouped = [];
+    foreach ($customPanels as $cp) {
+        $customGrouped[$cp['cat']][] = $cp;
+    }
+    $totalCustom = count($customPanels);
+    $totalCustomActive = count(array_filter($customPanels, fn($p) => $activeStates[$p['key']] ?? false));
+    ?>
+    
+    <div class="custom-section-header">
+        <div class="custom-section-icon">
+            <i class="fa-solid fa-wand-magic-sparkles"></i>
+        </div>
+        <div class="custom-section-content">
+            <div class="custom-section-title">Panels personnalisés</div>
+            <div class="custom-section-desc"><?php echo $totalCustomActive; ?>/<?php echo $totalCustom; ?> actifs — créés via le panel builder</div>
+        </div>
+        <a href="panel-builder.php" class="btn btn-secondary btn-sm">
+            <i class="fa-solid fa-plus"></i> Nouveau panel
+        </a>
+    </div>
+
+    <?php foreach ($customGrouped as $catName => $cPanels): ?>
+    <div class="panels-section">
+        <div class="section-header">
+            <h2 class="section-title"><?php echo htmlspecialchars($catName); ?></h2>
+            <div class="section-divider"></div>
+        </div>
+        
+        <div class="panels-grid">
+            <?php foreach ($cPanels as $p):
+                $isActive = $activeStates[$p['key']] ?? false;
+            ?>
+            <div class="panel-item <?php echo $isActive ? 'active' : ''; ?>"
+                 style="<?php echo $isActive ? 'border-left-color: ' . $p['color'] . ';' : ''; ?> position: relative;">
+                
+                <div class="panel-custom-badge">Custom</div>
+                
+                <div class="panel-icon" style="background: <?php echo $p['color']; ?>22; color: <?php echo $p['color']; ?>;">
+                    <i class="fa-solid fa-<?php echo htmlspecialchars($p['icon']); ?>"></i>
+                </div>
+                
+                <div class="panel-content">
+                    <div class="panel-name"><?php echo htmlspecialchars($p['name']); ?></div>
+                    <div class="panel-key" style="display: flex; align-items: center; gap: 6px;">
+                        <span><?php echo htmlspecialchars($p['key']); ?></span>
+                        <?php if (!empty($p['faction'])): ?>
+                        <span style="font-size: 0.65rem; color: var(--text-muted); border: 1px solid var(--border); padding: 0 5px; border-radius: 3px;">
+                            <?php echo htmlspecialchars($p['faction']); ?>
+                        </span>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                
+                <?php if ($isActive): ?>
+                    <span class="panel-status active"><i class="fa-solid fa-circle" style="font-size: 6px;"></i> Actif</span>
+                <?php else: ?>
+                    <span class="panel-status inactive">Inactif</span>
+                <?php endif; ?>
+                
+                <form method="POST" class="toggle-form">
+                    <input type="hidden" name="panel_key" value="<?php echo htmlspecialchars($p['key']); ?>">
+                    <input type="hidden" name="state" value="<?php echo $isActive ? '0' : '1'; ?>">
+                    <label class="toggle" title="<?php echo $isActive ? 'Désactiver' : 'Activer'; ?>">
+                        <input type="checkbox" onchange="this.closest('form').submit()" <?php echo $isActive ? 'checked' : ''; ?>>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </form>
+            </div>
+            <?php endforeach; ?>
+        </div>
+    </div>
+    <?php endforeach; ?>
+
+<?php endif; ?>
+
+<?php include __DIR__ . '/../includes/footer.php'; ?>

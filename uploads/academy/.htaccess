@@ -1,0 +1,11 @@
+# Empêche l'exécution PHP dans le dossier d'uploads (sécurité).
+<FilesMatch "\.(php|phtml|phar|pl|py|jsp|asp|sh|cgi)$">
+    Require all denied
+</FilesMatch>
+
+# Cache long sur les images (1 an)
+<IfModule mod_headers.c>
+    <FilesMatch "\.(jpg|jpeg|png|gif|webp|svg)$">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </FilesMatch>
+</IfModule>

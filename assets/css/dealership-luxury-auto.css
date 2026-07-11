@@ -1,0 +1,67 @@
+/**
+ * Luxury Auto — surcouche visuelle (indépendante de ls-motors.css).
+ * Ambiance : showroom prestige, or champagne, velours sombre.
+ */
+body.dealership-panel.panel-luxury-auto {
+    --lux-gold: #eab308;
+    --lux-rose: #f472b6;
+    --lux-deep: #0c0612;
+}
+
+body.dealership-panel.panel-luxury-auto::before {
+    background:
+        radial-gradient(ellipse 110% 75% at 15% -15%, color-mix(in srgb, var(--company-color) 26%, transparent), transparent 58%),
+        radial-gradient(ellipse 80% 55% at 95% 20%, color-mix(in srgb, var(--lux-gold) 14%, transparent), transparent 52%),
+        radial-gradient(ellipse 60% 45% at 40% 95%, color-mix(in srgb, var(--lux-rose) 10%, transparent), transparent 50%),
+        repeating-linear-gradient(
+            8deg,
+            transparent,
+            transparent 3px,
+            rgba(255, 255, 255, 0.012) 3px,
+            rgba(255, 255, 255, 0.012) 4px
+        ),
+        linear-gradient(175deg, var(--lux-deep) 0%, #08050c 42%, #0a0710 100%);
+}
+
+body.dealership-panel.panel-luxury-auto::after {
+    opacity: 0.28;
+    background-size: 56px 56px;
+}
+
+body.dealership-panel.panel-luxury-auto .company-sidebar {
+    border-right: 1px solid color-mix(in srgb, var(--lux-gold) 22%, transparent);
+    background: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--lux-deep) 92%, #1a1028) 0%,
+        rgba(6, 4, 10, 0.96) 100%
+    );
+    box-shadow:
+        6px 0 40px rgba(0, 0, 0, 0.45),
+        inset -1px 0 0 color-mix(in srgb, var(--lux-gold) 12%, transparent);
+}
+
+body.dealership-panel.panel-luxury-auto .nav-item:hover {
+    background: color-mix(in srgb, var(--lux-gold) 10%, transparent);
+}
+
+body.dealership-panel.panel-luxury-auto .nav-item.active {
+    border-left: 3px solid var(--lux-gold);
+    background: linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--lux-gold) 16%, transparent),
+        color-mix(in srgb, var(--company-color) 10%, transparent)
+    );
+}
+
+body.dealership-panel.panel-luxury-auto .lm-shift-hero::before {
+    background: linear-gradient(
+        125deg,
+        color-mix(in srgb, var(--company-color) 32%, transparent),
+        color-mix(in srgb, var(--lux-gold) 18%, transparent)
+    );
+}
+
+body.dealership-panel.panel-luxury-auto .lm-header-slider__icon {
+    color: var(--lux-gold);
+    filter: drop-shadow(0 0 10px color-mix(in srgb, var(--lux-gold) 50%, transparent));
+}
