@@ -7,6 +7,7 @@ function mdt_panel_catalog_categories(PDO $db, bool $includeHidden = false): arr
     $categories = [
         'Services' => [
             ['key' => 'MAIL', 'name' => 'Service Mail', 'icon' => 'envelope-open-text', 'url' => '/pages/mail/index.php', 'color' => '#3b82f6', 'always_active' => true, 'mail_panel' => true],
+            ['key' => 'MAPS', 'name' => 'Cartes', 'icon' => 'map-location-dot', 'url' => '/pages/maps/index.php', 'color' => '#10b981', 'always_active' => true],
         ],
         'Académie' => [
             ['key' => 'ACADEMY_PUBLIC', 'name' => 'Académie', 'icon' => 'graduation-cap', 'url' => '/pages/academy/dashboard.php', 'color' => '#8b5cf6', 'always_active' => true, 'academy_public' => true],

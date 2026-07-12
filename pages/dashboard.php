@@ -14,7 +14,7 @@ $db = Database::getInstance()->getConnection();
 // ── Dashboard Builder : permissions + thème global ──
 require_once __DIR__ . '/../includes/dashboard/permissions.php';
 require_once __DIR__ . '/../includes/dashboard/theme.php';
-$dashboardTheme = dashboard_get_theme($db)
+$dashboardTheme = dashboard_get_theme($db);
 
 // ════════════════════════════════════════════════════════════════
 // VÉRIFIER SI LE MDT EST HACKÉ

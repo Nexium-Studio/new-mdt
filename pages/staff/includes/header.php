@@ -596,6 +596,11 @@ select.form-control{cursor:pointer}
                 <span class="nav-icon"><i class="fa-solid fa-puzzle-piece"></i></span>
                 <span class="nav-label">Addons</span>
             </a>
+            <a href="<?php echo SITE_URL; ?>/pages/staff/extensions/map.php"
+               class="nav-item <?php echo isActiveStaff('map', 'extensions'); ?>" title="Système de Cartes">
+                <span class="nav-icon"><i class="fa-solid fa-map-location-dot"></i></span>
+                <span class="nav-label">Système de Cartes</span>
+            </a>
             <?php if ($dispatchActive): ?>
             <a href="<?php echo SITE_URL; ?>/pages/staff/extensions/plugin-dispatch.php"
                class="nav-item <?php echo isActiveStaff('plugin-dispatch', 'extensions'); ?>" title="Dispatch">
