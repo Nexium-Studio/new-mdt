@@ -56,19 +56,24 @@ if ($mailEnabled) {
     </script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=DM+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 :root{
---bg-base:#03070f;--bg-surface:#080f1d;--bg-elevated:#0d1526;
---bg-card:rgba(13,21,38,.85);--bg-hover:rgba(255,255,255,.04);--bg-active:rgba(59,130,246,.12);
---border:rgba(255,255,255,.07);--border-hover:rgba(255,255,255,.14);
---text-primary:#e2e8f0;--text-secondary:#64748b;--text-muted:#334155;
---blue:#3b82f6;--purple:#8b5cf6;--green:#10b981;--red:#ef4444;
---orange:#f97316;--yellow:#eab308;--cyan:#06b6d4;
+/* Marque Nexium — bleu → violet, filet dégradé signature */
+--bleu:#1E6FE5;--violet:#6C3FC5;--cyan:#2EA8E6;--indigo:#241C63;
+--grad:linear-gradient(120deg,var(--bleu),var(--violet));
+/* Fonds — thème sombre (nuit / anthracite) */
+--bg-base:#0C1023;--bg-surface:#0e142a;--bg-elevated:#171C31;
+--bg-card:#141a2e;--bg-hover:rgba(255,255,255,.04);--bg-active:rgba(30,111,229,.14);
+--border:rgba(255,255,255,.08);--border-hover:rgba(255,255,255,.16);
+--text-primary:#F4F6FB;--text-secondary:#9aa3bc;--text-muted:#565E78;
+/* Accents — bleu/violet Nexium + couleurs de statut */
+--blue:#1E6FE5;--purple:#6C3FC5;--green:#10b981;--red:#ef4444;
+--orange:#f97316;--yellow:#eab308;
 --sidebar-w:260px;--sidebar-collapsed-w:68px;--topbar-h:64px;
 }
-body{font-family:'DM Sans',sans-serif;background:var(--bg-base);color:var(--text-primary);font-size:14px;line-height:1.6;min-height:100vh;overflow-x:hidden}
-h1,h2,h3,h4,h5{font-family:'Syne',sans-serif;font-weight:700;line-height:1.2}
+body{font-family:'Inter',sans-serif;background:var(--bg-base);color:var(--text-primary);font-size:14px;line-height:1.6;min-height:100vh;overflow-x:hidden}
+h1,h2,h3,h4,h5{font-family:'Montserrat',sans-serif;font-weight:700;line-height:1.2}
 code,.mono{font-family:'DM Mono',monospace}
 /* LAYOUT */
 .staff-layout{display:flex;min-height:100vh}
@@ -76,14 +81,14 @@ code,.mono{font-family:'DM Mono',monospace}
 .sidebar{width:var(--sidebar-w);background:var(--bg-surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100;transition:width .3s cubic-bezier(.4,0,.2,1);overflow:hidden}
 .sidebar.collapsed{width:var(--sidebar-collapsed-w)}
 .sidebar-brand{display:flex;align-items:center;gap:10px;padding:0 20px;height:var(--topbar-h);border-bottom:1px solid var(--border);text-decoration:none;flex-shrink:0}
-.sidebar-brand .brand-icon{width:32px;height:32px;flex-shrink:0;background:var(--blue);border-radius:8px;display:grid;place-items:center;font-size:16px;color:#fff}
-.sidebar-brand .brand-text{font-family:'Syne',sans-serif;font-weight:800;font-size:1.1rem;color:#fff;white-space:nowrap;overflow:hidden}
+.sidebar-brand .brand-icon{width:32px;height:32px;flex-shrink:0;background:var(--grad);border-radius:8px;display:grid;place-items:center;font-size:16px;color:#fff}
+.sidebar-brand .brand-text{font-family:'Montserrat',sans-serif;font-weight:800;font-size:1.1rem;color:#fff;white-space:nowrap;overflow:hidden}
 .sidebar-brand .brand-text span{color:var(--blue)}
 .sidebar-nav{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px 0;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
 .nav-section{margin-bottom:8px}
 .nav-section-label{font-size:.65rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text-muted);padding:8px 20px 4px;white-space:nowrap;overflow:hidden;transition:opacity .2s}
 .sidebar.collapsed .nav-section-label{opacity:0}
-.nav-item{display:flex;align-items:center;gap:12px;padding:9px 20px;color:var(--text-secondary);text-decoration:none;transition:all .2s;position:relative;white-space:nowrap;cursor:pointer;border:none;background:none;width:100%;font-size:.875rem;font-family:'DM Sans',sans-serif}
+.nav-item{display:flex;align-items:center;gap:12px;padding:9px 20px;color:var(--text-secondary);text-decoration:none;transition:all .2s;position:relative;white-space:nowrap;cursor:pointer;border:none;background:none;width:100%;font-size:.875rem;font-family:'Inter',sans-serif}
 .nav-item:hover{background:var(--bg-hover);color:var(--text-primary)}
 .nav-item.active{background:var(--bg-active);color:var(--blue);font-weight:600}
 .nav-item.active::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--blue);border-radius:0 2px 2px 0}
@@ -137,18 +142,18 @@ code,.mono{font-family:'DM Mono',monospace}
 /* CARDS */
 .card{background:var(--bg-card);border:1px solid var(--border);border-radius:16px;overflow:hidden}
 .card-header{padding:20px 24px 0;display:flex;align-items:center;justify-content:space-between}
-.card-title{font-family:'Syne',sans-serif;font-size:.95rem;font-weight:700;display:flex;align-items:center;gap:8px}
+.card-title{font-family:'Montserrat',sans-serif;font-size:.95rem;font-weight:700;display:flex;align-items:center;gap:8px}
 .card-title i{color:var(--text-secondary);font-size:14px}
 .card-body{padding:20px 24px}
 /* STATS */
 .stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;margin-bottom:32px}
 .stat-card{background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:22px;display:flex;align-items:flex-start;gap:16px;position:relative;overflow:hidden;transition:border-color .3s,transform .2s}
 .stat-card:hover{border-color:var(--border-hover);transform:translateY(-2px)}
-.stat-card::after{content:'';position:absolute;top:0;right:0;width:80px;height:80px;background:radial-gradient(circle,var(--accent-color,var(--blue)) 0%,transparent 70%);opacity:.06;pointer-events:none}
+.stat-card::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--grad);opacity:.55;pointer-events:none}
 .stat-icon{width:46px;height:46px;border-radius:12px;display:grid;place-items:center;font-size:1.2rem;flex-shrink:0;background:rgba(255,255,255,.05);color:var(--accent-color,var(--blue));border:1px solid rgba(255,255,255,.08)}
 .stat-info{flex:1;min-width:0}
 .stat-label{font-size:.75rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.05em;font-weight:600;margin-bottom:6px}
-.stat-value{font-family:'Syne',sans-serif;font-size:1.8rem;font-weight:800;line-height:1;margin-bottom:6px}
+.stat-value{font-family:'Montserrat',sans-serif;font-size:1.8rem;font-weight:800;line-height:1;margin-bottom:6px}
 .stat-meta{font-size:.75rem;color:var(--text-secondary)}
 .stat-meta .up{color:var(--green)}
 /* TABLES */
@@ -170,9 +175,9 @@ tbody tr:hover{background:var(--bg-hover)}
 .badge-cyan{background:rgba(6,182,212,.15);color:#67e8f9}
 .badge-pink{background:rgba(244,114,182,.15);color:#f9a8d4}
 /* BUTTONS */
-.btn{display:inline-flex;align-items:center;gap:7px;padding:8px 16px;border-radius:9px;font-size:.83rem;font-weight:600;border:none;cursor:pointer;text-decoration:none;transition:all .2s;font-family:'DM Sans',sans-serif;white-space:nowrap}
+.btn{display:inline-flex;align-items:center;gap:7px;padding:8px 16px;border-radius:9px;font-size:.83rem;font-weight:600;border:none;cursor:pointer;text-decoration:none;transition:all .2s;font-family:'Inter',sans-serif;white-space:nowrap}
 .btn-primary{background:var(--blue);color:#fff}
-.btn-primary:hover{background:#2563eb;box-shadow:0 4px 20px rgba(59,130,246,.4);transform:translateY(-1px)}
+.btn-primary:hover{filter:brightness(1.08)}
 .btn-secondary{background:var(--bg-hover);color:var(--text-secondary);border:1px solid var(--border)}
 .btn-secondary:hover{border-color:var(--border-hover);color:#fff}
 .btn-danger{background:rgba(239,68,68,.15);color:#fca5a5;border:1px solid rgba(239,68,68,.2)}
@@ -185,7 +190,7 @@ tbody tr:hover{background:var(--bg-hover)}
 /* FORMS */
 .form-group{margin-bottom:20px}
 .form-label{display:block;font-size:.8rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-secondary);margin-bottom:6px}
-.form-control{width:100%;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:9px;color:var(--text-primary);padding:9px 13px;font-size:.875rem;font-family:'DM Sans',sans-serif;transition:border-color .2s,box-shadow .2s;outline:none;-webkit-appearance:none}
+.form-control{width:100%;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:9px;color:var(--text-primary);padding:9px 13px;font-size:.875rem;font-family:'Inter',sans-serif;transition:border-color .2s,box-shadow .2s;outline:none;-webkit-appearance:none}
 .form-control:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(59,130,246,.15)}
 .form-control::placeholder{color:var(--text-muted)}
 select.form-control{cursor:pointer}
@@ -201,7 +206,7 @@ select.form-control{cursor:pointer}
 .toggle-label{font-size:.875rem;font-weight:500}
 /* TABS */
 .tabs{display:flex;gap:2px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;padding:3px;margin-bottom:28px;width:fit-content}
-.tab-btn{padding:7px 16px;border:none;background:none;color:var(--text-secondary);border-radius:8px;cursor:pointer;font-size:.85rem;font-weight:600;font-family:'DM Sans',sans-serif;transition:all .2s;display:flex;align-items:center;gap:7px}
+.tab-btn{padding:7px 16px;border:none;background:none;color:var(--text-secondary);border-radius:8px;cursor:pointer;font-size:.85rem;font-weight:600;font-family:'Inter',sans-serif;transition:all .2s;display:flex;align-items:center;gap:7px}
 .tab-btn:hover{color:var(--text-primary)}
 .tab-btn.active{background:var(--bg-elevated);color:var(--text-primary);box-shadow:0 1px 3px rgba(0,0,0,.3)}
 .tab-pane{display:none}
@@ -248,7 +253,7 @@ select.form-control{cursor:pointer}
 /* SEARCH */
 .search-bar{position:relative;display:flex;align-items:center}
 .search-bar i{position:absolute;left:12px;color:var(--text-secondary);font-size:13px;pointer-events:none}
-.search-bar input{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:9px;color:var(--text-primary);padding:8px 12px 8px 34px;font-size:.875rem;font-family:'DM Sans',sans-serif;outline:none;transition:border-color .2s;min-width:220px}
+.search-bar input{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:9px;color:var(--text-primary);padding:8px 12px 8px 34px;font-size:.875rem;font-family:'Inter',sans-serif;outline:none;transition:border-color .2s;min-width:220px}
 .search-bar input:focus{border-color:var(--blue)}
 .search-bar input::placeholder{color:var(--text-muted)}
 /* ALERTS */
@@ -264,7 +269,7 @@ select.form-control{cursor:pointer}
 .hierarchy-faction{margin-bottom:20px}
 .faction-header{display:flex;align-items:center;gap:10px;padding:12px 16px;background:rgba(255,255,255,.03);border-radius:10px 10px 0 0;border:1px solid var(--border)}
 .faction-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
-.faction-name{font-weight:700;font-family:'Syne',sans-serif}
+.faction-name{font-weight:700;font-family:'Montserrat',sans-serif}
 .faction-count{font-size:.75rem;color:var(--text-secondary);margin-left:auto}
 .grade-row{display:flex;align-items:center;gap:12px;padding:10px 16px 10px 36px;border:1px solid var(--border);border-top:none}
 .grade-row:last-child{border-radius:0 0 10px 10px}
@@ -302,17 +307,17 @@ select.form-control{cursor:pointer}
 
 /* ── LIGHT THEME ─────────────────────────────────────────────── */
 [data-theme="light"]{
-    --bg-base:#f1f5f9;
+    --bg-base:#F5F6FA;
     --bg-surface:#ffffff;
     --bg-elevated:#ffffff;
     --bg-card:#ffffff;
-    --bg-hover:rgba(15,23,42,.05);
-    --bg-active:rgba(59,130,246,.10);
-    --border:rgba(15,23,42,.09);
-    --border-hover:rgba(15,23,42,.18);
-    --text-primary:#0f172a;
-    --text-secondary:#475569;
-    --text-muted:#94a3b8;
+    --bg-hover:rgba(26,31,48,.05);
+    --bg-active:rgba(30,111,229,.10);
+    --border:#E4E7EF;
+    --border-hover:#D5DAE6;
+    --text-primary:#1A1F30;
+    --text-secondary:#565E78;
+    --text-muted:#98a0b4;
     color-scheme:light;
 }
 /* Sidebar / topbar */
@@ -322,7 +327,7 @@ select.form-control{cursor:pointer}
 [data-theme="light"] .topbar-toggle:hover,
 [data-theme="light"] .topbar-btn:hover{color:#0f172a}
 [data-theme="light"] .topbar-btn .notif-dot{border-color:#fff}
-[data-theme="light"] .nav-item.active{background:rgba(59,130,246,.10);color:#1d4ed8}
+[data-theme="light"] .nav-item.active{background:rgba(30,111,229,.10);color:#1d4ed8}
 [data-theme="light"] .nav-sub-item.active{color:#1d4ed8}
 /* Cards / tables */
 [data-theme="light"] .card,
@@ -338,7 +343,7 @@ select.form-control{cursor:pointer}
 [data-theme="light"] .grade-rank,
 [data-theme="light"] .mc-icon,
 [data-theme="light"] .log-avatar{background:rgba(15,23,42,.05);border-color:rgba(15,23,42,.08)}
-[data-theme="light"] .stat-card::after{opacity:.10}
+[data-theme="light"] .stat-card::after{opacity:.7}
 [data-theme="light"] .faction-header,
 [data-theme="light"] .grade-row{background:#fff}
 [data-theme="light"] .grade-member{background:rgba(15,23,42,.05);color:#475569}
@@ -567,14 +572,13 @@ select.form-control{cursor:pointer}
         </div>
 
         <!-- SERVICES -->
-        <?php if ($mailEnabled): ?>
         <div class="nav-section">
             <div class="nav-section-label">Services</div>
             <button class="nav-item <?php echo ($currentDir === 'content' && $currentPage === 'mail-manager') ? 'active' : ''; ?>"
                     onclick="toggleSubmenu('sub-services')" title="Service Mail">
                 <span class="nav-icon"><i class="fa-solid fa-envelope-open-text"></i></span>
                 <span class="nav-label">Service Mail</span>
-                <?php if ($mailUnreadTotal > 0): ?>
+                <?php if ($mailEnabled && $mailUnreadTotal > 0): ?>
                     <span class="nav-badge"><?php echo $mailUnreadTotal; ?></span>
                 <?php endif; ?>
                 <i class="fa-solid fa-chevron-down nav-chevron"></i>
@@ -586,7 +590,6 @@ select.form-control{cursor:pointer}
                    class="nav-sub-item">Ouvrir le mail <i class="fa-solid fa-arrow-up-right-from-square" style="font-size:.55rem;opacity:.5;margin-left:3px;"></i></a>
             </div>
         </div>
-        <?php endif; ?>
 
         <!-- EXTENSIONS -->
         <div class="nav-section">
@@ -601,28 +604,24 @@ select.form-control{cursor:pointer}
                 <span class="nav-icon"><i class="fa-solid fa-map-location-dot"></i></span>
                 <span class="nav-label">Système de Cartes</span>
             </a>
-            <?php if ($dispatchActive): ?>
             <a href="<?php echo SITE_URL; ?>/pages/staff/extensions/plugin-dispatch.php"
                class="nav-item <?php echo isActiveStaff('plugin-dispatch', 'extensions'); ?>" title="Dispatch">
                 <span class="nav-icon"><i class="fa-solid fa-radio"></i></span>
                 <span class="nav-label">Dispatch</span>
-                <span class="nav-badge">ON</span>
+                <?php if ($dispatchActive): ?><span class="nav-badge">ON</span><?php endif; ?>
             </a>
-            <?php endif; ?>
-            <?php if ($lifeInvaderActive): ?>
             <a href="<?php echo SITE_URL; ?>/pages/staff/extensions/plugin-life-invader.php"
                class="nav-item <?php echo isActiveStaff('plugin-life-invader', 'extensions'); ?>" title="Life Invader">
                 <span class="nav-icon"><i class="fa-solid fa-clapperboard"></i></span>
                 <span class="nav-label">Life Invader</span>
-                <span class="nav-badge">ON</span>
+                <?php if ($lifeInvaderActive): ?><span class="nav-badge">ON</span><?php endif; ?>
             </a>
-            <?php endif; ?>
-            <?php if ($hackMdtActive): ?>
-            <a href="<?php echo SITE_URL; ?>/pages/staff/content/hack-manager.php" class="nav-item">
+            <a href="<?php echo SITE_URL; ?>/pages/staff/content/hack-manager.php"
+               class="nav-item <?php echo (($currentDir === 'content' && $currentPage === 'hack-manager') ? 'active' : ''); ?>" title="Hack MDT">
                 <span class="nav-icon"><i class="fa-solid fa-skull-crossbones"></i></span>
                 <span class="nav-label">Hack MDT</span>
+                <?php if ($hackMdtActive): ?><span class="nav-badge">ON</span><?php endif; ?>
             </a>
-            <?php endif; ?>
         </div>
 
         <!-- ACADÉMIE -->

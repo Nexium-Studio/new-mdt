@@ -25,22 +25,19 @@ if (!defined('DB_CHARSET')) {
 
 class Database {
     private static $instance = null;
+    private static $connectFailed = false;
     private $connection;
 
     private function __construct() {
-        try {
-            $dsn = 'mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=' . DB_CHARSET;
-            $options = [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                PDO::ATTR_EMULATE_PREPARES => false,
-            ];
+        $dsn = 'mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=' . DB_CHARSET;
+        $options = [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES => false,
+        ];
 
-            $this->connection = new PDO($dsn, DB_USER, DB_PASS, $options);
-            $this->syncTimezone();
-        } catch (PDOException $e) {
-            die('Erreur de connexion à la base de données : ' . $e->getMessage());
-        }
+        $this->connection = new PDO($dsn, DB_USER, DB_PASS, $options);
+        $this->syncTimezone();
     }
 
     /**
@@ -85,9 +82,35 @@ class Database {
 
     public static function getInstance() {
         if (self::$instance === null) {
-            self::$instance = new self();
+            try {
+                self::$instance = new self();
+            } catch (PDOException $e) {
+                self::$connectFailed = true;
+                die('Erreur de connexion à la base de données : ' . $e->getMessage());
+            }
         }
         return self::$instance;
+    }
+
+    /**
+     * Connexion si elle est disponible, null sinon — n'interrompt jamais la requête,
+     * contrairement à getInstance(). Réservé aux appelants capables de fonctionner
+     * en mode dégradé (ex. mdt_roles_registry(), qui se replie sur les rôles connus).
+     */
+    public static function tryGetConnection(): ?PDO {
+        if (self::$instance !== null) {
+            return self::$instance->getConnection();
+        }
+        if (self::$connectFailed) {
+            return null;
+        }
+        try {
+            self::$instance = new self();
+            return self::$instance->getConnection();
+        } catch (Throwable $e) {
+            self::$connectFailed = true;
+            return null;
+        }
     }
 
     public function getConnection() {

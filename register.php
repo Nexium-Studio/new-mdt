@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/config/config.php';
+require_once __DIR__ . '/includes/nexium_theme.php';
 
 if (isLoggedIn()) {
     redirect(SITE_URL . '/pages/dashboard.php');
@@ -51,367 +52,185 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 }
+
+$siteName   = defined('SITE_NAME') ? (string) SITE_NAME : 'MDT';
+$faviconUrl = '';
+$themeMode  = 'dark';
+
+try {
+    $db = Database::getInstance()->getConnection();
+    $branding   = mdt_site_branding($db);
+    $siteName   = $branding['site_name'];
+    $faviconUrl = $branding['favicon_url'];
+    $themeMode  = $branding['theme_mode'];
+} catch (Throwable $e) {
+}
 ?>
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inscription — <?php echo defined('SITE_NAME') ? htmlspecialchars(SITE_NAME) : 'MDT'; ?></title>
+    <title>Inscription — <?php echo htmlspecialchars($siteName); ?></title>
+    <?php if ($faviconUrl !== ''): ?><link rel="icon" href="<?php echo htmlspecialchars($faviconUrl); ?>"><?php endif; ?>
+    <?php nexium_theme_head($themeMode); ?>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
+        /* Charte Nexium Studio — Bleu #1E6FE5 → Violet #6C3FC5 · Montserrat / Inter */
         :root {
-            --bg:       #03070f;
-            --bg-2:     #080f1d;
-            --bg-card:  rgba(10, 17, 32, 0.85);
-            --border:   rgba(255,255,255,0.07);
-            --border-2: rgba(255,255,255,0.13);
-            --text:     #e2e8f0;
-            --muted:    #475569;
-            --muted-2:  #64748b;
-            --accent:   #3b82f6;
+            --bleu:   #1E6FE5;
+            --violet: #6C3FC5;
+            --cyan:   #2EA8E6;
+            --grad: linear-gradient(120deg, var(--bleu), var(--violet));
+        }
+        :root, :root[data-theme="dark"] {
+            --bg:            #0C1023;
+            --surface:       #141a30;
+            --input-bg:      rgba(255,255,255,.04);
+            --border:        rgba(255,255,255,.08);
+            --border-strong: rgba(255,255,255,.16);
+            --text:          #F4F6FB;
+            --text-2:        #C9CDDA;
+            --muted:         #8891a8;
+            --card-shadow:   0 24px 60px -30px rgba(0,0,0,.7);
+        }
+        :root[data-theme="light"] {
+            --bg:            #F5F6FA;
+            --surface:       #FFFFFF;
+            --input-bg:      #FFFFFF;
+            --border:        #E4E7EF;
+            --border-strong: #D5DAE6;
+            --text:          #1A1F30;
+            --text-2:        #3B4258;
+            --muted:         #6B7386;
+            --card-shadow:   0 2px 14px rgba(20,25,45,.07);
         }
 
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
-            font-family: 'DM Sans', sans-serif;
+            font-family: 'Inter', sans-serif;
             background: var(--bg);
-            color: var(--text);
+            color: var(--text-2);
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
             padding: 24px;
-            position: relative;
-            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+            transition: background .25s ease, color .25s ease;
         }
 
-        body::before {
-            content: '';
-            position: fixed;
-            top: -200px; right: -100px;
-            width: 600px; height: 600px;
-            background: radial-gradient(circle, rgba(99,102,241,.09) 0%, transparent 65%);
-            pointer-events: none;
-        }
+        h1, .brand-name { font-family: 'Montserrat', sans-serif; color: var(--text); }
 
-        body::after {
-            content: '';
-            position: fixed;
-            bottom: -150px; left: -150px;
-            width: 500px; height: 500px;
-            background: radial-gradient(circle, rgba(59,130,246,.07) 0%, transparent 65%);
-            pointer-events: none;
-        }
+        .auth-wrap { width: 100%; max-width: 460px; animation: fadeInUp .5s ease both; }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
 
-        .auth-wrap {
-            width: 100%;
-            max-width: 460px;
-            position: relative;
-            z-index: 1;
-            animation: fadeInUp .5s ease both;
-        }
+        <?php echo nexium_theme_toggle_css(); ?>
 
-        @keyframes fadeInUp {
-            from { opacity: 0; transform: translateY(20px); }
-            to   { opacity: 1; transform: translateY(0); }
-        }
-
-        .back-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 7px;
-            color: var(--muted-2);
-            text-decoration: none;
-            font-size: .8rem;
-            font-weight: 500;
-            margin-bottom: 28px;
-            transition: color .2s;
-        }
-
+        .auth-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 22px; }
+        .back-link { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); text-decoration: none; font-size: .82rem; font-weight: 500; transition: color .15s; }
         .back-link:hover { color: var(--text); }
 
         .auth-card {
-            background: var(--bg-card);
+            background: var(--surface);
             border: 1px solid var(--border);
-            border-radius: 24px;
-            padding: 36px 32px;
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
+            border-radius: 16px;
+            padding: 34px 32px;
+            box-shadow: var(--card-shadow);
+            position: relative;
+            overflow: hidden;
         }
+        .auth-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--grad); }
 
-        .auth-card::before {
-            content: '';
-            display: block;
-            height: 1px;
-            background: linear-gradient(90deg, transparent, rgba(99,102,241,.5), transparent);
-            margin: -36px -32px 32px;
-            border-radius: 24px 24px 0 0;
-        }
+        .auth-brand { display: flex; align-items: center; gap: 11px; margin-bottom: 26px; }
+        .brand-icon { width: 38px; height: 38px; border-radius: 10px; background: var(--grad); display: grid; place-items: center; font-size: 15px; color: #fff; flex-shrink: 0; }
+        .brand-name { font-size: 1.05rem; font-weight: 700; letter-spacing: -.01em; }
 
-        .auth-brand {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 28px;
-        }
+        .auth-title { font-size: 1.5rem; font-weight: 700; letter-spacing: -.02em; margin-bottom: 6px; }
+        .auth-subtitle { font-size: .9rem; color: var(--muted); margin-bottom: 26px; }
 
-        .brand-icon {
-            width: 36px; height: 36px;
-            background: var(--accent);
-            border-radius: 10px;
-            display: grid; place-items: center;
-            font-size: 15px;
-            color: #fff;
-        }
+        .alert { display: flex; align-items: center; gap: 10px; padding: 12px 15px; border-radius: 9px; font-size: .85rem; font-weight: 500; margin-bottom: 18px; }
+        .alert-error { background: color-mix(in srgb, #dc2626 10%, transparent); border: 1px solid color-mix(in srgb, #dc2626 28%, transparent); color: #dc2626; }
 
-        .brand-name {
-            font-family: 'Syne', sans-serif;
-            font-size: 1.05rem;
-            font-weight: 800;
-            letter-spacing: -.02em;
-        }
-
-        .auth-title {
-            font-family: 'Syne', sans-serif;
-            font-size: 1.55rem;
-            font-weight: 800;
-            letter-spacing: -.03em;
-            margin-bottom: 6px;
-        }
-
-        .auth-subtitle {
-            font-size: .875rem;
-            color: var(--muted-2);
-            margin-bottom: 28px;
-        }
-
-        .alert {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 12px 16px;
-            border-radius: 10px;
-            font-size: .85rem;
-            font-weight: 500;
-            margin-bottom: 20px;
-        }
-
-        .alert-error { background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.2); color: #fca5a5; }
-
-        /* Form */
-        .form-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 14px;
-        }
-
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
         .form-group { margin-bottom: 16px; }
-
-        .form-label {
-            display: block;
-            font-size: .78rem;
-            font-weight: 600;
-            color: var(--muted-2);
-            text-transform: uppercase;
-            letter-spacing: .07em;
-            margin-bottom: 7px;
-        }
+        .form-label { display: block; font-size: .76rem; font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 7px; }
 
         .form-input {
-            width: 100%;
-            padding: 11px 14px;
-            background: rgba(255,255,255,.04);
+            width: 100%; padding: 11px 14px;
+            background: var(--input-bg);
             border: 1px solid var(--border);
-            border-radius: 10px;
+            border-radius: 8px;
             color: var(--text);
-            font-family: 'DM Sans', sans-serif;
-            font-size: .9rem;
+            font-family: 'Inter', sans-serif; font-size: .92rem;
             outline: none;
-            transition: border-color .2s, background .2s, box-shadow .2s;
+            transition: border-color .15s, box-shadow .15s;
         }
-
         .form-input::placeholder { color: var(--muted); }
+        .form-input:focus { border-color: var(--bleu); box-shadow: 0 0 0 3px color-mix(in srgb, var(--bleu) 16%, transparent); }
+        .form-input.is-error { border-color: #dc2626; box-shadow: 0 0 0 3px color-mix(in srgb, #dc2626 14%, transparent); }
 
-        .form-input:focus {
-            border-color: rgba(59,130,246,.5);
-            background: rgba(59,130,246,.04);
-            box-shadow: 0 0 0 3px rgba(59,130,246,.1);
-        }
+        .form-hint { display: block; font-size: .74rem; color: var(--muted); margin-top: 5px; }
 
-        .form-input.is-error {
-            border-color: rgba(239,68,68,.4);
-            box-shadow: 0 0 0 3px rgba(239,68,68,.08);
-        }
+        .pw-strength { margin-top: 8px; display: none; }
+        .pw-strength-bar { height: 3px; border-radius: 2px; background: var(--border); overflow: hidden; margin-bottom: 4px; }
+        .pw-strength-fill { height: 100%; border-radius: 2px; transition: width .3s, background .3s; width: 0; }
+        .pw-strength-label { font-size: .7rem; color: var(--muted); }
 
-        .form-hint {
-            display: block;
-            font-size: .75rem;
-            color: var(--muted);
-            margin-top: 5px;
-        }
-
-        /* Strength bar */
-        .pw-strength {
-            margin-top: 8px;
-            display: none;
-        }
-
-        .pw-strength-bar {
-            height: 3px;
-            border-radius: 2px;
-            background: var(--border);
-            overflow: hidden;
-            margin-bottom: 4px;
-        }
-
-        .pw-strength-fill {
-            height: 100%;
-            border-radius: 2px;
-            transition: width .3s, background .3s;
-            width: 0;
-        }
-
-        .pw-strength-label {
-            font-size: .7rem;
-            color: var(--muted-2);
-        }
-
-        /* Password wrapper */
         .pw-wrap { position: relative; }
-
-        .pw-toggle {
-            position: absolute;
-            right: 12px; top: 50%;
-            transform: translateY(-50%);
-            background: none;
-            border: none;
-            color: var(--muted);
-            cursor: pointer;
-            padding: 4px;
-            display: grid; place-items: center;
-            font-size: .9rem;
-            transition: color .2s;
-        }
-
-        .pw-toggle:hover { color: var(--text); }
         .pw-wrap .form-input { padding-right: 42px; }
+        .pw-toggle { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--muted); cursor: pointer; padding: 6px; display: grid; place-items: center; font-size: .9rem; transition: color .15s; }
+        .pw-toggle:hover { color: var(--text); }
 
-        /* Checkbox */
-        .checkbox-label {
-            display: flex;
-            align-items: flex-start;
-            gap: 10px;
-            font-size: .83rem;
-            color: var(--muted-2);
-            cursor: pointer;
-            line-height: 1.5;
-            margin-bottom: 20px;
-        }
+        /* CGU : interrupteur ON/OFF */
+        .cgu-row { display: flex; align-items: center; gap: 12px; margin: 6px 0 22px; font-size: .84rem; color: var(--text-2); line-height: 1.5; }
+        .cgu-row a { color: var(--bleu); text-decoration: none; font-weight: 600; }
+        .cgu-row a:hover { text-decoration: underline; }
+        .switch { position: relative; width: 42px; height: 24px; flex-shrink: 0; }
+        .switch input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+        .switch-track { position: absolute; inset: 0; border-radius: 999px; background: var(--border-strong); transition: background .2s; pointer-events: none; }
+        .switch-thumb { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .2s; pointer-events: none; }
+        .switch input:checked ~ .switch-track { background: var(--bleu); }
+        .switch input:checked ~ .switch-thumb { transform: translateX(18px); }
+        .switch input:focus-visible ~ .switch-track { box-shadow: 0 0 0 3px color-mix(in srgb, var(--bleu) 22%, transparent); }
 
-        .checkbox-label input { accent-color: var(--accent); margin-top: 3px; flex-shrink: 0; }
-
-        .checkbox-label a {
-            color: var(--accent);
-            text-decoration: none;
-        }
-
-        .checkbox-label a:hover { text-decoration: underline; }
-
-        /* Buttons */
         .btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 9px;
-            padding: 12px 20px;
-            border-radius: 10px;
-            font-family: 'DM Sans', sans-serif;
-            font-size: .9rem;
-            font-weight: 600;
-            text-decoration: none;
-            cursor: pointer;
-            border: none;
-            transition: all .2s cubic-bezier(.4,0,.2,1);
-            width: 100%;
+            display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+            width: 100%; padding: 12px 20px; border-radius: 8px;
+            font-family: 'Montserrat', sans-serif; font-size: .92rem; font-weight: 600;
+            text-decoration: none; cursor: pointer; border: 1.5px solid transparent;
+            transition: filter .15s ease, background .15s;
         }
+        .btn:hover { filter: brightness(1.08); }
+        .btn-primary { background: var(--bleu); color: #fff; }
+        .btn:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+        .btn:disabled:hover { filter: none; }
 
-        .btn-primary {
-            background: var(--accent);
-            color: #fff;
-            margin-bottom: 12px;
-        }
+        .auth-footer { text-align: center; margin-top: 22px; font-size: .84rem; color: var(--muted); }
+        .auth-footer a { color: var(--bleu); text-decoration: none; font-weight: 600; transition: filter .15s; }
+        .auth-footer a:hover { filter: brightness(1.1); text-decoration: underline; }
 
-        .btn-primary:hover {
-            background: #2563eb;
-            transform: translateY(-1px);
-            box-shadow: 0 8px 20px -4px rgba(59,130,246,.4);
-        }
-
-        .btn-discord {
-            background: rgba(88,101,242,.12);
-            border: 1px solid rgba(88,101,242,.3);
-            color: #a5b4fc;
-        }
-
-        .btn-discord:hover {
-            background: rgba(88,101,242,.2);
-            border-color: rgba(88,101,242,.5);
-            transform: translateY(-1px);
-        }
-
-        .auth-divider {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin: 20px 0;
-        }
-
-        .auth-divider::before,
-        .auth-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
-
-        .auth-divider span {
-            font-size: .75rem;
-            color: var(--muted);
-            text-transform: uppercase;
-            letter-spacing: .08em;
-        }
-
-        .auth-footer {
-            text-align: center;
-            margin-top: 24px;
-            font-size: .83rem;
-            color: var(--muted-2);
-        }
-
-        .auth-footer a {
-            color: var(--accent);
-            text-decoration: none;
-            font-weight: 600;
-            transition: color .2s;
-        }
-
-        .auth-footer a:hover { color: #60a5fa; }
-
-        @media (max-width: 480px) {
-            .auth-card { padding: 28px 20px; }
-            .form-row  { grid-template-columns: 1fr; }
-        }
+        @media (max-width: 480px) { .auth-card { padding: 26px 20px; } .form-row { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
 <div class="auth-wrap">
-    <a href="index.php" class="back-link">
-        <i class="fa-solid fa-arrow-left"></i>
-        Retour à l'accueil
-    </a>
+    <div class="auth-top">
+        <a href="index.php" class="back-link">
+            <i class="fa-solid fa-arrow-left"></i>
+            Retour à l'accueil
+        </a>
+        <?php nexium_theme_toggle(); ?>
+    </div>
 
     <div class="auth-card">
         <div class="auth-brand">
             <div class="brand-icon"><i class="fa-solid fa-terminal"></i></div>
-            <span class="brand-name"><?php echo defined('SITE_NAME') ? htmlspecialchars(SITE_NAME) : 'MDT'; ?></span>
+            <span class="brand-name"><?php echo htmlspecialchars($siteName); ?></span>
         </div>
 
         <h1 class="auth-title">Inscription</h1>
@@ -441,19 +260,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
 
                 <div class="form-group">
-                    <label for="username" class="form-label">Nom RP</label>
+                    <label for="username" class="form-label">Nom d'utilisateur</label>
                     <input
                         type="text"
                         id="username"
                         name="username"
                         class="form-input"
-                        placeholder="John Doe"
+                        placeholder="Ex : johndoe"
                         value="<?php echo htmlspecialchars($username); ?>"
                         minlength="3"
                         autocomplete="username"
                         required
                     >
-                    <span class="form-hint">Min. 3 caractères</span>
+                    <span class="form-hint">Sert à vous connecter (min. 3 caractères)</span>
                 </div>
             </div>
 
@@ -470,7 +289,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         autocomplete="new-password"
                         required
                     >
-                    <button type="button" class="pw-toggle" onclick="togglePw('password', this)" tabindex="-1">
+                    <button type="button" class="pw-toggle" onclick="togglePw('password', this)" tabindex="-1" aria-label="Afficher / masquer le mot de passe">
                         <i class="fa-regular fa-eye"></i>
                     </button>
                 </div>
@@ -496,29 +315,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         autocomplete="new-password"
                         required
                     >
-                    <button type="button" class="pw-toggle" onclick="togglePw('confirm_password', this)" tabindex="-1">
+                    <button type="button" class="pw-toggle" onclick="togglePw('confirm_password', this)" tabindex="-1" aria-label="Afficher / masquer le mot de passe">
                         <i class="fa-regular fa-eye"></i>
                     </button>
                 </div>
             </div>
 
-            <label class="checkbox-label">
-                <input type="checkbox" required>
-                <span>J'accepte les <a href="#">conditions d'utilisation</a> de la plateforme</span>
-            </label>
+            <div class="cgu-row">
+                <span class="switch">
+                    <input type="checkbox" id="cgu" name="cgu" value="1" required>
+                    <span class="switch-track"></span>
+                    <span class="switch-thumb"></span>
+                </span>
+                <label for="cgu">J'accepte les <a href="https://nexium-studio.com/mentions-legales.php" target="_blank" rel="noopener">conditions d'utilisation</a> de la plateforme</label>
+            </div>
 
-            <button type="submit" class="btn btn-primary">
+            <button type="submit" class="btn btn-primary" id="submitBtn" disabled>
                 <i class="fa-solid fa-user-plus"></i>
                 Créer mon compte
             </button>
         </form>
 
-        
+        <div class="auth-footer">
+            Déjà un compte ? <a href="login.php">Se connecter</a>
+        </div>
     </div>
 </div>
 
 <script>
-/* Toggle visibility */
+/* Afficher / masquer */
 function togglePw(id, btn) {
     const input = document.getElementById(id);
     const icon  = btn.querySelector('i');
@@ -531,11 +356,11 @@ function togglePw(id, btn) {
     }
 }
 
-/* Password strength */
-const pwInput     = document.getElementById('password');
+/* Robustesse du mot de passe */
+const pwInput      = document.getElementById('password');
 const strengthWrap = document.getElementById('strengthWrap');
-const fill        = document.getElementById('strengthFill');
-const label       = document.getElementById('strengthLabel');
+const fill         = document.getElementById('strengthFill');
+const label        = document.getElementById('strengthLabel');
 
 pwInput.addEventListener('input', function () {
     const v = this.value;
@@ -548,20 +373,20 @@ pwInput.addEventListener('input', function () {
     if (/[^A-Za-z0-9]/.test(v)) score++;
 
     const levels = [
-        { w: '20%',  bg: '#ef4444', text: 'Très faible' },
-        { w: '40%',  bg: '#f97316', text: 'Faible' },
-        { w: '60%',  bg: '#eab308', text: 'Moyen' },
-        { w: '80%',  bg: '#22c55e', text: 'Fort' },
-        { w: '100%', bg: '#10b981', text: 'Très fort' },
+        { w: '20%',  bg: '#dc2626', text: 'Très faible' },
+        { w: '40%',  bg: '#ea580c', text: 'Faible' },
+        { w: '60%',  bg: '#ca8a04', text: 'Moyen' },
+        { w: '80%',  bg: '#16a34a', text: 'Fort' },
+        { w: '100%', bg: '#059669', text: 'Très fort' },
     ];
     const lvl = levels[Math.min(score, 4)];
     fill.style.width      = lvl.w;
-    fill.style.background = lvl.bg;
-    label.textContent     = lvl.text;
-    label.style.color     = lvl.bg;
+    fill.style.background  = lvl.bg;
+    label.textContent      = lvl.text;
+    label.style.color      = lvl.bg;
 });
 
-/* Confirm match */
+/* Correspondance de confirmation */
 const confirmInput = document.getElementById('confirm_password');
 confirmInput.addEventListener('input', function () {
     this.setCustomValidity(
@@ -569,6 +394,14 @@ confirmInput.addEventListener('input', function () {
     );
     this.classList.toggle('is-error', !!this.validationMessage);
 });
+
+/* Le bouton d'inscription reste inactif tant que les CGU ne sont pas acceptées */
+const cguCheck  = document.getElementById('cgu');
+const submitBtn = document.getElementById('submitBtn');
+function syncSubmitState() { submitBtn.disabled = !cguCheck.checked; }
+cguCheck.addEventListener('change', syncSubmitState);
+syncSubmitState();
 </script>
+<?php nexium_theme_script(); ?>
 </body>
 </html>

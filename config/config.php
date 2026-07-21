@@ -130,6 +130,91 @@ function requireLogin() {
     }
 }
 
+/**
+ * Rôles historiques, écrits en dur dans les gardes hasRole() à travers le site.
+ * Sert de repli quand la base est injoignable.
+ *
+ * @return array<string,int>
+ */
+function mdt_builtin_role_levels(): array {
+    return [
+        'Citoyen'        => 0,
+        'Pôle 911'       => 1,
+        'Pôle Ilégale'   => 1,
+        'Pôle Illégale'  => 1,
+        'Pôle Légal'     => 1,
+        'Helper'         => 2,
+        'Recruteur'      => 2,
+        'Modérateur'     => 3,
+        'Staff'          => 4,
+        'Développeur'    => 5,
+        'Administrateur' => 6,
+        '*'              => 7,
+    ];
+}
+
+/**
+ * Rôles définis en base, chargés une seule fois par requête pour rester
+ * en phase avec mdt-roles.php sans multiplier les requêtes.
+ *
+ * @return array<string,int> nom => hierarchy_level (vide si base injoignable)
+ */
+function mdt_roles_registry(): array {
+    static $registry = null;
+    if ($registry !== null) {
+        return $registry;
+    }
+    $registry = [];
+    try {
+        // tryGetConnection() et non getInstance() : une base injoignable doit
+        // faire replier sur les rôles historiques, pas couper la requête.
+        $pdo = Database::tryGetConnection();
+        if ($pdo === null) {
+            return $registry;
+        }
+        foreach ($pdo->query('SELECT name, hierarchy_level FROM mdt_roles') as $row) {
+            $registry[(string) $row['name']] = (int) $row['hierarchy_level'];
+        }
+    } catch (Throwable $e) {
+        $registry = [];
+    }
+    return $registry;
+}
+
+function mdt_role_is_builtin(?string $role): bool {
+    $role = trim((string) $role);
+    foreach (array_keys(mdt_builtin_role_levels()) as $name) {
+        if (strcasecmp($name, $role) === 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * Niveau d'un rôle, mdt_roles faisant foi. Renvoie null quand le rôle n'existe
+ * ni en base ni parmi les rôles historiques : certaines gardes citent des noms
+ * jamais créés (« Directeur », « Responsable »), qu'il faut ignorer plutôt que
+ * traiter comme un niveau 0 qui ouvrirait la page à tous.
+ */
+function mdt_role_known_level(?string $role): ?int {
+    $role = trim((string) $role);
+    if ($role === '') {
+        return null;
+    }
+    foreach ([mdt_roles_registry(), mdt_builtin_role_levels()] as $table) {
+        if (isset($table[$role])) {
+            return $table[$role];
+        }
+        foreach ($table as $name => $level) {
+            if (strcasecmp((string) $name, $role) === 0) {
+                return $level;
+            }
+        }
+    }
+    return null;
+}
+
 function hasRole($roles) {
     if (!isLoggedIn()) {
         return false;
@@ -159,28 +244,36 @@ function hasRole($roles) {
         }
     }
 
-    return false;
+    // Rôles créés depuis mdt-roles.php : absents des listes en dur, ils sont
+    // autorisés dès que leur niveau atteint celui du rôle le plus bas exigé.
+    // Les rôles historiques restent sur la correspondance par nom ci-dessus,
+    // afin de ne rien changer aux gardes existantes.
+    if ($userRole === '' || mdt_role_is_builtin($userRole)) {
+        return false;
+    }
+    $userLevel = mdt_role_known_level($userRole);
+    if ($userLevel === null) {
+        return false;
+    }
+    $required = null;
+    foreach ($roles as $allowed) {
+        if (!is_string($allowed)) {
+            continue;
+        }
+        $level = mdt_role_known_level($allowed);
+        if ($level !== null && ($required === null || $level < $required)) {
+            $required = $level;
+        }
+    }
+
+    return $required !== null && $userLevel >= $required;
 }
 
 /**
  * Rang hiérarchique du rôle global (plus le nombre est élevé, plus le pouvoir est fort).
  */
 function mdt_role_hierarchy_rank(?string $role): int {
-    static $order = [
-        'Citoyen'        => 0,
-        'Pôle 911'       => 1,
-        'Pôle Ilégale'   => 1,
-        'Pôle Illégale'  => 1,
-        'Pôle Légal'     => 1,
-        'Helper'         => 2,
-        'Recruteur'      => 2,
-        'Modérateur'     => 3,
-        'Staff'          => 4,
-        'Développeur'    => 5,
-        'Administrateur' => 6,
-        '*'              => 7,
-    ];
-    return $order[$role] ?? 0;
+    return mdt_role_known_level($role) ?? 0;
 }
 
 /**

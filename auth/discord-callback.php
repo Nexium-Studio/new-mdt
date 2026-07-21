@@ -76,9 +76,21 @@ try {
     $discordOAuthNewAccount = false;
 
     if ($userData) {
-        // MISE À JOUR : Le compte existe, on synchronise les infos Discord
-        $update = $db->prepare("UPDATE users SET discord_id = ?, avatar = ? WHERE id = ?");
-        $update->execute([$discord_id, $avatar_url, $userData['id']]);
+        // MISE À JOUR : le compte existe, on synchronise l'ID Discord.
+        // L'avatar Discord n'est qu'une valeur PAR DÉFAUT : on ne l'applique que
+        // si l'utilisateur n'a pas encore d'avatar. Un avatar déjà défini
+        // (personnalisé depuis le profil, ou hérité d'une précédente connexion)
+        // est conservé et n'est JAMAIS écrasé lors des connexions suivantes.
+        $currentAvatar = trim((string) ($userData['avatar'] ?? ''));
+        if ($currentAvatar === '') {
+            $update = $db->prepare("UPDATE users SET discord_id = ?, avatar = ? WHERE id = ?");
+            $update->execute([$discord_id, $avatar_url, $userData['id']]);
+            $userData['avatar'] = $avatar_url;
+        } else {
+            $update = $db->prepare("UPDATE users SET discord_id = ? WHERE id = ?");
+            $update->execute([$discord_id, $userData['id']]);
+        }
+        $userData['discord_id'] = $discord_id;
     } else {
         $discordOAuthNewAccount = true;
         // INSCRIPTION : Nouveau compte

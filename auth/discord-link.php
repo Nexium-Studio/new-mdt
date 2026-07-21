@@ -71,8 +71,19 @@ if (isset($_GET['discord_callback']) && isset($_GET['state'])) {
         ? "https://cdn.discordapp.com/avatars/{$discordId}/{$avatarId}.png"
         : ASSETS_PATH . '/images/logos/default.png';
 
-    $db->prepare("UPDATE users SET discord_id = ?, avatar = ? WHERE id = ?")
-       ->execute([$discordId, $avatarUrl, $linkRow['user_id']]);
+    // L'avatar Discord ne sert que de valeur par défaut : on ne l'applique que
+    // si l'utilisateur n'a pas déjà un avatar (personnalisé prioritaire, jamais écrasé).
+    $curAv = $db->prepare("SELECT avatar FROM users WHERE id = ? LIMIT 1");
+    $curAv->execute([$linkRow['user_id']]);
+    $existingAvatar = trim((string) $curAv->fetchColumn());
+
+    if ($existingAvatar === '') {
+        $db->prepare("UPDATE users SET discord_id = ?, avatar = ? WHERE id = ?")
+           ->execute([$discordId, $avatarUrl, $linkRow['user_id']]);
+    } else {
+        $db->prepare("UPDATE users SET discord_id = ? WHERE id = ?")
+           ->execute([$discordId, $linkRow['user_id']]);
+    }
 
     $db->prepare("UPDATE discord_link_codes SET used = 1, discord_id = ? WHERE code = ?")
        ->execute([$discordId, $linkCode]);

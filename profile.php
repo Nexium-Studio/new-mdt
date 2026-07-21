@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/config/config.php';
+require_once __DIR__ . '/includes/nexium_theme.php';
 requireLogin();
 
 $db      = Database::getInstance()->getConnection();
@@ -224,47 +225,57 @@ $lastLogin     = $user['last_login'] ? date('d/m/Y à H:i', strtotime($user['las
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mon Profil — <?php echo defined('SITE_NAME') ? htmlspecialchars(SITE_NAME) : 'MDT'; ?></title>
+    <?php nexium_theme_head('dark'); ?>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --bg:       #03070f;
-            --bg-2:     #080f1d;
-            --bg-card:  rgba(10, 17, 32, 0.75);
-            --border:   rgba(255,255,255,0.07);
-            --border-2: rgba(255,255,255,0.12);
-            --text:     #e2e8f0;
-            --muted:    #475569;
-            --muted-2:  #64748b;
-            --accent:   #3b82f6;
+        /* Charte Nexium — bleu #1E6FE5 → violet #6C3FC5 · Montserrat / Inter */
+        :root, :root[data-theme="dark"] {
+            --bg:       #0C1023;
+            --bg-2:     #171C31;
+            --bg-card:  #141a2e;
+            --border:   rgba(255,255,255,0.08);
+            --border-2: rgba(255,255,255,0.16);
+            --text:     #F4F6FB;
+            --muted:    #565E78;
+            --muted-2:  #9aa3bc;
+            --accent:   #1E6FE5;
+            --grad: linear-gradient(120deg, #1E6FE5, #6C3FC5);
             --faction:  <?php echo $factionColor; ?>;
+            /* alias pour le bouton de thème partagé */
+            --surface: var(--bg-card);
+            --text-2: var(--muted-2);
+            --border-strong: var(--border-2);
+        }
+        :root[data-theme="light"] {
+            --bg:       #F5F6FA;
+            --bg-2:     #eef0f6;
+            --bg-card:  #FFFFFF;
+            --border:   #E4E7EF;
+            --border-2: #D5DAE6;
+            --text:     #1A1F30;
+            --muted:    #98a0b4;
+            --muted-2:  #565E78;
         }
 
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
-            font-family: 'DM Sans', sans-serif;
+            font-family: 'Inter', sans-serif;
             background: var(--bg);
             color: var(--text);
             min-height: 100vh;
             line-height: 1.5;
         }
 
-        body::before {
-            content: '';
-            position: fixed;
-            top: -200px; left: -200px;
-            width: 700px; height: 700px;
-            background: radial-gradient(circle, color-mix(in srgb, var(--faction) 8%, transparent) 0%, transparent 65%);
-            pointer-events: none;
-        }
+        /* Halo de fond retiré — charte Nexium sobre. */
 
         .container { max-width: 1100px; margin: 0 auto; padding: 0 2rem; width: 100%; }
 
         /* ── Topbar ── */
         .topbar {
             height: 60px;
-            background: rgba(3,7,15,.85);
+            background: color-mix(in srgb, var(--bg) 85%, transparent);
             backdrop-filter: blur(20px);
             border-bottom: 1px solid var(--border);
             display: flex;
@@ -299,7 +310,7 @@ $lastLogin     = $user['last_login'] ? date('d/m/Y à H:i', strtotime($user['las
         .topbar-back:hover { color: var(--text); background: rgba(255,255,255,.06); border-color: var(--border-2); }
 
         .topbar-title {
-            font-family: 'Syne', sans-serif;
+            font-family: 'Montserrat', sans-serif;
             font-size: .95rem;
             font-weight: 700;
             color: var(--text);
@@ -379,14 +390,14 @@ $lastLogin     = $user['last_login'] ? date('d/m/Y à H:i', strtotime($user['las
         .avatar-initials {
             background: color-mix(in srgb, var(--faction) 20%, transparent);
             border: 2px solid color-mix(in srgb, var(--faction) 35%, transparent);
-            font-family: 'Syne', sans-serif;
+            font-family: 'Montserrat', sans-serif;
             font-size: 1.8rem;
             font-weight: 800;
             color: var(--faction);
         }
 
         .avatar-name {
-            font-family: 'Syne', sans-serif;
+            font-family: 'Montserrat', sans-serif;
             font-size: 1.05rem;
             font-weight: 700;
             margin-bottom: 4px;
@@ -522,7 +533,7 @@ $lastLogin     = $user['last_login'] ? date('d/m/Y à H:i', strtotime($user['las
             display: flex;
             align-items: center;
             gap: 10px;
-            font-family: 'Syne', sans-serif;
+            font-family: 'Montserrat', sans-serif;
             font-size: .9rem;
             font-weight: 700;
         }
@@ -559,7 +570,7 @@ $lastLogin     = $user['last_login'] ? date('d/m/Y à H:i', strtotime($user['las
             border: 1px solid var(--border);
             border-radius: 10px;
             color: var(--text);
-            font-family: 'DM Sans', sans-serif;
+            font-family: 'Inter', sans-serif;
             font-size: .9rem;
             outline: none;
             transition: border-color .2s, background .2s, box-shadow .2s;
@@ -609,7 +620,7 @@ $lastLogin     = $user['last_login'] ? date('d/m/Y à H:i', strtotime($user['las
             gap: 8px;
             padding: 10px 18px;
             border-radius: 10px;
-            font-family: 'DM Sans', sans-serif;
+            font-family: 'Inter', sans-serif;
             font-size: .875rem;
             font-weight: 600;
             cursor: pointer;
@@ -621,7 +632,7 @@ $lastLogin     = $user['last_login'] ? date('d/m/Y à H:i', strtotime($user['las
         .btn-sm { padding: 7px 14px; font-size: .8rem; }
 
         .btn-primary { background: var(--accent); color: #fff; }
-        .btn-primary:hover { background: #2563eb; transform: translateY(-1px); box-shadow: 0 6px 16px -4px rgba(59,130,246,.4); }
+        .btn-primary:hover { filter: brightness(1.08); }
 
         .btn-ghost { background: rgba(255,255,255,.05); color: var(--muted-2); border: 1px solid var(--border); }
         .btn-ghost:hover { background: rgba(255,255,255,.09); color: var(--text); border-color: var(--border-2); }
@@ -720,7 +731,7 @@ $lastLogin     = $user['last_login'] ? date('d/m/Y à H:i', strtotime($user['las
         }
 
         .modal-header h2 {
-            font-family: 'Syne', sans-serif;
+            font-family: 'Montserrat', sans-serif;
             font-size: .95rem;
             font-weight: 700;
             display: flex;
@@ -767,6 +778,11 @@ $lastLogin     = $user['last_login'] ? date('d/m/Y à H:i', strtotime($user['las
             .form-row { grid-template-columns: 1fr; }
             .section-card-body { padding: 16px; }
         }
+        /* Champs plus lisibles en thème clair */
+        :root[data-theme="light"] .form-input { background: #F5F6FA; }
+        :root[data-theme="light"] .form-input:focus { background: #fff; }
+        :root[data-theme="light"] .btn-ghost { background: #F5F6FA; }
+        <?php echo nexium_theme_toggle_css(); ?>
     </style>
 </head>
 <body>
@@ -781,10 +797,13 @@ $lastLogin     = $user['last_login'] ? date('d/m/Y à H:i', strtotime($user['las
             </a>
             <span class="topbar-title">Mon Profil</span>
         </div>
-        <a href="logout.php" class="topbar-logout">
-            <i class="fa-solid fa-right-from-bracket"></i>
-            Déconnexion
-        </a>
+        <div style="display:flex;align-items:center;gap:10px;">
+            <?php nexium_theme_toggle(); ?>
+            <a href="logout.php" class="topbar-logout">
+                <i class="fa-solid fa-right-from-bracket"></i>
+                Déconnexion
+            </a>
+        </div>
     </div>
 </div>
 
@@ -1182,6 +1201,7 @@ document.querySelectorAll('.modal-overlay form').forEach(form => {
     });
 });
 </script>
+<?php nexium_theme_script(); ?>
 
 </body>
 </html>

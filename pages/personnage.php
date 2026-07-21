@@ -3,11 +3,23 @@
 require_once __DIR__ . '/../config/config.php';
 requireLogin();
 require_once ROOT_PATH . '/includes/characters.php';
+require_once ROOT_PATH . '/includes/nexium_theme.php';
 
 $db = Database::getInstance()->getConnection();
 mdt_characters_ensure_schema($db);
 
 $uid = (int) $_SESSION['user_id'];
+
+// Avatar de compte (users.avatar) — source centralisée, modifiable depuis profile.php.
+// Sert de fallback pour les personnages sans photo, afin que l'avatar du profil
+// soit répercuté automatiquement ici.
+$accountAvatar = '';
+try {
+    $stAv = $db->prepare("SELECT avatar FROM users WHERE id = ? LIMIT 1");
+    $stAv->execute([$uid]);
+    $accountAvatar = trim((string) $stAv->fetchColumn());
+} catch (Throwable $e) {
+}
 
 if (empty($_SESSION['characters_csrf'])) {
     $_SESSION['characters_csrf'] = bin2hex(random_bytes(16));
@@ -129,29 +141,47 @@ try {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sélection du personnage — <?php echo htmlspecialchars($siteName); ?></title>
     <?php if ($faviconUrl !== ''): ?><link rel="icon" href="<?php echo htmlspecialchars($faviconUrl); ?>"><?php endif; ?>
+    <?php nexium_theme_head('dark'); ?>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --bg:       #03070f;
-            --bg-2:     #080f1d;
-            --bg-card:  rgba(13, 21, 38, .85);
-            --bg-elev:  #0d1526;
-            --border:   rgba(255,255,255,.07);
-            --border-2: rgba(255,255,255,.14);
-            --text:     #e2e8f0;
-            --muted:    #475569;
-            --muted-2:  #64748b;
-            --blue:     #3b82f6;
-            --purple:   #8b5cf6;
+        /* Charte Nexium — bleu #1E6FE5 → violet #6C3FC5 · Montserrat / Inter */
+        :root, :root[data-theme="dark"] {
+            --bg:       #0C1023;
+            --bg-2:     #0e142a;
+            --bg-card:  #141a2e;
+            --bg-elev:  #171C31;
+            --border:   rgba(255,255,255,.08);
+            --border-2: rgba(255,255,255,.16);
+            --text:     #F4F6FB;
+            --muted:    #565E78;
+            --muted-2:  #9aa3bc;
+            --blue:     #1E6FE5;
+            --purple:   #6C3FC5;
             --green:    #10b981;
             --red:      #ef4444;
+            --grad: linear-gradient(120deg, #1E6FE5, #6C3FC5);
+            /* alias pour le bouton de thème partagé */
+            --surface: var(--bg-card);
+            --text-2: var(--muted-2);
+            --border-strong: var(--border-2);
+        }
+        :root[data-theme="light"] {
+            --bg:       #F5F6FA;
+            --bg-2:     #eef0f6;
+            --bg-card:  #FFFFFF;
+            --bg-elev:  #FFFFFF;
+            --border:   #E4E7EF;
+            --border-2: #D5DAE6;
+            --text:     #1A1F30;
+            --muted:    #98a0b4;
+            --muted-2:  #565E78;
         }
 
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
-            font-family: 'DM Sans', sans-serif;
+            font-family: 'Inter', sans-serif;
             background: var(--bg);
             color: var(--text);
             min-height: 100vh;
@@ -160,23 +190,7 @@ try {
             overflow-x: hidden;
         }
 
-        /* Orbes décoratifs (diffus, sans néon) */
-        body::before {
-            content: '';
-            position: fixed;
-            top: -220px; left: -220px;
-            width: 640px; height: 640px;
-            background: radial-gradient(circle, rgba(59,130,246,.09) 0%, transparent 65%);
-            pointer-events: none;
-        }
-        body::after {
-            content: '';
-            position: fixed;
-            bottom: -180px; right: -180px;
-            width: 560px; height: 560px;
-            background: radial-gradient(circle, rgba(139,92,246,.06) 0%, transparent 65%);
-            pointer-events: none;
-        }
+        /* Orbes décoratifs retirés — charte Nexium sobre (aucun halo). */
 
         .page { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; }
 
@@ -189,7 +203,7 @@ try {
             margin-bottom: 48px;
         }
         .topbar .brand {
-            font-family: 'Syne', sans-serif;
+            font-family: 'Montserrat', sans-serif;
             font-weight: 700;
             font-size: .95rem;
             color: var(--muted-2);
@@ -222,7 +236,7 @@ try {
             margin-bottom: 14px;
         }
         .page-head h1 {
-            font-family: 'Syne', sans-serif;
+            font-family: 'Montserrat', sans-serif;
             font-weight: 800;
             font-size: clamp(1.6rem, 3.4vw, 2.4rem);
             margin-bottom: 12px;
@@ -275,7 +289,7 @@ try {
         .char-card:hover {
             transform: translateY(-6px);
             border-color: color-mix(in srgb, var(--blue) 45%, transparent);
-            box-shadow: 0 24px 48px -18px rgba(59,130,246,.35);
+            box-shadow: 0 16px 36px -18px rgba(0,0,0,.45);
         }
 
         .char-photo {
@@ -302,7 +316,7 @@ try {
             width: 100%; height: 100%;
             display: grid;
             place-items: center;
-            font-family: 'Syne', sans-serif;
+            font-family: 'Montserrat', sans-serif;
             font-size: 3.4rem;
             font-weight: 800;
             color: rgba(226,232,240,.8);
@@ -331,7 +345,7 @@ try {
             position: absolute;
             left: 16px; right: 16px; bottom: 12px;
             z-index: 2;
-            font-family: 'Syne', sans-serif;
+            font-family: 'Montserrat', sans-serif;
             font-weight: 700;
             font-size: 1.12rem;
             line-height: 1.25;
@@ -381,7 +395,7 @@ try {
             border-radius: 12px;
             background: var(--blue);
             color: #fff;
-            font-family: 'DM Sans', sans-serif;
+            font-family: 'Inter', sans-serif;
             font-size: .86rem;
             font-weight: 600;
             cursor: pointer;
@@ -421,7 +435,7 @@ try {
             color: #fff;
             background: linear-gradient(135deg, var(--blue), var(--purple));
         }
-        .char-card-new h3 { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 1.05rem; }
+        .char-card-new h3 { font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 1.05rem; }
         .char-card-new p { color: var(--muted-2); font-size: .82rem; line-height: 1.6; max-width: 240px; }
 
         /* ── Encart d'information ── */
@@ -486,7 +500,7 @@ try {
             border-bottom: 1px solid var(--border);
         }
         .modal-header h3 {
-            font-family: 'Syne', sans-serif;
+            font-family: 'Montserrat', sans-serif;
             font-size: 1.05rem;
             font-weight: 700;
             display: flex;
@@ -563,7 +577,7 @@ try {
             border: 1px solid var(--border);
             border-radius: 11px;
             color: var(--text);
-            font-family: 'DM Sans', sans-serif;
+            font-family: 'Inter', sans-serif;
             font-size: .88rem;
             transition: border-color .2s, background .2s;
         }
@@ -590,7 +604,7 @@ try {
             padding: 10px 18px;
             border-radius: 11px;
             border: none;
-            font-family: 'DM Sans', sans-serif;
+            font-family: 'Inter', sans-serif;
             font-size: .85rem;
             font-weight: 600;
             cursor: pointer;
@@ -617,6 +631,7 @@ try {
             .char-card-new { min-height: 280px; padding: 28px 16px; }
             .form-row { grid-template-columns: 1fr; }
         }
+        <?php echo nexium_theme_toggle_css(); ?>
     </style>
 </head>
 <body>
@@ -628,6 +643,7 @@ try {
             <?php if ($activeId > 0): ?>
                 <a href="<?php echo SITE_URL; ?>/pages/dashboard.php" class="top-link"><i class="fa-solid fa-arrow-left"></i> Retour au MDT</a>
             <?php endif; ?>
+            <?php nexium_theme_toggle(); ?>
             <a href="<?php echo SITE_URL; ?>/logout.php" class="top-link"><i class="fa-solid fa-right-from-bracket"></i> Déconnexion</a>
         </div>
     </div>
@@ -652,6 +668,8 @@ try {
             $fName     = $c['faction'] !== 'NONE' ? ($c['faction_name'] ?: $c['faction']) : 'Civil';
             $grade     = trim((string) ($c['faction_rank'] ?: $c['faction_grade'] ?: ''));
             $initials  = mb_strtoupper(mb_substr((string) $c['firstname'], 0, 1) . mb_substr((string) $c['lastname'], 0, 1));
+            // Photo du personnage si définie, sinon avatar de compte (profile.php), sinon initiales.
+            $cardAvatar = !empty($c['avatar']) ? (string) $c['avatar'] : $accountAvatar;
         ?>
         <form method="POST" class="char-card" style="--fc: <?php echo htmlspecialchars($fc); ?>; animation-delay: <?php echo min($i * 70, 490); ?>ms"
               onclick="if (!event.target.closest('button')) this.submit();">
@@ -663,8 +681,8 @@ try {
                 <?php if ((int) $c['id'] === $activeId): ?>
                     <div class="char-active-badge"><i class="fa-solid fa-circle-check"></i> Actif</div>
                 <?php endif; ?>
-                <?php if (!empty($c['avatar'])): ?>
-                    <img src="<?php echo htmlspecialchars($c['avatar']); ?>" alt="" loading="lazy">
+                <?php if ($cardAvatar !== ''): ?>
+                    <img src="<?php echo htmlspecialchars($cardAvatar); ?>" alt="" loading="lazy">
                 <?php else: ?>
                     <div class="char-initials"><?php echo htmlspecialchars($initials); ?></div>
                 <?php endif; ?>
@@ -791,5 +809,6 @@ document.getElementById('avatarInput').addEventListener('change', function () {
 openCreateModal();
 <?php endif; ?>
 </script>
+<?php nexium_theme_script(); ?>
 </body>
 </html>

@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/nexium_theme.php';
 requireLogin();
 
 // Multi-personnages : un personnage actif est requis
@@ -255,18 +256,21 @@ $LTYPE_META = ['constitution'=>['Constitution','#a78bfa'],'code'=>['Code','#3b82
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title><?php echo htmlspecialchars($pageTitle); ?> — <?php echo htmlspecialchars($siteName); ?></title>
+<?php nexium_theme_head('dark'); ?>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#03070f;--bg-2:#080f1d;--bg-card:rgba(10,17,32,.7);--border:rgba(255,255,255,.07);--border-2:rgba(255,255,255,.12);--text:#e2e8f0;--muted:#475569;--muted-2:#64748b}
+/* Charte Nexium — bleu #1E6FE5 → violet #6C3FC5 · Montserrat / Inter */
+:root,:root[data-theme="dark"]{--bg:#0C1023;--bg-2:#171C31;--bg-card:#141a2e;--border:rgba(255,255,255,.08);--border-2:rgba(255,255,255,.16);--text:#F4F6FB;--muted:#565E78;--muted-2:#9aa3bc;--grad:linear-gradient(120deg,#1E6FE5,#6C3FC5);--surface:var(--bg-card);--text-2:var(--muted-2);--border-strong:var(--border-2)}
+:root[data-theme="light"]{--bg:#F5F6FA;--bg-2:#eef0f6;--bg-card:#FFFFFF;--border:#E4E7EF;--border-2:#D5DAE6;--text:#1A1F30;--muted:#98a0b4;--muted-2:#565E78}
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.5;display:flex;flex-direction:column;background-image:radial-gradient(ellipse 80% 50% at 20% -10%,rgba(59,130,246,.08) 0%,transparent 60%),radial-gradient(ellipse 60% 40% at 80% 110%,rgba(139,92,246,.06) 0%,transparent 60%)}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.5;display:flex;flex-direction:column;transition:background .25s,color .25s}
 .container{max-width:1400px;margin:0 auto;padding:0 2rem;width:100%}
 /* ── HEADER ── */
-header{background:rgba(3,7,15,.8);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
+header{background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
 .header-inner{height:64px;display:flex;justify-content:space-between;align-items:center}
-.brand{font-family:'Syne',sans-serif;font-size:1.15rem;font-weight:800;color:#fff;display:flex;align-items:center;gap:10px;text-decoration:none}
-.brand-icon{width:34px;height:34px;background:#3b82f6;border-radius:9px;display:grid;place-items:center;font-size:15px;color:#fff}
+.brand{font-family:'Montserrat',sans-serif;font-size:1.15rem;font-weight:800;color:var(--text);display:flex;align-items:center;gap:10px;text-decoration:none}
+.brand-icon{width:34px;height:34px;background:var(--grad);border-radius:9px;display:grid;place-items:center;font-size:15px;color:#fff}
 .header-right{display:flex;align-items:center;gap:12px}
 .user-chip{display:flex;align-items:center;gap:10px;padding:6px 14px 6px 6px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:50px}
 .user-avatar{width:32px;height:32px;border-radius:50%;background:#3b82f6;display:grid;place-items:center;font-weight:700;font-size:13px;overflow:hidden;flex-shrink:0}
@@ -287,7 +291,7 @@ footer{border-top:1px solid var(--border);padding:1.5rem 0;margin-top:auto}
 .page-hero{margin-bottom:2rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}
 .page-eyebrow{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.14em;color:#3b82f6;margin-bottom:.5rem;display:flex;align-items:center;gap:8px}
 .page-eyebrow::before{content:'';display:inline-block;width:20px;height:2px;background:#3b82f6;border-radius:1px}
-.page-title{font-family:'Syne',sans-serif;font-size:clamp(1.5rem,2.5vw,2rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:.35rem}
+.page-title{font-family:'Montserrat',sans-serif;font-size:clamp(1.5rem,2.5vw,2rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:.35rem}
 .page-sub{color:var(--muted-2);font-size:.9rem}
 /* ── GRID ── */
 .ep-grid{display:grid;grid-template-columns:320px 1fr;gap:1.5rem}
@@ -300,7 +304,7 @@ footer{border-top:1px solid var(--border);padding:1.5rem 0;margin-top:auto}
 /* ── PROFIL HERO ── */
 .ep-hero{display:flex;flex-direction:column;align-items:center;text-align:center;padding:1.75rem 1.25rem 1.25rem}
 .ep-avatar{width:68px;height:68px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.65rem;font-weight:700;color:#fff;margin-bottom:.9rem;border:3px solid}
-.ep-username{font-family:'Syne',sans-serif;font-size:1.1rem;font-weight:800;margin-bottom:.25rem}
+.ep-username{font-family:'Montserrat',sans-serif;font-size:1.1rem;font-weight:800;margin-bottom:.25rem}
 .ep-faction-badge{display:inline-flex;align-items:center;gap:.45rem;padding:.32rem .85rem;border-radius:20px;font-size:.75rem;font-weight:700;margin-bottom:.6rem}
 /* ── FIELDS ── */
 .ep-field{display:flex;justify-content:space-between;align-items:flex-start;padding:.5rem 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:.825rem;gap:.75rem}
@@ -312,12 +316,12 @@ footer{border-top:1px solid var(--border);padding:1.5rem 0;margin-top:auto}
 .ep-perm-no{background:rgba(100,116,139,.1);color:#475569;border:1px solid rgba(100,116,139,.15)}
 /* ── SALARY ── */
 .ep-salary-box{background:linear-gradient(135deg,rgba(59,130,246,.08),rgba(139,92,246,.05));border:1px solid rgba(59,130,246,.15);border-radius:10px;padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}
-.ep-salary-val{font-family:'Syne',sans-serif;font-size:1.4rem;font-weight:800;color:#93c5fd}
+.ep-salary-val{font-family:'Montserrat',sans-serif;font-size:1.4rem;font-weight:800;color:#93c5fd}
 /* ── KPI ROW ── */
 .ep-kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:.85rem;margin-bottom:1.5rem}
 .ep-kpi{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:1rem 1.1rem;backdrop-filter:blur(4px)}
 .ep-kpi-lbl{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--muted-2);margin-bottom:.35rem}
-.ep-kpi-val{font-family:'Syne',sans-serif;font-size:1.5rem;font-weight:800;line-height:1}
+.ep-kpi-val{font-family:'Montserrat',sans-serif;font-size:1.5rem;font-weight:800;line-height:1}
 .ep-kpi-val.green{color:#4ade80}.ep-kpi-val.red{color:#f87171}.ep-kpi-val.blue{color:#93c5fd}.ep-kpi-val.gold{color:#fcd34d}
 .ep-kpi-sub{font-size:.7rem;color:var(--muted-2);margin-top:.2rem}
 /* ── TABS ── */
@@ -332,7 +336,7 @@ footer{border-top:1px solid var(--border);padding:1.5rem 0;margin-top:auto}
 .ep-inv-desc{flex:1;min-width:0}
 .ep-inv-title{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ep-inv-sub{font-size:.7rem;color:var(--muted-2);margin-top:.1rem}
-.ep-inv-amount{font-family:'Syne',sans-serif;font-weight:800;flex-shrink:0;font-size:.9rem}
+.ep-inv-amount{font-family:'Montserrat',sans-serif;font-weight:800;flex-shrink:0;font-size:.9rem}
 /* ── CONTRAT ── */
 .ep-contract{background:rgba(217,119,6,.04);border:1px solid rgba(217,119,6,.2);border-radius:12px;padding:1.1rem;margin-bottom:.75rem}
 .ep-contract-title{font-weight:700;font-size:.9rem;margin-bottom:.35rem}
@@ -359,7 +363,7 @@ footer{border-top:1px solid var(--border);padding:1.5rem 0;margin-top:auto}
 /* ── MODAL ── */
 .ep-modal-ov{position:fixed;inset:0;background:rgba(0,0,0,.85);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;z-index:9999;padding:1.5rem}
 .ep-modal-ov.open{display:flex}
-.ep-modal{background:#0c1426;border:1px solid rgba(255,255,255,.1);border-radius:14px;width:90%;max-width:540px;overflow:hidden;box-shadow:0 25px 60px rgba(0,0,0,.6)}
+.ep-modal{background:var(--bg-card);border:1px solid var(--border-2);border-radius:14px;width:90%;max-width:540px;overflow:hidden;box-shadow:0 25px 60px rgba(0,0,0,.35)}
 .ep-modal-lg{max-width:700px}
 .ep-modal-hd{padding:1.1rem 1.4rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
 .ep-modal-hd h3{font-size:.95rem;font-weight:700;display:flex;align-items:center;gap:.5rem}
@@ -369,8 +373,8 @@ footer{border-top:1px solid var(--border);padding:1.5rem 0;margin-top:auto}
 .ep-modal-ft{padding:1rem 1.4rem;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:.65rem}
 /* ── BTNS ── */
 .ep-btn{display:inline-flex;align-items:center;gap:.45rem;padding:.6rem 1.15rem;border-radius:8px;font-weight:600;font-size:.815rem;cursor:pointer;transition:all .18s;text-decoration:none;border:none;font-family:inherit}
-.ep-btn-primary{background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff}
-.ep-btn-primary:hover{transform:translateY(-1px);box-shadow:0 4px 15px rgba(37,99,235,.35)}
+.ep-btn-primary{background:var(--grad);color:#fff}
+.ep-btn-primary:hover{filter:brightness(1.08)}
 .ep-btn-success{background:rgba(34,197,94,.1);color:#4ade80;border:1px solid rgba(34,197,94,.25)}
 .ep-btn-success:hover{background:rgba(34,197,94,.18)}
 .ep-btn-danger{background:rgba(239,68,68,.1);color:#f87171;border:1px solid rgba(239,68,68,.25)}
@@ -387,7 +391,7 @@ footer{border-top:1px solid var(--border);padding:1.5rem 0;margin-top:auto}
 @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
 .fade-in{animation:fadeUp .35s ease both}
 
-.page-nav{background:rgba(3,7,15,.88);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);position:sticky;top:64px;z-index:90}
+.page-nav{background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);position:sticky;top:64px;z-index:90}
 .page-nav-inner{display:flex;align-items:center;height:46px}
 .pnav{display:inline-flex;align-items:center;gap:.48rem;padding:0 1.3rem;height:100%;font-size:.82rem;font-weight:600;color:var(--muted-2);text-decoration:none;border-bottom:2px solid transparent;transition:all .18s;white-space:nowrap}
 .pnav:hover{color:var(--text);background:rgba(255,255,255,.02)}
@@ -409,9 +413,9 @@ footer{border-top:1px solid var(--border);padding:1.5rem 0;margin-top:auto}
 .law-filters{padding:.78rem 1.15rem;border-bottom:1px solid var(--border);display:flex;gap:.45rem;flex-wrap:wrap;align-items:center}
 .lois-inp-wrap{position:relative;flex:1;min-width:160px}
 .lois-inp-wrap i{position:absolute;left:.65rem;top:50%;transform:translateY(-50%);color:var(--muted);font-size:.72rem;pointer-events:none}
-.lois-inp{padding:.44rem .75rem .44rem 1.9rem;background:rgba(255,255,255,.04);border:1px solid var(--border-2);border-radius:7px;color:#f1f5f9;font-family:'DM Sans',sans-serif;font-size:.78rem;width:100%;transition:border-color .18s}
+.lois-inp{padding:.44rem .75rem .44rem 1.9rem;background:rgba(255,255,255,.04);border:1px solid var(--border-2);border-radius:7px;color:#f1f5f9;font-family:'Inter',sans-serif;font-size:.78rem;width:100%;transition:border-color .18s}
 .lois-inp:focus{outline:none;border-color:#3b82f6}
-.lois-sel{padding:.44rem .6rem;background:rgba(255,255,255,.04);border:1px solid var(--border-2);border-radius:7px;color:#e2e8f0;font-family:'DM Sans',sans-serif;font-size:.76rem;cursor:pointer}
+.lois-sel{padding:.44rem .6rem;background:rgba(255,255,255,.04);border:1px solid var(--border-2);border-radius:7px;color:#e2e8f0;font-family:'Inter',sans-serif;font-size:.76rem;cursor:pointer}
 .lois-sel:focus{outline:none;border-color:#3b82f6}
 .law-list{max-height:calc(100vh - 320px);overflow-y:auto;padding:.6rem}
 .law-list::-webkit-scrollbar{width:3px}.law-list::-webkit-scrollbar-thumb{background:rgba(59,130,246,.12)}
@@ -432,6 +436,14 @@ footer{border-top:1px solid var(--border);padding:1.5rem 0;margin-top:auto}
 .lp-tbl tr:hover td{background:rgba(59,130,246,.03)}
 .lp-sh{display:flex;align-items:center;gap:.48rem;padding:.36rem .7rem;border-radius:6px;margin:.52rem 0 .3rem;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em}
 @media(max-width:880px){.lois-grid{grid-template-columns:1fr}}
+/* ── Overrides thème clair (lisibilité des couleurs codées en dur) ── */
+:root[data-theme="light"] .ep-input,:root[data-theme="light"] .lois-inp{background:#F5F6FA;color:#1A1F30}
+:root[data-theme="light"] .ep-input:focus,:root[data-theme="light"] .lois-inp:focus{background:#fff}
+:root[data-theme="light"] .ep-field-val,:root[data-theme="light"] .lc-name,:root[data-theme="light"] .lois-sel{color:#1A1F30}
+:root[data-theme="light"] .law-item-body,:root[data-theme="light"] .ep-contract-preview{color:#3B4258}
+:root[data-theme="light"] .header-btn.active,:root[data-theme="light"] .ep-tab.on,:root[data-theme="light"] .pnav.on,:root[data-theme="light"] .ep-salary-val,:root[data-theme="light"] .ep-kpi-val.blue,:root[data-theme="light"] .law-num,:root[data-theme="light"] .pnav-badge{color:#1d4ed8}
+:root[data-theme="light"] .ep-inv-row,:root[data-theme="light"] .info-item,:root[data-theme="light"] .ep-kpi{background:#fff}
+<?php echo nexium_theme_toggle_css(); ?>
 </style>
 </head>
 <body>
@@ -456,6 +468,7 @@ footer{border-top:1px solid var(--border);padding:1.5rem 0;margin-top:auto}
                     <div class="user-role"><?php echo htmlspecialchars($_SESSION['user_role']); ?></div>
                 </div>
             </div>
+            <?php nexium_theme_toggle('header-btn'); ?>
             <a href="/pages/espace-perso.php" class="header-btn active" title="Mon Espace Personnel"><i class="fa-solid fa-id-card-clip"></i></a>
             <a href="/profile.php" class="header-btn" title="Paramètres"><i class="fa-solid fa-user-gear"></i></a>
             <a href="/pages/dashboard.php" class="header-btn" title="Retour au MDT"><i class="fa-solid fa-home"></i></a>
@@ -1041,7 +1054,7 @@ footer{border-top:1px solid var(--border);padding:1.5rem 0;margin-top:auto}
                         <div style="font-size:.72rem;color:var(--muted-2)"><?php echo date('d/m/Y H:i', strtotime($q['started_at'])); ?></div>
                     </div>
                     <div style="text-align:right">
-                        <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:1.1rem;color:<?php echo $passed?'#6ee7b7':'#fca5a5'; ?>"><?php echo (int)$q['percentage']; ?>%</div>
+                        <div style="font-family:'Montserrat',sans-serif;font-weight:800;font-size:1.1rem;color:<?php echo $passed?'#6ee7b7':'#fca5a5'; ?>"><?php echo (int)$q['percentage']; ?>%</div>
                         <div style="font-size:.68rem;color:var(--muted-2)"><?php echo (int)$q['score']; ?>/<?php echo (int)$q['total']; ?></div>
                     </div>
                     <span class="ep-badge" style="background:<?php echo $passed?'rgba(16,185,129,.14)':'rgba(239,68,68,.14)'; ?>;color:<?php echo $passed?'#6ee7b7':'#fca5a5'; ?>"><i class="fa-solid fa-<?php echo $passed?'check':'xmark'; ?>"></i> <?php echo $passed?'Réussi':'Échoué'; ?></span>
@@ -1140,7 +1153,7 @@ footer{border-top:1px solid var(--border);padding:1.5rem 0;margin-top:auto}
 <div class="lois-sidebar">
 <div class="ep-card">
 <div class="ep-card-hd"><div class="ep-card-title"><i class="fas fa-landmark" style="color:#3b82f6"></i> Codes &amp; Constitutions</div></div>
-<div style="padding:.55rem .75rem;border-bottom:1px solid var(--border)"><div style="position:relative"><i class="fas fa-search" style="position:absolute;left:.6rem;top:50%;transform:translateY(-50%);color:var(--muted);font-size:.68rem;pointer-events:none"></i><input type="text" style="padding:.4rem .65rem .4rem 1.75rem;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:6px;color:#e2e8f0;font-family:'DM Sans',sans-serif;font-size:.75rem;width:100%" placeholder="Filtrer..." oninput="filterLC(this.value)"></div></div>
+<div style="padding:.55rem .75rem;border-bottom:1px solid var(--border)"><div style="position:relative"><i class="fas fa-search" style="position:absolute;left:.6rem;top:50%;transform:translateY(-50%);color:var(--muted);font-size:.68rem;pointer-events:none"></i><input type="text" style="padding:.4rem .65rem .4rem 1.75rem;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:6px;color:#e2e8f0;font-family:'Inter',sans-serif;font-size:.75rem;width:100%" placeholder="Filtrer..." oninput="filterLC(this.value)"></div></div>
 <div class="lois-code-list">
 <?php foreach($laws as $ll): [$llt,$llc]=$LTYPE_META[$ll['type']]??['Code','#3b82f6']; $llact=(int)$ll['id']===$activeLawId; ?>
 <a class="lc-item <?php echo $llact?'on':''; ?>" href="?view=lois&law=<?php echo (int)$ll['id']; ?>" data-s="<?php echo strtolower(htmlspecialchars($ll['title'].' '.$ll['code'].' '.$llt)); ?>">
@@ -1158,7 +1171,7 @@ footer{border-top:1px solid var(--border);padding:1.5rem 0;margin-top:auto}
 <div><div style="font-weight:700;font-size:.83rem;color:#f1f5f9"><?php echo htmlspecialchars($activeLawObj['title']); ?></div><div style="font-size:.67rem;color:<?php echo $llc; ?>"><?php echo $llt; ?></div></div>
 </div>
 <?php if($activeLawObj['description']): ?><div style="font-size:.74rem;color:var(--muted-2);margin-bottom:.75rem;line-height:1.55"><?php echo htmlspecialchars($activeLawObj['description']); ?></div><?php endif; ?>
-<div class="ep-field"><span class="ep-field-lbl">Articles actifs</span><span class="ep-field-val" style="color:#93c5fd;font-family:'Syne',serif;font-weight:800"><?php echo $activeLawObj['nb_actifs']; ?></span></div>
+<div class="ep-field"><span class="ep-field-lbl">Articles actifs</span><span class="ep-field-val" style="color:#93c5fd;font-family:'Montserrat',serif;font-weight:800"><?php echo $activeLawObj['nb_actifs']; ?></span></div>
 <div class="ep-field" style="border:none"><span class="ep-field-lbl">Version</span><span class="ep-field-val"><?php echo htmlspecialchars($activeLawObj['version']??'1.0'); ?></span></div>
 </div></div>
 <?php endif; ?>
@@ -1390,5 +1403,6 @@ function showLaw(a){
 }
 
 </script>
+<?php nexium_theme_script(); ?>
 </body>
 </html>

@@ -281,13 +281,21 @@ class User {
      */
     private function updateDiscordInfo($id, $discordData) {
         try {
-            $avatar = null;
-            if (isset($discordData['avatar'])) {
-                $avatar = "https://cdn.discordapp.com/avatars/{$discordData['id']}/{$discordData['avatar']}.png";
+            if (!isset($discordData['avatar'])) {
+                return;
             }
-            
-            $sql = "UPDATE users SET avatar = :avatar WHERE id = :id";
-            $stmt = $this->db->prepare($sql);
+
+            // L'avatar Discord n'est appliqué que si l'utilisateur n'a pas déjà
+            // un avatar : un avatar personnalisé n'est jamais écrasé à la connexion.
+            $check = $this->db->prepare("SELECT avatar FROM users WHERE id = ? LIMIT 1");
+            $check->execute([$id]);
+            $current = trim((string) $check->fetchColumn());
+            if ($current !== '') {
+                return;
+            }
+
+            $avatar = "https://cdn.discordapp.com/avatars/{$discordData['id']}/{$discordData['avatar']}.png";
+            $stmt = $this->db->prepare("UPDATE users SET avatar = :avatar WHERE id = :id");
             $stmt->execute([
                 'id' => $id,
                 'avatar' => $avatar

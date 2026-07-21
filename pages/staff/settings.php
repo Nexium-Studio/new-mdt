@@ -79,9 +79,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
+        // Lien du serveur Discord — https:// obligatoire (ou vide pour effacer)
+        $discordWarn = '';
+        $discordUrl  = trim((string) ($_POST['discord_server_url'] ?? ''));
+        if ($discordUrl === '' || (filter_var($discordUrl, FILTER_VALIDATE_URL) && stripos($discordUrl, 'https://') === 0)) {
+            $db->prepare("INSERT INTO admin_settings (setting_key,setting_value) VALUES (?,?) ON DUPLICATE KEY UPDATE setting_value=?")->execute(['discord_server_url', $discordUrl, $discordUrl]);
+            $settings['discord_server_url'] = $discordUrl;
+        } else {
+            $discordWarn = ' Lien Discord ignoré : renseignez un lien complet commençant par https://.';
+        }
+
         // Refresh immediat du cache produits via l'API centrale
         $cacheResult = License::refresh($settings['licence_master_key'] ?? '');
-        $success = 'Parametres sauvegardes. ' . count($cacheResult['products'] ?? []) . ' produit(s) detecte(s).' . $hmacWarn;
+        $success = 'Parametres sauvegardes. ' . count($cacheResult['products'] ?? []) . ' produit(s) detecte(s).' . $hmacWarn . $discordWarn;
         if (!empty($cacheResult['last_error'])) {
             $error = 'Avertissement licence : ' . $cacheResult['last_error'];
         }
@@ -289,6 +299,28 @@ include __DIR__ . '/includes/header.php';
                             <?php endif; ?>
                         </small>
                     </div>
+                </div>
+            </div>
+        </div>
+        <div class="card" style="margin-top:24px;">
+            <div class="card-header"><div class="card-title"><i class="fa-brands fa-discord" style="color:#5865F2;"></i> Serveur Discord du serveur</div></div>
+            <div class="card-body">
+                <div class="alert alert-info" style="margin-bottom:16px;">
+                    <i class="fa-solid fa-circle-info"></i>
+                    <span>Veuillez renseigner le lien complet du serveur Discord, incluant obligatoirement <strong>https://</strong>. Ce lien est utilisé automatiquement par les pages qui en ont besoin (support « Mot de passe oublié », etc.).</span>
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <label class="form-label" style="display:flex;align-items:center;gap:6px;">
+                        <i class="fa-brands fa-discord" style="color:#5865F2;"></i> Lien d'invitation Discord
+                    </label>
+                    <input type="url" name="discord_server_url" class="form-control"
+                           value="<?php echo htmlspecialchars(getSetting('discord_server_url','')); ?>"
+                           placeholder="https://discord.gg/votre-invitation" pattern="https://.*"
+                           title="Le lien doit commencer par https://">
+                    <small style="display:block;margin-top:6px;color:var(--text-secondary);font-size:.75rem;">
+                        <i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b;"></i>
+                        Le lien doit commencer par <code>https://</code> (ex : <code>https://discord.gg/votre-invitation</code>).
+                    </small>
                 </div>
             </div>
         </div>
