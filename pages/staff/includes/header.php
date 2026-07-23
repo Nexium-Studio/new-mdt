@@ -452,8 +452,10 @@ select.form-control{cursor:pointer}
         $dojGeneralActive  = ($currentDir === 'doj' && $currentPage === 'general');
         $lsfdGeneralActive = ($currentDir === 'lsfd' && $currentPage === 'general');
         $lspdGeneralActive = ($currentDir === 'lspd' && $currentPage === 'general');
+        $lssdGeneralActive = ($currentDir === 'lssd' && $currentPage === 'general');
         $grpPanelsOpen     = $inContent && in_array($currentPage, ['panels','mdt','panel-builder','division'], true);
         $grpLspdOpen       = $lspdGeneralActive || ($inContent && in_array($currentPage, ['report-tags','dispatch-custom','dispatch-config','dispatch-theme'], true));
+        $grpLssdOpen       = ($currentDir === 'lssd');
         $grpSamsOpen       = $samsGeneralActive || ($inContent && in_array($currentPage, ['report-tags-sams','soins-sams'], true));
         $grpDojOpen        = $dojGeneralActive || ($inContent && in_array($currentPage, ['report-tags-doj'], true));
         $grpLsfdOpen       = $lsfdGeneralActive || ($inContent && in_array($currentPage, ['report-tags-lsfd'], true));
@@ -503,6 +505,29 @@ select.form-control{cursor:pointer}
                     <i class="fa-solid fa-radio" style="font-size:.65rem;color:#06b6d4;margin-right:2px;"></i>
                     Custom Dispatch <?php
                         static $ldcn=null; if($ldcn===null){ try{ $r=$db->prepare("SELECT custom_name FROM admin_panel_config WHERE panel_key='LSPD' LIMIT 1"); $r->execute(); $rw=$r->fetch(); $ldcn=($rw&&$rw['custom_name'])?htmlspecialchars($rw['custom_name']):'SASP'; }catch(Exception $e){$ldcn='SASP';} } echo $ldcn; ?></a>
+                <?php endif; ?>
+            </div>
+
+            <!-- Groupe : LSSD -->
+            <button class="nav-item <?php echo $grpLssdOpen ? 'active' : ''; ?>"
+                    onclick="toggleSubmenu('sub-lssd')" title="LSSD">
+                <span class="nav-icon"><i class="fa-solid fa-star"></i></span>
+                <span class="nav-label">LSSD</span>
+                <i class="fa-solid fa-chevron-down nav-chevron"></i>
+            </button>
+            <div class="nav-submenu <?php echo $grpLssdOpen ? 'open' : ''; ?>" id="sub-lssd">
+                <a href="<?php echo SITE_URL; ?>/pages/staff/content/lssd/general.php"
+                   class="nav-sub-item <?php echo $lssdGeneralActive ? 'active' : ''; ?>">
+                    <i class="fa-solid fa-palette" style="font-size:.65rem;color:#34d399;margin-right:2px;"></i> Général</a>
+                <a href="<?php echo SITE_URL; ?>/pages/staff/content/lssd/report-tags.php"
+                   class="nav-sub-item <?php echo ($currentDir === 'lssd' && $currentPage === 'report-tags') ? 'active' : ''; ?>">
+                    <i class="fa-solid fa-tags" style="font-size:.65rem;color:#34d399;margin-right:2px;"></i> Tag LSSD</a>
+                <?php if ($dispatchActive): ?>
+                <a href="<?php echo SITE_URL; ?>/pages/staff/content/lssd/dispatch-custom.php"
+                   class="nav-sub-item <?php echo ($currentDir === 'lssd' && in_array($currentPage, ['dispatch-custom','dispatch-config','dispatch-theme'], true)) ? 'active' : ''; ?>">
+                    <i class="fa-solid fa-radio" style="font-size:.65rem;color:#10b981;margin-right:2px;"></i>
+                    Custom Dispatch <?php
+                        static $lsdcn=null; if($lsdcn===null){ try{ $r=$db->prepare("SELECT custom_name FROM admin_panel_config WHERE panel_key='LSSD' LIMIT 1"); $r->execute(); $rw=$r->fetch(); $lsdcn=($rw&&$rw['custom_name'])?htmlspecialchars($rw['custom_name']):'LSSD'; }catch(Exception $e){$lsdcn='LSSD';} } echo $lsdcn; ?></a>
                 <?php endif; ?>
             </div>
 

@@ -1,0 +1,1657 @@
+<?php
+require_once __DIR__ . '/../../config/config.php';
+requireLogin();
+
+if (!in_array($_SESSION['user_faction'], ['LSPD', 'LSSD', 'DOJ']) && 
+    !hasRole(['*', 'Administrateur', 'Développeur', 'Staff', 'Modérateur', 'Helper', 'Pôle 911', 'Pôle Illégale', 'Pôle Légal']) && !is_demo_mode()) {
+    redirect(SITE_URL . '/pages/dashboard.php');
+}
+
+$db = Database::getInstance()->getConnection();
+
+// Filtres
+$statusFilter = $_GET['status'] ?? 'active';
+$search = $_GET['q'] ?? '';
+
+$where = "WHERE 1=1"; $params = [];
+if ($statusFilter) { $where .= " AND aw.status = ?"; $params[] = $statusFilter; }
+if ($search) { $where .= " AND (p.firstname LIKE ? OR p.lastname LIKE ? OR aw.offense_code LIKE ? OR aw.offense_title LIKE ?)"; $s = "%$search%"; $params = array_merge($params, [$s,$s,$s,$s]); }
+
+$stmt = $db->prepare("
+    SELECT aw.*, p.firstname, p.lastname, p.phone,
+        u.username as issued_by_name, u2.username as executed_by_name
+    FROM arrest_warrants aw 
+    JOIN profiles p ON aw.citizen_id = p.id
+    LEFT JOIN users u ON aw.issued_by = u.id 
+    LEFT JOIN users u2 ON aw.executed_by = u2.id
+    $where ORDER BY aw.created_at DESC LIMIT 200
+");
+$stmt->execute($params);
+$warrants = $stmt->fetchAll();
+
+$totalWarrants = count($warrants);
+$activeCount = $db->query("SELECT COUNT(*) FROM arrest_warrants WHERE status='active'")->fetchColumn();
+$executedCount = $db->query("SELECT COUNT(*) FROM arrest_warrants WHERE status='executed'")->fetchColumn();
+
+$typeLabels = ['arrest'=>'Arrestation','search'=>'Perquisition','seizure'=>'Saisie'];
+$typeIcons = ['arrest'=>'handcuffs','search'=>'search-location','seizure'=>'box-open'];
+$sevLabels = ['low'=>'Faible','medium'=>'Moyen','high'=>'Élevé','critical'=>'Critique'];
+$sevColors = ['low'=>'#22c55e','medium'=>'#f59e0b','high'=>'#f97316','critical'=>'#ef4444'];
+$statusLabels = ['active'=>'Actif','executed'=>'Exécuté','cancelled'=>'Annulé','expired'=>'Expiré'];
+$statusColors = ['active'=>'#10b981','executed'=>'#22c55e','cancelled'=>'#ef4444','expired'=>'#64748b'];
+
+$pageTitle = 'Mandats d\'Arrêt';
+include __DIR__ . '/includes/header.php';
+?>
+
+<style>
+.warrant-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(400px, 1fr)); gap:1.25rem; }
+.warrant-card { background:var(--lssd-surface); border:1px solid var(--lssd-border); border-radius:14px; padding:1.5rem; transition:all 0.3s cubic-bezier(0.22,1,0.36,1); position:relative; overflow:hidden; }
+.warrant-card::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; opacity:0; transition:opacity 0.3s; }
+.warrant-card:hover { border-color:var(--lssd-border-hover); transform:translateY(-3px); box-shadow:0 8px 30px var(--lssd-glow); }
+.warrant-card:hover::before { opacity:1; }
+.warrant-card.status-active::before { background:linear-gradient(90deg,transparent,#10b981,transparent); opacity:1; }
+.warrant-card.status-active { border-color:rgba(16,185,129,0.15); }
+.warrant-card.severity-critical { border-color:rgba(239,68,68,0.2); }
+.warrant-card.severity-critical::before { background:linear-gradient(90deg,transparent,#ef4444,transparent); opacity:1; animation:critPulse 2s ease-in-out infinite; }
+@keyframes critPulse { 0%,100%{opacity:0.4;} 50%{opacity:1;} }
+
+.warrant-citizen { display:flex; align-items:center; gap:1rem; margin-bottom:1.25rem; padding-bottom:1rem; border-bottom:1px solid rgba(0,229,255,0.06); }
+.warrant-avatar { width:48px; height:48px; border-radius:12px; background:linear-gradient(135deg,rgba(239,68,68,0.15),rgba(239,68,68,0.3)); border:1px solid rgba(239,68,68,0.25); display:flex; align-items:center; justify-content:center; font-family:'Orbitron',monospace; font-weight:800; font-size:1rem; color:#ef4444; flex-shrink:0; }
+.warrant-citizen-name { font-family:'Chakra Petch',sans-serif; font-weight:700; font-size:1rem; color:var(--lssd-text); }
+.warrant-citizen-meta { font-family:'JetBrains Mono',monospace; font-size:0.72rem; color:var(--lssd-text-muted); margin-top:2px; }
+
+.warrant-offense { margin-bottom:1rem; }
+.warrant-offense-code { font-family:'Orbitron',monospace; font-size:0.85rem; font-weight:800; letter-spacing:1px; color:var(--lssd-primary); }
+.warrant-offense-title { font-size:0.88rem; color:var(--lssd-text-secondary); margin-top:3px; }
+
+.warrant-tags { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:1rem; }
+.warrant-tag { padding:4px 10px; border-radius:6px; font-family:'JetBrains Mono',monospace; font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; display:inline-flex; align-items:center; gap:5px; }
+
+.warrant-details { display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; padding-top:0.75rem; border-top:1px solid rgba(0,229,255,0.04); }
+.warrant-detail-label { font-family:'Orbitron',monospace; font-size:0.55rem; font-weight:600; letter-spacing:1.2px; text-transform:uppercase; color:var(--lssd-text-muted); margin-bottom:2px; }
+.warrant-detail-value { font-family:'JetBrains Mono',monospace; font-size:0.85rem; font-weight:600; }
+
+/* View modal */
+.warrant-view-section { margin-bottom:1.5rem; }
+.warrant-view-section:last-child { margin-bottom:0; }
+.warrant-view-label { font-family:'Orbitron',monospace; font-size:0.6rem; font-weight:600; letter-spacing:1.5px; text-transform:uppercase; color:var(--lssd-text-muted); margin-bottom:6px; }
+.warrant-view-value { font-size:0.9rem; color:var(--lssd-text); line-height:1.6; }
+
+.filter-bar { display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap; }
+.filter-btn { padding:0.5rem 1rem; border-radius:8px; font-family:'Chakra Petch',sans-serif; font-size:0.82rem; font-weight:600; border:1px solid rgba(0,229,255,0.1); background:transparent; color:var(--lssd-text-muted); cursor:pointer; text-decoration:none; transition:all 0.2s; }
+.filter-btn:hover { border-color:rgba(0,229,255,0.2); color:var(--lssd-text); }
+.filter-btn.active { background:rgba(0,229,255,0.08); border-color:rgba(0,229,255,0.3); color:var(--lssd-primary); }
+/* ============================================
+   LSSD PANEL - PREMIUM DESIGN SYSTEM
+   Matching DOJ quality with cyan theme
+   ============================================ */
+
+/* === FONTS === */
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Chakra+Petch:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap');
+
+/* === CSS VARIABLES === */
+:root {
+    --lssd-primary: #00e5ff;
+    --lssd-primary-rgb: 0, 229, 255;
+    --lssd-secondary: #0066ff;
+    --lssd-accent: #00b8d4;
+    --lssd-bg: #0a0e1a;
+    --lssd-surface: #0f172a;
+    --lssd-surface-2: #1e293b;
+    --lssd-surface-3: #334155;
+    --lssd-border: rgba(0, 229, 255, 0.1);
+    --lssd-border-hover: rgba(0, 229, 255, 0.3);
+    --lssd-text: #f1f5f9;
+    --lssd-text-secondary: #94a3b8;
+    --lssd-text-muted: #64748b;
+    --lssd-glow: rgba(0, 229, 255, 0.15);
+    --lssd-glow-strong: rgba(0, 229, 255, 0.35);
+    --lssd-danger: #ef4444;
+    --lssd-warning: #f59e0b;
+    --lssd-success: #22c55e;
+    --lssd-info: #10b981;
+    --sidebar-width: 260px;
+}
+
+/* === RESET & BASE === */
+body.lssd-panel {
+    margin: 0;
+    padding: 0;
+    font-family: 'Chakra Petch', sans-serif;
+    background: var(--lssd-bg);
+    color: var(--lssd-text);
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+body.lssd-panel * { box-sizing: border-box; }
+
+/* === SCROLLBAR === */
+body.lssd-panel ::-webkit-scrollbar { width: 6px; height: 6px; }
+body.lssd-panel ::-webkit-scrollbar-track { background: transparent; }
+body.lssd-panel ::-webkit-scrollbar-thumb { background: rgba(0, 229, 255, 0.2); border-radius: 3px; }
+body.lssd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 0.4); }
+
+/* ============================================
+   SIDEBAR
+   ============================================ */
+.lssd-sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: var(--sidebar-width);
+    background: linear-gradient(180deg, #0c1220 0%, #0a0e1a 100%);
+    border-right: 1px solid var(--lssd-border);
+    display: flex;
+    flex-direction: column;
+    z-index: 1000;
+    overflow: hidden;
+}
+
+.sidebar-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid var(--lssd-border);
+    text-align: center;
+}
+
+.sidebar-logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    font-family: 'Orbitron', monospace;
+    font-weight: 800;
+    font-size: 1.15rem;
+    letter-spacing: 2px;
+    color: var(--lssd-primary);
+    text-shadow: 0 0 20px rgba(0, 229, 255, 0.5);
+}
+
+.sidebar-logo svg {
+    color: var(--lssd-primary);
+    filter: drop-shadow(0 0 8px rgba(0, 229, 255, 0.5));
+}
+
+/* Progress bar under logo */
+.sidebar-header::after {
+    content: '';
+    display: block;
+    height: 2px;
+    margin-top: 1rem;
+    background: linear-gradient(90deg, transparent, var(--lssd-primary), transparent);
+    border-radius: 1px;
+    opacity: 0.5;
+}
+
+/* Navigation */
+.sidebar-nav {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0.75rem 1rem;
+    border-radius: 10px;
+    color: var(--lssd-text-secondary);
+    text-decoration: none;
+    font-family: 'Chakra Petch', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 500;
+    transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+    position: relative;
+    border: 1px solid transparent;
+}
+
+.nav-item svg,
+.nav-item i {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    opacity: 0.6;
+    transition: all 0.25s;
+}
+
+.nav-item i {
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.nav-item:hover {
+    background: rgba(0, 229, 255, 0.06);
+    color: var(--lssd-text);
+    border-color: rgba(0, 229, 255, 0.08);
+}
+
+.nav-item:hover svg,
+.nav-item:hover i {
+    opacity: 1;
+    color: var(--lssd-primary);
+}
+
+.nav-item.active {
+    background: rgba(0, 229, 255, 0.08);
+    color: var(--lssd-primary);
+    border-color: rgba(0, 229, 255, 0.15);
+    font-weight: 600;
+}
+
+.nav-item.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 60%;
+    background: var(--lssd-primary);
+    border-radius: 0 3px 3px 0;
+    box-shadow: 0 0 10px rgba(0, 229, 255, 0.5);
+}
+
+.nav-item.active svg,
+.nav-item.active i {
+    opacity: 1;
+    color: var(--lssd-primary);
+    filter: drop-shadow(0 0 5px rgba(0, 229, 255, 0.4));
+}
+
+.nav-divider {
+    height: 1px;
+    background: var(--lssd-border);
+    margin: 0.75rem 0.5rem;
+}
+
+.nav-logout { color: #ef4444 !important; }
+.nav-logout:hover { background: rgba(239, 68, 68, 0.06) !important; }
+.nav-logout svg,
+.nav-logout i { color: #ef4444 !important; opacity: 0.6; }
+.nav-logout:hover svg,
+.nav-logout:hover i { opacity: 1; }
+
+/* Sidebar Footer / User Card */
+.sidebar-footer {
+    padding: 0.75rem;
+    border-top: 1px solid var(--lssd-border);
+}
+
+.user-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0.75rem;
+    border-radius: 10px;
+    background: rgba(0, 229, 255, 0.04);
+    border: 1px solid rgba(0, 229, 255, 0.08);
+}
+
+.user-avatar { flex-shrink: 0; }
+
+.user-avatar img,
+.avatar-placeholder {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    object-fit: cover;
+}
+
+.avatar-placeholder {
+    background: linear-gradient(135deg, rgba(0, 229, 255, 0.2), rgba(0, 102, 255, 0.2));
+    border: 1px solid rgba(0, 229, 255, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Orbitron', monospace;
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--lssd-primary);
+}
+
+.user-name {
+    font-family: 'Chakra Petch', sans-serif;
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: var(--lssd-text);
+}
+
+.user-role {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--lssd-primary);
+    opacity: 0.8;
+}
+
+/* ============================================
+   MAIN CONTENT
+   ============================================ */
+.main-content {
+    margin-left: var(--sidebar-width);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* === TOPBAR === */
+.lssd-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 2rem;
+    height: 65px;
+    background: rgba(10, 14, 26, 0.85);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--lssd-border);
+}
+
+.topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.sidebar-toggle {
+    display: none;
+    background: none;
+    border: none;
+    color: var(--lssd-text-secondary);
+    cursor: pointer;
+    padding: 0.5rem;
+}
+
+.page-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--lssd-text);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.page-title i {
+    color: var(--lssd-primary);
+    font-size: 1rem;
+}
+
+.topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.badge-lssd {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 0.5rem 1rem;
+    background: rgba(0, 229, 255, 0.06);
+    border: 1px solid rgba(0, 229, 255, 0.2);
+    border-radius: 8px;
+    color: var(--lssd-primary);
+}
+
+/* === PAGE CONTENT === */
+.page-content {
+    flex: 1;
+    padding: 2rem;
+}
+
+/* ============================================
+   CARDS
+   ============================================ */
+.card {
+    background: var(--lssd-surface);
+    border: 1px solid var(--lssd-border);
+    border-radius: 14px;
+    overflow: hidden;
+    transition: all 0.3s;
+}
+
+.card:hover {
+    border-color: rgba(0, 229, 255, 0.15);
+}
+
+.card-header {
+    padding: 1.25rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--lssd-border);
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.card-header h2 {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--lssd-text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+}
+
+.card-header h2 i {
+    color: var(--lssd-primary);
+}
+
+/* ============================================
+   STATS
+   ============================================ */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1.25rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card {
+    background: var(--lssd-surface);
+    border: 1px solid var(--lssd-border);
+    border-radius: 14px;
+    padding: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--lssd-primary), transparent);
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.stat-card:hover {
+    border-color: var(--lssd-border-hover);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 30px var(--lssd-glow);
+}
+
+.stat-card:hover::before { opacity: 1; }
+
+.stat-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(0, 229, 255, 0.1), rgba(0, 102, 255, 0.1));
+    border: 1px solid rgba(0, 229, 255, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.stat-icon svg,
+.stat-icon i {
+    width: 24px;
+    height: 24px;
+    color: var(--lssd-primary);
+    font-size: 1.25rem;
+}
+
+.stat-content { flex: 1; }
+
+.stat-label {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--lssd-text-muted);
+    margin-bottom: 6px;
+}
+
+.stat-value {
+    font-family: 'Orbitron', monospace;
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: var(--lssd-primary);
+    line-height: 1;
+    text-shadow: 0 0 20px rgba(0, 229, 255, 0.3);
+}
+
+.stat-trend {
+    font-size: 0.75rem;
+    color: var(--lssd-text-muted);
+    margin-top: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+}
+
+/* ============================================
+   DASHBOARD
+   ============================================ */
+.welcome-banner {
+    background: linear-gradient(135deg, rgba(0, 229, 255, 0.06), rgba(0, 102, 255, 0.04));
+    border: 1px solid rgba(0, 229, 255, 0.12);
+    border-radius: 16px;
+    padding: 2.5rem;
+    margin-bottom: 2rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.welcome-banner::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--lssd-primary), transparent);
+    animation: pulseGlow 3s ease-in-out infinite;
+}
+
+@keyframes pulseGlow {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 1; }
+}
+
+.welcome-content h1 {
+    font-family: 'Orbitron', monospace;
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--lssd-primary);
+    margin: 0 0 0.5rem 0;
+    text-shadow: 0 0 30px rgba(0, 229, 255, 0.4);
+}
+
+.welcome-content p {
+    font-family: 'Chakra Petch', sans-serif;
+    font-size: 1rem;
+    color: var(--lssd-text-secondary);
+    margin: 0 0 1.5rem 0;
+}
+
+.welcome-stats {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.welcome-stat-item {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.6rem 1.25rem;
+    background: rgba(0, 229, 255, 0.06);
+    border: 1px solid rgba(0, 229, 255, 0.12);
+    border-radius: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--lssd-primary);
+}
+
+.welcome-stat-icon { font-size: 1.25rem; }
+
+/* Quick Actions */
+.quick-actions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.25rem;
+}
+
+.quick-action-card {
+    background: var(--lssd-surface);
+    border: 1px solid var(--lssd-border);
+    border-radius: 14px;
+    padding: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    text-decoration: none;
+    transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.quick-action-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--lssd-primary), transparent);
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.quick-action-card:hover {
+    border-color: var(--lssd-border-hover);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 30px var(--lssd-glow);
+}
+
+.quick-action-card:hover::before { opacity: 1; }
+
+.quick-action-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(0, 229, 255, 0.1), rgba(0, 102, 255, 0.1));
+    border: 1px solid rgba(0, 229, 255, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.quick-action-icon svg,
+.quick-action-icon i {
+    width: 24px;
+    height: 24px;
+    color: var(--lssd-primary);
+    font-size: 1.2rem;
+}
+
+.quick-action-content h3 {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--lssd-text);
+    margin: 0 0 4px 0;
+}
+
+.quick-action-content p {
+    font-size: 0.82rem;
+    color: var(--lssd-text-muted);
+    margin: 0;
+}
+
+/* ============================================
+   TABLES
+   ============================================ */
+.table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.table thead th {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--lssd-text-muted);
+    padding: 1rem 1.25rem;
+    text-align: left;
+    border-bottom: 1px solid var(--lssd-border);
+    background: rgba(0, 229, 255, 0.02);
+}
+
+.table tbody tr {
+    transition: all 0.2s;
+}
+
+.table tbody tr:hover {
+    background: rgba(0, 229, 255, 0.03);
+}
+
+.table tbody td {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid rgba(0, 229, 255, 0.04);
+    font-size: 0.88rem;
+    color: var(--lssd-text-secondary);
+}
+
+.table tbody td:first-child {
+    font-weight: 600;
+    color: var(--lssd-text);
+}
+
+/* ============================================
+   BADGES
+   ============================================ */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.badge-lssd {
+    background: rgba(0, 229, 255, 0.08);
+    border: 1px solid rgba(0, 229, 255, 0.2);
+    color: var(--lssd-primary);
+}
+
+.badge-lssd {
+    background: rgba(245, 158, 11, 0.08);
+    border: 1px solid rgba(245, 158, 11, 0.2);
+    color: #f59e0b;
+}
+
+.badge-danger {
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+}
+
+.badge-success {
+    background: rgba(34, 197, 94, 0.08);
+    border: 1px solid rgba(34, 197, 94, 0.2);
+    color: #22c55e;
+}
+
+.badge-warning {
+    background: rgba(245, 158, 11, 0.08);
+    border: 1px solid rgba(245, 158, 11, 0.2);
+    color: #f59e0b;
+}
+
+/* ============================================
+   BUTTONS
+   ============================================ */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0.75rem 1.5rem;
+    border-radius: 10px;
+    font-family: 'Chakra Petch', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-decoration: none;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, rgba(0, 229, 255, 0.15), rgba(0, 102, 255, 0.15));
+    border-color: rgba(0, 229, 255, 0.3);
+    color: var(--lssd-primary);
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, rgba(0, 229, 255, 0.25), rgba(0, 102, 255, 0.25));
+    border-color: rgba(0, 229, 255, 0.5);
+    box-shadow: 0 4px 20px rgba(0, 229, 255, 0.2);
+    transform: translateY(-1px);
+}
+
+.btn-secondary {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: var(--lssd-text-secondary);
+}
+
+.btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.2);
+    color: var(--lssd-text);
+}
+
+.btn-danger {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.3);
+    color: #ef4444;
+}
+
+.btn-danger:hover {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: rgba(239, 68, 68, 0.5);
+}
+
+.btn-sm {
+    padding: 0.5rem 1rem;
+    font-size: 0.78rem;
+}
+
+/* ============================================
+   FORMS
+   ============================================ */
+.form-group { margin-bottom: 1.25rem; }
+
+.form-label {
+    display: block;
+    font-family: 'Orbitron', monospace;
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--lssd-text-muted);
+    margin-bottom: 0.5rem;
+}
+
+.form-input,
+.form-select,
+.form-textarea {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--lssd-border);
+    border-radius: 10px;
+    color: var(--lssd-text);
+    font-family: 'Chakra Petch', sans-serif;
+    font-size: 0.88rem;
+    transition: all 0.3s;
+}
+
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus {
+    outline: none;
+    border-color: var(--lssd-border-hover);
+    box-shadow: 0 0 15px var(--lssd-glow);
+    background: rgba(0, 0, 0, 0.35);
+}
+
+.form-input::placeholder,
+.form-textarea::placeholder {
+    color: var(--lssd-text-muted);
+}
+
+.form-select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M6 8L1 3h10z' fill='%2364748b'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 1rem center;
+    padding-right: 2.5rem;
+}
+
+.form-select option {
+    background: #1e293b;
+    color: #e2e8f0;
+}
+
+.form-textarea { resize: vertical; min-height: 100px; }
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.25rem;
+}
+
+.form-full { grid-column: 1 / -1; }
+
+/* ============================================
+   MODALS
+   ============================================ */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    padding: 2rem;
+}
+
+.modal-overlay.hidden { display: none; }
+
+.modal {
+    background: var(--lssd-surface);
+    border: 1px solid var(--lssd-border);
+    border-radius: 16px;
+    width: 100%;
+    max-width: 600px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 40px var(--lssd-glow);
+}
+
+.modal-large { max-width: 800px; }
+
+.modal > form {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.modal-header {
+    padding: 1.25rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--lssd-border);
+    flex-shrink: 0;
+}
+
+.modal-header h2 {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--lssd-text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+}
+
+.modal-header h2 i { color: var(--lssd-primary); }
+
+.modal-close {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: var(--lssd-text-muted);
+    font-size: 1.1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.modal-close:hover {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.3);
+    color: #ef4444;
+}
+
+.modal-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.5rem;
+    min-height: 0;
+}
+
+.modal-footer {
+    padding: 1rem 1.5rem;
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    border-top: 1px solid var(--lssd-border);
+    flex-shrink: 0;
+}
+
+/* ============================================
+   GRIDS
+   ============================================ */
+.grid { display: grid; gap: 1.25rem; }
+.grid-2 { grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); }
+.grid-3 { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+
+/* ============================================
+   ACTIONS BAR
+   ============================================ */
+.actions-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+}
+
+/* ============================================
+   SEARCH
+   ============================================ */
+.search-box-large {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.search-box-large svg,
+.search-box-large i {
+    position: absolute;
+    left: 1rem;
+    color: var(--lssd-text-muted);
+    width: 18px;
+    height: 18px;
+    font-size: 0.85rem;
+    pointer-events: none;
+}
+
+.search-box-large input {
+    padding: 0.75rem 1rem 0.75rem 2.8rem;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--lssd-border);
+    border-radius: 10px;
+    color: var(--lssd-text);
+    font-family: 'Chakra Petch', sans-serif;
+    font-size: 0.88rem;
+    min-width: 300px;
+    transition: all 0.3s;
+}
+
+.search-box-large input:focus {
+    outline: none;
+    border-color: var(--lssd-border-hover);
+    box-shadow: 0 0 15px var(--lssd-glow);
+}
+
+.search-box-large input::placeholder { color: var(--lssd-text-muted); }
+
+/* ============================================
+   PROFILES
+   ============================================ */
+.profiles-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 1.25rem;
+}
+
+.profile-card {
+    background: var(--lssd-surface);
+    border: 1px solid var(--lssd-border);
+    border-radius: 14px;
+    padding: 1.5rem;
+    transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.profile-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--lssd-primary), transparent);
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.profile-card:hover {
+    border-color: var(--lssd-border-hover);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 30px var(--lssd-glow);
+}
+
+.profile-card:hover::before { opacity: 1; }
+
+.profile-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.25rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid rgba(0, 229, 255, 0.06);
+}
+
+.profile-name {
+    font-family: 'Chakra Petch', sans-serif;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--lssd-text);
+}
+
+.profile-id {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--lssd-primary);
+    margin-top: 3px;
+    opacity: 0.8;
+}
+
+.profile-info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+}
+
+.profile-info-item {
+    padding: 0.65rem 0.85rem;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(0, 229, 255, 0.04);
+    border-radius: 8px;
+}
+
+.profile-info-label {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.55rem;
+    font-weight: 600;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--lssd-text-muted);
+    margin-bottom: 3px;
+    display: block;
+}
+
+.profile-info-value {
+    font-family: 'Chakra Petch', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--lssd-text);
+    display: block;
+}
+
+.licenses {
+    display: flex;
+    gap: 8px;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(0, 229, 255, 0.06);
+}
+
+.license-badge {
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background: rgba(34, 197, 94, 0.08);
+    border: 1px solid rgba(34, 197, 94, 0.25);
+    color: #22c55e;
+}
+
+.license-badge.inactive {
+    background: rgba(239, 68, 68, 0.06);
+    border-color: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    opacity: 0.6;
+}
+
+/* ============================================
+   VEHICLES
+   ============================================ */
+.vehicle-card {
+    background: var(--lssd-surface);
+    border: 1px solid var(--lssd-border);
+    border-radius: 14px;
+    padding: 1.5rem;
+    transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.vehicle-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--lssd-primary), transparent);
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.vehicle-card:hover {
+    border-color: var(--lssd-border-hover);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 30px var(--lssd-glow);
+}
+
+.vehicle-card:hover::before { opacity: 1; }
+
+.vehicle-model {
+    font-family: 'Chakra Petch', sans-serif;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--lssd-text);
+    margin-bottom: 0.5rem;
+}
+
+.vehicle-plate {
+    font-family: 'Orbitron', monospace;
+    font-size: 1rem;
+    font-weight: 800;
+    letter-spacing: 3px;
+    color: var(--lssd-primary);
+    padding: 0.5rem 1rem;
+    background: rgba(0, 229, 255, 0.06);
+    border: 1px solid rgba(0, 229, 255, 0.15);
+    border-radius: 8px;
+    display: inline-block;
+    margin-bottom: 0.75rem;
+    text-shadow: 0 0 10px rgba(0, 229, 255, 0.3);
+}
+
+.vehicle-owner {
+    font-size: 0.85rem;
+    color: var(--lssd-text-secondary);
+    padding: 0.5rem 0.85rem;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    margin-top: 0.5rem;
+}
+
+/* ============================================
+   REPORTS
+   ============================================ */
+.report-card {
+    background: var(--lssd-surface);
+    border: 1px solid var(--lssd-border);
+    border-radius: 14px;
+    padding: 1.5rem;
+    transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.report-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--lssd-primary), transparent);
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.report-card:hover {
+    border-color: var(--lssd-border-hover);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 30px var(--lssd-glow);
+}
+
+.report-card:hover::before { opacity: 1; }
+
+.report-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.report-type {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--lssd-primary);
+    text-transform: uppercase;
+}
+
+.report-id {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--lssd-text-muted);
+}
+
+.report-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.report-tag {
+    padding: 3px 10px;
+    border-radius: 5px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background: rgba(0, 229, 255, 0.06);
+    border: 1px solid rgba(0, 229, 255, 0.15);
+    color: var(--lssd-primary);
+}
+
+/* ============================================
+   WANTED
+   ============================================ */
+.wanted-card {
+    background: var(--lssd-surface);
+    border: 1px solid rgba(239, 68, 68, 0.12);
+    border-radius: 14px;
+    padding: 1.5rem;
+    transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.wanted-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #ef4444, transparent);
+    opacity: 0.6;
+}
+
+.wanted-card:hover {
+    border-color: rgba(239, 68, 68, 0.3);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 30px rgba(239, 68, 68, 0.1);
+}
+
+.wanted-card h3 {
+    font-family: 'Chakra Petch', sans-serif;
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: var(--lssd-text);
+    margin: 0 0 1rem 0;
+}
+
+.wanted-level {
+    display: inline-block;
+    padding: 4px 14px;
+    border-radius: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 1rem;
+}
+
+.wanted-level.high,
+.wanted-level.critique {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #ef4444;
+    animation: criticalPulse 2s ease-in-out infinite;
+}
+
+.wanted-level.medium,
+.wanted-level.moyen {
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    color: #f59e0b;
+}
+
+.wanted-level.low,
+.wanted-level.faible {
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    color: #10b981;
+}
+
+@keyframes criticalPulse {
+    0%, 100% { box-shadow: 0 0 5px rgba(239, 68, 68, 0.2); }
+    50% { box-shadow: 0 0 15px rgba(239, 68, 68, 0.4); }
+}
+
+/* ============================================
+   ALERTS
+   ============================================ */
+.alert {
+    padding: 1rem 1.5rem;
+    border-radius: 10px;
+    margin-bottom: 1.5rem;
+    font-size: 0.88rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.alert-info {
+    background: rgba(0, 229, 255, 0.06);
+    border: 1px solid rgba(0, 229, 255, 0.15);
+    color: var(--lssd-primary);
+}
+
+.alert-error {
+    background: rgba(239, 68, 68, 0.06);
+    border: 1px solid rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+}
+
+.alert-success {
+    background: rgba(34, 197, 94, 0.06);
+    border: 1px solid rgba(34, 197, 94, 0.15);
+    color: #22c55e;
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+@media (max-width: 1024px) {
+    .lssd-sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.3s;
+    }
+    .lssd-sidebar.open { transform: translateX(0); }
+    .main-content { margin-left: 0; }
+    .sidebar-toggle { display: block; }
+    .form-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 640px) {
+    .page-content { padding: 1rem; }
+    .stats-grid { grid-template-columns: 1fr 1fr; }
+    .profiles-grid { grid-template-columns: 1fr; }
+    .quick-actions-grid { grid-template-columns: 1fr; }
+    .welcome-content h1 { font-size: 1.4rem; }
+}
+</style>
+
+<!-- Stats -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon"><i class="fas fa-scroll"></i></div>
+        <div class="stat-content"><div class="stat-label">Total Mandats</div><div class="stat-value"><?php echo $totalWarrants; ?></div></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background:linear-gradient(135deg,rgba(16,185,129,0.1),rgba(16,185,129,0.2));border-color:rgba(16,185,129,0.3);"><i class="fas fa-crosshairs" style="color:#10b981;"></i></div>
+        <div class="stat-content"><div class="stat-label">Actifs</div><div class="stat-value" style="color:#10b981;"><?php echo $activeCount; ?></div></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background:linear-gradient(135deg,rgba(34,197,94,0.1),rgba(34,197,94,0.2));border-color:rgba(34,197,94,0.3);"><i class="fas fa-check-circle" style="color:#22c55e;"></i></div>
+        <div class="stat-content"><div class="stat-label">Exécutés</div><div class="stat-value" style="color:#22c55e;"><?php echo $executedCount; ?></div></div>
+    </div>
+</div>
+
+<!-- Filtres -->
+<div class="card" style="margin-bottom:1.5rem;">
+    <div class="card-header">
+        <h2><i class="fas fa-scroll"></i> Mandats — Consultation</h2>
+        <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;">
+            <div class="filter-bar">
+                <a href="?status=active" class="filter-btn <?php echo $statusFilter==='active'?'active':''; ?>">Actifs</a>
+                <a href="?status=executed" class="filter-btn <?php echo $statusFilter==='executed'?'active':''; ?>">Exécutés</a>
+                <a href="?status=cancelled" class="filter-btn <?php echo $statusFilter==='cancelled'?'active':''; ?>">Annulés</a>
+                <a href="?status=" class="filter-btn <?php echo !$statusFilter?'active':''; ?>">Tous</a>
+            </div>
+            <form method="GET" style="display:flex;gap:0.5rem;">
+                <input type="hidden" name="status" value="<?php echo htmlspecialchars($statusFilter); ?>">
+                <div class="search-box-large">
+                    <i class="fas fa-search"></i>
+                    <input type="text" name="q" value="<?php echo htmlspecialchars($search); ?>" placeholder="Rechercher nom, code..." style="min-width:220px;">
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Liste -->
+<?php if (empty($warrants)): ?>
+    <div style="text-align:center;padding:4rem;color:var(--lssd-text-muted);">
+        <i class="fas fa-check-circle" style="font-size:3rem;color:var(--lssd-success);margin-bottom:1rem;display:block;"></i>
+        <p style="font-size:1.1rem;">Aucun mandat trouvé</p>
+    </div>
+<?php else: ?>
+    <div class="warrant-grid">
+        <?php foreach ($warrants as $w): ?>
+            <?php $initials = strtoupper(mb_substr($w['firstname'],0,1) . mb_substr($w['lastname'],0,1)); ?>
+            <div class="warrant-card status-<?php echo $w['status']; ?> severity-<?php echo $w['severity']; ?>">
+                <!-- Citoyen -->
+                <div class="warrant-citizen">
+                    <div class="warrant-avatar"><?php echo $initials; ?></div>
+                    <div style="flex:1;min-width:0;">
+                        <div class="warrant-citizen-name"><?php echo htmlspecialchars($w['firstname'] . ' ' . $w['lastname']); ?></div>
+                        <div class="warrant-citizen-meta">ID #<?php echo $w['citizen_id']; ?><?php if (!empty($w['phone'])): ?> • <?php echo htmlspecialchars($w['phone']); ?><?php endif; ?></div>
+                    </div>
+                    <span class="warrant-tag" style="background:<?php echo $statusColors[$w['status']]??'#64748b'; ?>22;border:1px solid <?php echo $statusColors[$w['status']]??'#64748b'; ?>44;color:<?php echo $statusColors[$w['status']]??'#64748b'; ?>;">
+                        <?php echo $statusLabels[$w['status']] ?? $w['status']; ?>
+                    </span>
+                </div>
+
+                <!-- Infraction -->
+                <div class="warrant-offense">
+                    <div class="warrant-offense-code"><?php echo htmlspecialchars($w['offense_code']); ?></div>
+                    <div class="warrant-offense-title"><?php echo htmlspecialchars($w['offense_title']); ?></div>
+                </div>
+
+                <!-- Tags -->
+                <div class="warrant-tags">
+                    <span class="warrant-tag" style="background:rgba(0,229,255,0.06);border:1px solid rgba(0,229,255,0.15);color:var(--lssd-primary);">
+                        <i class="fas fa-<?php echo $typeIcons[$w['warrant_type']]??'scroll'; ?>"></i>
+                        <?php echo $typeLabels[$w['warrant_type']] ?? $w['warrant_type']; ?>
+                    </span>
+                    <span class="warrant-tag" style="background:<?php echo $sevColors[$w['severity']]??'#64748b'; ?>15;border:1px solid <?php echo $sevColors[$w['severity']]??'#64748b'; ?>33;color:<?php echo $sevColors[$w['severity']]??'#64748b'; ?>;">
+                        <?php echo $sevLabels[$w['severity']] ?? $w['severity']; ?>
+                    </span>
+                </div>
+
+                <!-- Détails -->
+                <div class="warrant-details">
+                    <div>
+                        <div class="warrant-detail-label">Caution</div>
+                        <div class="warrant-detail-value" style="color:#fbbf24;">
+                            <?php echo $w['bail_amount'] > 0 ? '$' . number_format($w['bail_amount'], 0, ',', ' ') : '—'; ?>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="warrant-detail-label">Date d'émission</div>
+                        <div class="warrant-detail-value" style="color:var(--lssd-text-secondary);">
+                            <?php echo $w['issued_date'] ? date('d/m/Y', strtotime($w['issued_date'])) : '—'; ?>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="warrant-detail-label">Émis par</div>
+                        <div class="warrant-detail-value" style="color:var(--lssd-text-secondary);font-size:0.8rem;">
+                            <?php echo htmlspecialchars($w['issued_by_name'] ?? '—'); ?>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="warrant-detail-label">Expiration</div>
+                        <div class="warrant-detail-value" style="color:var(--lssd-text-secondary);">
+                            <?php echo $w['expiration_date'] ? date('d/m/Y', strtotime($w['expiration_date'])) : 'Indéfini'; ?>
+                        </div>
+                    </div>
+                </div>
+
+                <?php if ($w['status'] === 'executed' && !empty($w['executed_by_name'])): ?>
+                    <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid rgba(34,197,94,0.1);font-size:0.78rem;color:#22c55e;">
+                        <i class="fas fa-check-circle" style="margin-right:4px;"></i> Exécuté par <?php echo htmlspecialchars($w['executed_by_name']); ?>
+                        <?php if (!empty($w['execution_date'])): ?> le <?php echo date('d/m/Y', strtotime($w['execution_date'])); ?><?php endif; ?>
+                    </div>
+                <?php endif; ?>
+
+                <!-- Bouton voir détails -->
+                <div style="margin-top:1rem;padding-top:0.75rem;border-top:1px solid rgba(0,229,255,0.04);">
+                    <button class="btn btn-secondary btn-sm" style="width:100%;" onclick="viewWarrantDetail(this)" data-warrant="<?php echo htmlspecialchars(json_encode($w), ENT_QUOTES, 'UTF-8'); ?>">
+                        <i class="fas fa-eye"></i> Voir détails complets
+                    </button>
+                </div>
+            </div>
+        <?php endforeach; ?>
+    </div>
+<?php endif; ?>
+
+<!-- Modal détails -->
+<div id="viewWarrantModal" class="modal-overlay hidden">
+    <div class="modal modal-large">
+        <div class="modal-header">
+            <h2><i class="fas fa-scroll"></i> <span id="viewWarrantTitle">Détails du Mandat</span></h2>
+            <button class="modal-close" onclick="MDT.closeModal('viewWarrantModal')">×</button>
+        </div>
+        <div class="modal-body" id="viewWarrantContent"></div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="MDT.closeModal('viewWarrantModal')">Fermer</button>
+        </div>
+    </div>
+</div>
+
+<script>
+var typeL = {arrest:'Mandat d\'Arrestation',search:'Mandat de Perquisition',seizure:'Mandat de Saisie'};
+var sevL = {low:'Faible',medium:'Moyen',high:'Élevé',critical:'Critique'};
+var sevC = {low:'#22c55e',medium:'#f59e0b',high:'#f97316',critical:'#ef4444'};
+var stL = {active:'Actif',executed:'Exécuté',cancelled:'Annulé',expired:'Expiré'};
+var stC = {active:'#10b981',executed:'#22c55e',cancelled:'#ef4444',expired:'#64748b'};
+
+function viewWarrantDetail(btn) {
+    var w = JSON.parse(btn.dataset.warrant);
+    document.getElementById('viewWarrantTitle').textContent = (typeL[w.warrant_type]||w.warrant_type) + ' — ' + w.offense_code;
+    
+    var html = '';
+    
+    // En-tête citoyen
+    html += '<div style="display:flex;align-items:center;gap:1.25rem;margin-bottom:1.5rem;padding-bottom:1.5rem;border-bottom:1px solid rgba(0,229,255,0.06);">';
+    html += '<div class="warrant-avatar" style="width:60px;height:60px;font-size:1.2rem;">' + w.firstname.charAt(0).toUpperCase() + w.lastname.charAt(0).toUpperCase() + '</div>';
+    html += '<div><div style="font-size:1.2rem;font-weight:800;color:var(--lssd-text);">' + w.firstname + ' ' + w.lastname + '</div>';
+    html += '<div style="font-family:JetBrains Mono,monospace;font-size:0.78rem;color:var(--lssd-text-muted);margin-top:3px;">ID #' + w.citizen_id + (w.phone ? ' • ' + w.phone : '') + '</div></div>';
+    html += '<span class="warrant-tag" style="margin-left:auto;background:' + (stC[w.status]||'#64748b') + '22;border:1px solid ' + (stC[w.status]||'#64748b') + '44;color:' + (stC[w.status]||'#64748b') + ';font-size:0.75rem;">' + (stL[w.status]||w.status) + '</span>';
+    html += '</div>';
+    
+    // Infos grille
+    html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.5rem;">';
+    html += '<div style="padding:1rem;background:rgba(0,229,255,0.04);border:1px solid rgba(0,229,255,0.08);border-radius:10px;text-align:center;"><div style="font-family:Orbitron,monospace;font-size:0.55rem;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--lssd-text-muted);margin-bottom:6px;">Type</div><div style="font-weight:700;color:var(--lssd-primary);font-size:0.85rem;">' + (typeL[w.warrant_type]||w.warrant_type) + '</div></div>';
+    html += '<div style="padding:1rem;background:' + (sevC[w.severity]||'#64748b') + '08;border:1px solid ' + (sevC[w.severity]||'#64748b') + '20;border-radius:10px;text-align:center;"><div style="font-family:Orbitron,monospace;font-size:0.55rem;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--lssd-text-muted);margin-bottom:6px;">Gravité</div><div style="font-weight:700;color:' + (sevC[w.severity]||'#64748b') + ';font-size:0.85rem;">' + (sevL[w.severity]||w.severity) + '</div></div>';
+    html += '<div style="padding:1rem;background:rgba(251,191,36,0.06);border:1px solid rgba(251,191,36,0.12);border-radius:10px;text-align:center;"><div style="font-family:Orbitron,monospace;font-size:0.55rem;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--lssd-text-muted);margin-bottom:6px;">Caution</div><div style="font-family:JetBrains Mono,monospace;font-weight:700;color:#fbbf24;font-size:0.95rem;">' + (parseFloat(w.bail_amount) > 0 ? '$' + Number(w.bail_amount).toLocaleString() : '—') + '</div></div>';
+    html += '</div>';
+    
+    // Infraction
+    html += '<div class="warrant-view-section"><div class="warrant-view-label">Infraction</div>';
+    html += '<div style="padding:1rem;background:rgba(0,0,0,0.2);border:1px solid rgba(0,229,255,0.04);border-radius:8px;">';
+    html += '<div style="font-family:Orbitron,monospace;font-weight:800;color:var(--lssd-primary);letter-spacing:1px;">' + w.offense_code + '</div>';
+    html += '<div style="color:var(--lssd-text);margin-top:4px;">' + w.offense_title + '</div>';
+    html += '</div></div>';
+    
+    // Motif (reason_rich)
+    if (w.reason_rich) {
+        html += '<div class="warrant-view-section"><div class="warrant-view-label">Motif</div>';
+        html += '<div class="warrant-view-value" style="padding:1rem;background:rgba(0,0,0,0.2);border-radius:8px;">' + w.reason_rich + '</div></div>';
+    }
+    
+    // Notes
+    if (w.notes) {
+        html += '<div class="warrant-view-section"><div class="warrant-view-label">Notes</div>';
+        html += '<div class="warrant-view-value" style="padding:1rem;background:rgba(0,0,0,0.2);border-radius:8px;color:var(--lssd-text-secondary);">' + w.notes + '</div></div>';
+    }
+    
+    // Dates
+    html += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:1rem;margin-top:1.5rem;padding-top:1rem;border-top:1px solid rgba(0,229,255,0.06);">';
+    html += '<div class="warrant-view-section"><div class="warrant-view-label">Émis le</div><div class="warrant-view-value" style="font-family:JetBrains Mono,monospace;font-size:0.85rem;">' + (w.issued_date ? new Date(w.issued_date).toLocaleDateString('fr-FR') : '—') + '</div></div>';
+    html += '<div class="warrant-view-section"><div class="warrant-view-label">Expiration</div><div class="warrant-view-value" style="font-family:JetBrains Mono,monospace;font-size:0.85rem;">' + (w.expiration_date ? new Date(w.expiration_date).toLocaleDateString('fr-FR') : 'Indéfini') + '</div></div>';
+    html += '<div class="warrant-view-section"><div class="warrant-view-label">Émis par</div><div class="warrant-view-value">' + (w.issued_by_name || '—') + '</div></div>';
+    if (w.status === 'executed') {
+        html += '<div class="warrant-view-section"><div class="warrant-view-label">Exécuté par</div><div class="warrant-view-value" style="color:#22c55e;">' + (w.executed_by_name || '—') + (w.execution_date ? ' le ' + new Date(w.execution_date).toLocaleDateString('fr-FR') : '') + '</div></div>';
+    }
+    html += '</div>';
+    
+    document.getElementById('viewWarrantContent').innerHTML = html;
+    MDT.openModal('viewWarrantModal');
+}
+</script>
+
+<?php include __DIR__ . '/includes/footer.php'; ?>
