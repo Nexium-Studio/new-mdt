@@ -15,6 +15,20 @@
  *      elements:[], revision, csrf, canEdit, isGang, displayName,
  *      onPointCreate(nx,ny), onPointEdit(el), onZoneCreate(points), onZoneEdit(el),
  *      onSaveState(state) }
+ *
+ *  ── Options facultatives (ajoutées pour le module Zones Dynasty) ────────
+ *  Toutes désactivées par défaut : une configuration qui ne les mentionne pas
+ *  (cf. pages/maps/editor.php) emprunte exactement les mêmes chemins de code
+ *  qu'avant leur introduction.
+ *
+ *    allowZones : true   → outil « zone » utilisable hors carte Gang
+ *    collab     : false  → ni polling ni présence (site public non authentifié)
+ *    zoneHover  : true   → survol/clic d'une zone en lecture seule
+ *                          → onZoneHover(el|null, mx, my), onZoneClick(el)
+ *    vertexEdit : true   → outil « vertex » : glisser un sommet de polygone
+ *
+ *  Les zones acceptent en plus un objet libre `meta`, transmis tel quel à
+ *  l'API (createZone/updateZone, 4ᵉ argument). Absent = payload inchangé.
  */
 (function (global) {
     'use strict';
@@ -55,6 +69,10 @@
         this.pointDown = null;
         this.zonePts = [];               // polygone en cours (normalisé)
         this.norm = { nx: 0.5, ny: 0.5 };
+
+        this.hoverZoneId  = null;        // cfg.zoneHover  : zone survolée
+        this.zoneClickDown = null;       // cfg.zoneHover  : origine du clic (anti-drag)
+        this.vertexDrag   = null;        // cfg.vertexEdit : {el, idx} en cours de glisser
 
         this._raf = null; this._pollT = null; this._presT = null;
         this._pending = 0;               // sauvegardes en vol (évite le flicker au polling)
@@ -110,8 +128,10 @@
         this._bindPointer();
         this._bindKeys();
 
-        /* Collaboration / persistance temps réel */
-        this._startCollab();
+        /* Collaboration / persistance temps réel.
+           cfg.collab === false : carte purement locale (site public non
+           authentifié) — aucun polling, aucun envoi de présence. */
+        if (this.cfg.collab !== false) this._startCollab();
         return this;
     };
 
@@ -183,6 +203,7 @@
             if (this.elements[z].type === 'zone') this._drawZone(ctx, this.elements[z]);
         }
         if (this.tool === 'zone' && this.zonePts.length) this._drawZoneInProgress(ctx);
+        if (this.cfg.vertexEdit && this.tool === 'vertex') this._drawVertexHandles(ctx);
 
         /* Traits */
         for (var i = 0; i < this.elements.length; i++) {
@@ -241,11 +262,34 @@
     MdtMapEngine.prototype._drawZone = function (ctx, z) {
         if (!z.points || z.points.length < 3) return;
         var col = z.color || '#94a3b8';
+        // cfg.zoneHover : la zone sous le curseur est éclaircie et son trait épaissi.
+        var hot = this.cfg.zoneHover && this.hoverZoneId !== null &&
+                  String(z.id) === String(this.hoverZoneId);
         ctx.globalCompositeOperation = 'source-over';
         this._zonePath(ctx, z.points);
-        ctx.globalAlpha = 0.25; ctx.fillStyle = col; ctx.fill();
-        ctx.globalAlpha = 0.95; ctx.lineWidth = 2 * this.dpr; ctx.strokeStyle = col; ctx.stroke();
+        ctx.globalAlpha = hot ? 0.45 : 0.25; ctx.fillStyle = col; ctx.fill();
+        ctx.globalAlpha = 0.95; ctx.lineWidth = (hot ? 3 : 2) * this.dpr; ctx.strokeStyle = col; ctx.stroke();
         ctx.globalAlpha = 1;
+    };
+
+    /** Poignées de sommets (outil « vertex », cfg.vertexEdit). */
+    MdtMapEngine.prototype._drawVertexHandles = function (ctx) {
+        var dpr = this.dpr;
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.globalAlpha = 1;
+        for (var i = 0; i < this.elements.length; i++) {
+            var z = this.elements[i];
+            if (z.type !== 'zone' || !z.points) continue;
+            var actif = this.vertexDrag && this.vertexDrag.el === z;
+            for (var j = 0; j < z.points.length; j++) {
+                var p = this._normToScreen(z.points[j][0], z.points[j][1]);
+                var r = (actif && this.vertexDrag.idx === j) ? 6 : 4;
+                ctx.beginPath();
+                ctx.arc(p.x * dpr, p.y * dpr, r * dpr, 0, 6.2832);
+                ctx.fillStyle = '#ffffff'; ctx.fill();
+                ctx.lineWidth = 2 * dpr; ctx.strokeStyle = z.color || '#94a3b8'; ctx.stroke();
+            }
+        }
     };
 
     MdtMapEngine.prototype._drawZoneInProgress = function (ctx) {
@@ -310,6 +354,9 @@
         });
         d.addEventListener('click', function (e) {
             e.stopPropagation();
+            // Le libellé intercepte le mousedown : sans ce relais, un clic dessus
+            // ne déclencherait jamais onZoneClick (cfg.zoneHover).
+            if (self.cfg.zoneHover && self.cfg.onZoneClick) { self.cfg.onZoneClick(self._byId(el.id)); return; }
             if (self.cfg.onZoneEdit && self.canEdit) self.cfg.onZoneEdit(self._byId(el.id));
         });
         this.overlay.appendChild(d);
@@ -342,6 +389,47 @@
         return null;
     };
 
+    /* ══════════════════════ Tests de collision (zones) ══════════════════════ */
+
+    /**
+     * Zone contenant le point normalisé (nx,ny), ou null.
+     * Parcours à l'envers : la dernière dessinée (donc au-dessus) gagne.
+     * Lancer de rayon horizontal — algorithme classique du point-dans-polygone.
+     */
+    MdtMapEngine.prototype.hitTestZone = function (nx, ny) {
+        for (var i = this.elements.length - 1; i >= 0; i--) {
+            var z = this.elements[i];
+            if (z.type !== 'zone' || !z.points || z.points.length < 3) continue;
+            var pts = z.points, inside = false;
+            for (var a = 0, b = pts.length - 1; a < pts.length; b = a++) {
+                var xa = pts[a][0], ya = pts[a][1], xb = pts[b][0], yb = pts[b][1];
+                if (((ya > ny) !== (yb > ny)) &&
+                    (nx < (xb - xa) * (ny - ya) / (yb - ya) + xa)) inside = !inside;
+            }
+            if (inside) return z;
+        }
+        return null;
+    };
+
+    /**
+     * Sommet de polygone le plus proche du point écran (mx,my), dans un rayon
+     * de `tol` pixels. Retourne {el, idx} ou null.
+     */
+    MdtMapEngine.prototype._findVertex = function (mx, my, tol) {
+        tol = tol || 10;
+        var best = null, bestD = tol * tol;
+        for (var i = this.elements.length - 1; i >= 0; i--) {
+            var z = this.elements[i];
+            if (z.type !== 'zone' || !z.points) continue;
+            for (var j = 0; j < z.points.length; j++) {
+                var p = this._normToScreen(z.points[j][0], z.points[j][1]);
+                var dx = p.x - mx, dy = p.y - my, d = dx * dx + dy * dy;
+                if (d <= bestD) { bestD = d; best = { el: z, idx: j }; }
+            }
+        }
+        return best;
+    };
+
     /* ══════════════════════ Interactions pointeur ══════════════════════ */
     MdtMapEngine.prototype._bindPointer = function () {
         var self = this;
@@ -363,7 +451,21 @@
             }
             if (e.button !== 0) return;
 
-            if (self.tool === 'zone' && self.canEdit && self.isGang) { self._zoneClick(n); return; }
+            if (self.tool === 'zone' && self.canEdit && (self.isGang || self.cfg.allowZones)) { self._zoneClick(n); return; }
+
+            /* cfg.vertexEdit : accroche d'un sommet, sinon on retombe sur le pan. */
+            if (self.tool === 'vertex' && self.canEdit && self.cfg.vertexEdit) {
+                var vh = self._findVertex(n.mx, n.my);
+                if (vh) { self.vertexDrag = vh; self._userAdjusted = true; self.draw(); return; }
+                self.panning = true; self._userAdjusted = true;
+                self.panStart = { x: e.clientX, y: e.clientY, tx: self.tx, ty: self.ty };
+                return;
+            }
+
+            /* cfg.zoneHover : mémorise l'origine du clic pour distinguer
+               un clic sur une zone d'un simple déplacement de la carte. */
+            if (self.cfg.zoneHover) self.zoneClickDown = { x: e.clientX, y: e.clientY };
+
             if (self.tool === 'point' && self.canEdit) { self.pointDown = { nx: n.nx, ny: n.ny, x: e.clientX, y: e.clientY }; return; }
 
             if (self.canEdit && (self.tool === 'pen' || self.tool === 'marker' || self.tool === 'eraser')) {
@@ -383,6 +485,15 @@
             var n = self._toNorm(e.clientX, e.clientY);
             self.norm.nx = clamp(n.nx, 0, 1); self.norm.ny = clamp(n.ny, 0, 1);
 
+            /* cfg.vertexEdit : glisser du sommet accroché. */
+            if (self.vertexDrag && (e.buttons & 1)) {
+                var z = self.vertexDrag.el;
+                z.points[self.vertexDrag.idx] = [clamp(n.nx, -0.05, 1.05), clamp(n.ny, -0.05, 1.05)];
+                self.layoutOverlays();   // le libellé suit le nouveau centroïde
+                self.draw();
+                return;
+            }
+
             if (self.panning && self.panStart) {
                 self.tx = self.panStart.tx + (e.clientX - self.panStart.x);
                 self.ty = self.panStart.ty + (e.clientY - self.panStart.y);
@@ -395,12 +506,34 @@
                 if ((nx - last[0]) * (nx - last[0]) + (ny - last[1]) * (ny - last[1]) < 2e-7) return;
                 self.curStroke.points.push([nx, ny]);
                 self.draw();
+                return;
             }
+
+            /* cfg.zoneHover : surlignage de la zone survolée + infobulle. */
+            if (self.cfg.zoneHover) self._updateHover(n);
         });
 
         window.addEventListener('mouseup', function (e) {
-            if (e.button === 2 || self.tool === 'move') { self.panning = false; self.panStart = null; }
+            if (e.button === 2 || self.tool === 'move' || self.tool === 'vertex') { self.panning = false; self.panStart = null; }
             if (e.button !== 0) return;
+
+            /* cfg.vertexEdit : fin du glisser → persistance de la géométrie. */
+            if (self.vertexDrag) {
+                var vz = self.vertexDrag.el; self.vertexDrag = null;
+                self.rebuildOverlays(); self.draw();
+                self._persistUpdate(vz.id, 'zone', vz);
+                return;
+            }
+
+            /* cfg.zoneHover : clic net (sans déplacement) sur une zone. */
+            if (self.zoneClickDown) {
+                var zd = self.zoneClickDown; self.zoneClickDown = null;
+                if (Math.abs(e.clientX - zd.x) + Math.abs(e.clientY - zd.y) < 6 && self.cfg.onZoneClick) {
+                    var nz = self._toNorm(e.clientX, e.clientY);
+                    var hitZ = self.hitTestZone(nz.nx, nz.ny);
+                    if (hitZ) { self.cfg.onZoneClick(hitZ); }
+                }
+            }
 
             if (self.pointDown) {                          // outil "Plan" : pose d'un point au clic
                 var moved = Math.abs(e.clientX - self.pointDown.x) + Math.abs(e.clientY - self.pointDown.y);
@@ -416,6 +549,27 @@
                 if (st && st.points.length >= 1) { self.elements.push(st); self.draw(); self._persistCreate('stroke', st, st); }
             }
         });
+    };
+
+    /**
+     * cfg.zoneHover — met à jour la zone survolée et notifie l'hôte.
+     * Ne réagit qu'à l'intérieur du viewport : le listener est posé sur window,
+     * un curseur sorti de la carte doit éteindre le surlignage.
+     */
+    MdtMapEngine.prototype._updateHover = function (n) {
+        var vp = this._vp();
+        var dedans = (n.mx >= 0 && n.my >= 0 && n.mx <= vp.w && n.my <= vp.h);
+        var z = dedans ? this.hitTestZone(n.nx, n.ny) : null;
+        var id = z ? z.id : null;
+        if (String(id) === String(this.hoverZoneId)) {
+            // Même zone : on ne redessine pas, mais l'infobulle doit suivre le curseur.
+            if (z && this.cfg.onZoneHover) this.cfg.onZoneHover(z, n.mx, n.my);
+            return;
+        }
+        this.hoverZoneId = id;
+        this.stage.style.cursor = z ? 'pointer' : (this.tool === 'move' ? 'grab' : 'default');
+        if (this.cfg.onZoneHover) this.cfg.onZoneHover(z, n.mx, n.my);
+        this.draw();
     };
 
     MdtMapEngine.prototype._zoneClick = function (n) {
@@ -467,6 +621,7 @@
         if (t === 'pen' || t === 'marker' || t === 'eraser' || t === 'zone') cur = 'crosshair';
         else if (t === 'point') cur = 'cell';
         else if (t === 'move') cur = 'grab';
+        else if (t === 'vertex') cur = 'crosshair';
         this.stage.style.cursor = cur;
     };
     MdtMapEngine.prototype.setColor = function (c) { this.color = c; };
@@ -508,7 +663,13 @@
     MdtMapEngine.prototype._elementData = function (type, o) {
         if (type === 'stroke') return { tool: o.tool, color: o.color, width: o.width, points: o.points };
         if (type === 'marker') return { x: o.x, y: o.y, title: o.title, color: o.color };
-        if (type === 'zone')   return { points: o.points, title: o.title, color: o.color };
+        if (type === 'zone') {
+            var d = { points: o.points, title: o.title, color: o.color };
+            // `meta` n'est transmis que s'il a été fourni : sans lui, le payload
+            // est strictement celui d'avant (contrat de pages/maps/api.php).
+            if (o.meta !== undefined && o.meta !== null) d.meta = o.meta;
+            return d;
+        }
         return {};
     };
 
@@ -526,19 +687,23 @@
     };
     MdtMapEngine.prototype.deletePoint = function (id) { this._deleteElement(id); };
 
-    /* Zones */
-    MdtMapEngine.prototype.createZone = function (points, title, color) {
+    /* Zones — `meta` facultatif : les appels à 3 arguments se comportent comme avant. */
+    MdtMapEngine.prototype.createZone = function (points, title, color, meta) {
         var el = { id: uid(), type: 'zone', points: points, title: title || 'Zone', color: color || '#94a3b8' };
+        if (meta !== undefined) el.meta = meta;
         this.elements.push(el); this._addZoneLabelDom(el); this.layoutOverlays(); this.draw();
         this._persistCreate('zone', el, el);
     };
-    MdtMapEngine.prototype.updateZone = function (id, title, color) {
+    MdtMapEngine.prototype.updateZone = function (id, title, color, meta) {
         var el = this._byId(id); if (!el) return;
         el.title = title; el.color = color;
+        if (meta !== undefined) el.meta = meta;
         this.rebuildOverlays(); this.draw();
         this._persistUpdate(id, 'zone', el);
     };
     MdtMapEngine.prototype.deleteZone = function (id) { this._deleteElement(id); };
+    /** Referme le polygone en cours (équivalent public du double-clic / Entrée). */
+    MdtMapEngine.prototype.finishZone = function () { this._closeZone(); };
 
     MdtMapEngine.prototype._persistUpdate = function (id, type, el) {
         var self = this;

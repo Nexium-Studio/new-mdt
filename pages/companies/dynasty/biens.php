@@ -22,6 +22,17 @@ if (!faction_acl_can($db, $uid, $companyFaction, 'stock.view')) faction_acl_deny
 $canManage = faction_acl_can($db, $uid, $companyFaction, 'stock.add');
 $canDelete = faction_acl_can($db, $uid, $companyFaction, 'stock.delete');
 
+// Zones (module Zones & Tarification) : sélecteur facultatif reliant un bien
+// à un quartier tracé. La colonne dynasty_biens.zone_id est ajoutée par
+// l'auto-migration ci-dessous ; en son absence le champ est simplement ignoré.
+require_once __DIR__ . '/includes/zones_bootstrap.php';
+dynasty_zones_bootstrap($db);
+$hasZoneId = dynasty_zones_biens_has_zone_id($db);
+$zonesListe = [];
+try {
+    $zonesListe = $db->query("SELECT id, nom FROM dynasty_zones ORDER BY nom ASC")->fetchAll(PDO::FETCH_ASSOC);
+} catch (Throwable $e) { $zonesListe = []; }
+
 /* ── Helpers ── */
 function nextRef($db) {
     $db->beginTransaction();
@@ -92,6 +103,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canManage) {
                 $equip,
                 $_SESSION['user_id'],
             ]);
+            // Rattachement facultatif à une zone (requête séparée : la colonne
+            // peut ne pas exister sur une base pas encore migrée).
+            if ($hasZoneId) {
+                $newId = (int)$db->lastInsertId();
+                $zid = !empty($_POST['zone_id']) ? (int)$_POST['zone_id'] : null;
+                $db->prepare("UPDATE dynasty_biens SET zone_id=? WHERE id=?")->execute([$zid, $newId]);
+            }
             $message = "✅ Instance $ref créée avec succès."; $msgType = 'success';
         } catch(Exception $e) { $message = '❌ '.$e->getMessage(); $msgType = 'error'; }
     }
@@ -130,6 +148,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canManage) {
                 (float)($_POST['commission_vente_pct']??5),(float)($_POST['commission_location_pct']??10),
                 $equip,$id,
             ]);
+            if ($hasZoneId) {
+                $zid = !empty($_POST['zone_id']) ? (int)$_POST['zone_id'] : null;
+                $db->prepare("UPDATE dynasty_biens SET zone_id=? WHERE id=?")->execute([$zid, $id]);
+            }
             $message = '✅ Instance mise à jour.'; $msgType = 'success';
         } catch(Exception $e) { $message = '❌ '.$e->getMessage(); $msgType = 'error'; }
     }
@@ -347,6 +369,11 @@ include __DIR__ . '/includes/header.php';
             <div class="form-group form-full"><label class="form-label">Titre *</label><input type="text" name="titre" class="form-input" required placeholder="Ex: Bel Appartement Vinewood Hills"></div>
             <div class="form-group form-full"><label class="form-label">Adresse *</label><input type="text" name="adresse" class="form-input" required placeholder="Adresse complète"></div>
             <div class="form-group"><label class="form-label">Quartier</label><input type="text" name="quartier" class="form-input" placeholder="Ex: Vinewood Hills"></div>
+            <?php if($hasZoneId): ?>
+            <div class="form-group"><label class="form-label">Zone du catalogue public <span style="color:var(--tx-mute);font-weight:400">(facultatif)</span></label>
+                <select name="zone_id" class="form-select"><option value="">— Aucune (rapprochée par nom) —</option>
+                <?php foreach($zonesListe as $z): ?><option value="<?php echo (int)$z['id']; ?>"><?php echo htmlspecialchars($z['nom']); ?></option><?php endforeach; ?></select></div>
+            <?php endif; ?>
             <div class="form-group"><label class="form-label">Année construction</label><input type="number" name="annee_construction" class="form-input" min="1800" max="2100" placeholder="Ex: 2020"></div>
             <div class="form-group form-full"><label class="form-label">Description</label><textarea name="description" class="form-textarea" placeholder="Description du bien..."></textarea></div>
         </div>
@@ -403,6 +430,11 @@ include __DIR__ . '/includes/header.php';
             <div class="form-group form-full"><label class="form-label">Titre *</label><input type="text" name="titre" id="e_titre" class="form-input" required></div>
             <div class="form-group form-full"><label class="form-label">Adresse *</label><input type="text" name="adresse" id="e_adresse" class="form-input" required></div>
             <div class="form-group"><label class="form-label">Quartier</label><input type="text" name="quartier" id="e_quartier" class="form-input"></div>
+            <?php if($hasZoneId): ?>
+            <div class="form-group"><label class="form-label">Zone du catalogue public</label>
+                <select name="zone_id" id="e_zone_id" class="form-select"><option value="">— Aucune —</option>
+                <?php foreach($zonesListe as $z): ?><option value="<?php echo (int)$z['id']; ?>"><?php echo htmlspecialchars($z['nom']); ?></option><?php endforeach; ?></select></div>
+            <?php endif; ?>
             <div class="form-group"><label class="form-label">Statut</label><select name="statut" id="e_statut" class="form-select"><option value="disponible">Disponible</option><option value="loue">Loué</option><option value="vendu">Vendu</option><option value="reserve">Réservé</option><option value="indisponible">Indisponible</option></select></div>
             <div class="form-group form-full"><label class="form-label">Description</label><textarea name="description" id="e_desc" class="form-textarea"></textarea></div>
             <div class="form-group"><label class="form-label">Surface (m²)</label><input type="number" name="surface" id="e_surface" class="form-input" step="0.01"></div>
@@ -470,6 +502,8 @@ function editBien(b) {
         if(el) el.value = b[k]||'';
     }
     document.getElementById('e_agent').value = b.agent_id||'';
+    const zoneSel = document.getElementById('e_zone_id');
+    if (zoneSel) zoneSel.value = b.zone_id || '';
     // Recalc TTC after fill
     calcTTC('e_pv','e_pv_ttc'); calcTTC('e_ps','e_ps_ttc');
 

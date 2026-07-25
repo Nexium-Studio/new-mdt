@@ -4,6 +4,7 @@ require_once dirname(__DIR__, 4) . '/config/panel_theme_auto.php';
 checkPageActive('DYNASTY');
 $__dynAllPages = [
     ['file'=>'dashboard',      'label'=>'Vue d\'ensemble',    'icon'=>'fas fa-chart-line',          'section'=>'Pilotage'],
+    ['file'=>'zone',           'label'=>'Zones & Tarifs',      'icon'=>'fas fa-draw-polygon',        'section'=>'Pilotage'],
     ['file'=>'biens',          'label'=>'Catalogue',           'icon'=>'fas fa-building',            'section'=>'Portefeuille'],
     ['file'=>'locations',      'label'=>'Locations',           'icon'=>'fas fa-key',                 'section'=>''],
     ['file'=>'ventes',         'label'=>'Ventes',              'icon'=>'fas fa-handshake',           'section'=>''],

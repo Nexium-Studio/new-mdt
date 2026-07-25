@@ -3,6 +3,7 @@
 define('STAFF_PANEL', true);
 require_once __DIR__ . '/../../../config/config.php';
 require_once ROOT_PATH . '/includes/mdt_faction_discord_sync.php';
+require_once ROOT_PATH . '/includes/faction_logo.php';
 requireLogin();
 if (!hasRole(['*', 'Administrateur', 'Développeur', 'Staff', 'Modérateur', 'Helper'])) redirect(SITE_URL . '/pages/dashboard.php');
 
@@ -902,6 +903,19 @@ include __DIR__ . '/../includes/header.php';
     justify-content: center;
     font-size: 1rem;
     flex-shrink: 0;
+    overflow: hidden;
+}
+
+/* Pastille de faction dans un titre : accueille indifféremment un logo
+   (admin_panel_config.custom_logo_url) ou l'icône FontAwesome de repli. */
+.faction-glyph {
+    width: 22px;
+    height: 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    vertical-align: -4px;
 }
 
 .faction-header-info { flex: 1; min-width: 0; }
@@ -1501,7 +1515,7 @@ include __DIR__ . '/../includes/header.php';
         <div class="faction-card-header">
             <div class="faction-header-left">
                 <div class="faction-icon" style="background: <?php echo htmlspecialchars($f['color']); ?>22; color: <?php echo htmlspecialchars($f['color']); ?>;">
-                    <i class="fa-solid fa-<?php echo htmlspecialchars($f['icon']); ?>"></i>
+                    <?php echo faction_logo_img($db, $f['faction_key'], $f['icon'], 3); ?>
                 </div>
                 <div class="faction-header-info">
                     <div class="faction-name"><?php echo htmlspecialchars($f['name']); ?></div>
@@ -1743,7 +1757,7 @@ include __DIR__ . '/../includes/header.php';
     <div class="modal">
         <div class="modal-header">
             <h3>
-                <i class="fa-solid fa-<?php echo htmlspecialchars($f['icon']); ?>" style="color: <?php echo htmlspecialchars($f['color']); ?>;"></i>
+                <span class="faction-glyph" style="color: <?php echo htmlspecialchars($f['color']); ?>;"><?php echo faction_logo_img($db, $f['faction_key'], $f['icon'], 0); ?></span>
                 Ajouter un grade
             </h3>
             <button class="modal-close" onclick="closeModal('modal-add-grade-<?php echo $f['faction_key']; ?>')">
@@ -1778,7 +1792,7 @@ include __DIR__ . '/../includes/header.php';
     <div class="modal">
         <div class="modal-header">
             <h3>
-                <i class="fa-solid fa-<?php echo htmlspecialchars($f['icon']); ?>" style="color: <?php echo htmlspecialchars($f['color']); ?>;"></i>
+                <span class="faction-glyph" style="color: <?php echo htmlspecialchars($f['color']); ?>;"><?php echo faction_logo_img($db, $f['faction_key'], $f['icon'], 0); ?></span>
                 Gérer les membres
             </h3>
             <button class="modal-close" onclick="closeModal('modal-members-<?php echo $f['faction_key']; ?>')">
@@ -1988,7 +2002,7 @@ include __DIR__ . '/../includes/header.php';
                         <td>
                             <div style="display:flex;align-items:center;gap:8px">
                                 <div style="width:28px;height:28px;border-radius:7px;background:<?php echo $f['color']; ?>22;color:<?php echo $f['color']; ?>;display:flex;align-items:center;justify-content:center;font-size:.75rem;flex-shrink:0">
-                                    <i class="fa-solid fa-<?php echo htmlspecialchars($f['icon']); ?>"></i>
+                                    <?php echo faction_logo_img($db, $fk, $f['icon'], 2); ?>
                                 </div>
                                 <div>
                                     <div style="font-weight:600;font-size:.8rem"><?php echo htmlspecialchars($f['name']); ?></div>

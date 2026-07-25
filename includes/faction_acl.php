@@ -229,6 +229,7 @@ function faction_acl_page_label(string $filename): string {
         'saisies'                => 'Saisies',
         'ppa'                    => 'PPA',
         'ppa-agent'              => 'PPA Agent',
+        'zone'                   => 'Zones & Tarifs',
         'mainteance'             => 'Maintenance',
         'equipement'             => 'Équipement',
     ];
@@ -287,6 +288,7 @@ function faction_acl_page_category(string $filename): string {
         'depenses'               => '08_Commerce',
         'facturation'            => '08_Commerce',
         'custom'                 => '08_Commerce',
+        'zone'                   => '08_Commerce',
         'interventions'          => '09_Médical',
         'patients'               => '09_Médical',
         'citoyens'               => '09_Médical',
@@ -348,6 +350,7 @@ function faction_acl_page_sort_key(string $filename): string {
         'depenses'               => '08_Commerce',
         'facturation'            => '08_Commerce',
         'custom'                 => '08_Commerce',
+        'zone'                   => '08_Commerce',
         'interventions'          => '09_Médical',
         'patients'               => '09_Médical',
         'citoyens'               => '09_Médical',
@@ -993,6 +996,25 @@ function faction_acl_action_catalog(): array {
                 'pharmacie.prescribe'   => 'Établir une ordonnance',
             ],
         ],
+
+        // ── Dynasty ───────────────────────────────────────────────────────────
+        // Le catalogue est indexé par page : zones et tarifs vivent tous les deux
+        // dans zone.php, d'où une entrée unique.
+
+        'zone' => [
+            'group'   => 'Zones & Tarification',
+            'icon'    => 'draw-polygon',
+            'actions' => [
+                'zone.view'            => 'Voir la carte des zones',
+                'zone.create'          => 'Créer une zone',
+                'zone.edit'            => 'Modifier une zone',
+                'zone.delete'          => 'Supprimer une zone',
+                'zone.pricing_view'    => 'Voir la tarification',
+                'zone.pricing_add'     => 'Ajouter un tarif / une option',
+                'zone.pricing_edit'    => 'Modifier la tarification',
+                'zone.pricing_delete'  => 'Supprimer un tarif / une option',
+            ],
+        ],
     ];
 
     return $catalog;
@@ -1012,7 +1034,7 @@ function faction_acl_can(PDO $db, int $userId, string $factionKey, string $permK
     // Mode démo : seulement les actions de consultation, jamais de modification
     if (is_demo_mode()) {
         $suffix = explode('.', $permKey, 2)[1] ?? 'edit';
-        return in_array($suffix, ['view', 'view_employees', 'stats', 'view_coeff', 'view_salary'], true);
+        return in_array($suffix, ['view', 'view_employees', 'stats', 'view_coeff', 'view_salary', 'pricing_view'], true);
     }
 
     faction_acl_ensure_action_table($db);
@@ -1058,7 +1080,7 @@ function faction_acl_can(PDO $db, int $userId, string $factionKey, string $permK
     $parts    = explode('.', $permKey, 2);
     $pageFile = ($parts[0] ?? '') . '.php';
     // Les actions de consultation retombent sur can_view, les autres sur can_edit
-    $viewActions = ['view', 'view_employees', 'view_salary', 'stats', 'view_coeff'];
+    $viewActions = ['view', 'view_employees', 'view_salary', 'stats', 'view_coeff', 'pricing_view'];
     $suffix       = $parts[1] ?? 'edit';
     if (in_array($suffix, $viewActions, true)) {
         return faction_acl_can_view($db, $userId, $factionKey, $pageFile);

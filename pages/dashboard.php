@@ -357,6 +357,23 @@ if (div_is_staff_bypass()) {
                 radial-gradient(ellipse 60% 40% at 80% 110%, rgba(139,92,246,0.06) 0%, transparent 60%);
         }
 
+        /* ── SCROLLBAR PERSONNALISÉE — suit la charte + le thème sélectionné ── */
+        html { scrollbar-width: thin; scrollbar-color: var(--db-accent, #3b82f6) transparent; }
+        ::-webkit-scrollbar { width: 12px; height: 12px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb {
+            background: color-mix(in srgb, var(--db-accent, #3b82f6) 55%, transparent);
+            border: 3px solid transparent;
+            border-radius: 10px;
+            background-clip: padding-box;
+            transition: background .2s;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--db-accent, #3b82f6);
+            background-clip: padding-box;
+        }
+        ::-webkit-scrollbar-corner { background: transparent; }
+
         .container { max-width: 1400px; margin: 0 auto; padding: 0 2rem; width: 100%; }
 
         /* ── HEADER ── */
@@ -1194,7 +1211,10 @@ if (div_is_staff_bypass()) {
         <?php $delay++; endforeach; ?>
 
         <!-- ══ MES DIVISIONS ══ -->
-        <?php if (!empty($__userDivisions)):
+        <?php
+        // En mode Staff, la catégorie « Divisions MDT » (catalogue) liste déjà toutes
+        // les divisions : on masque « Mes divisions » pour éviter le doublon.
+        if (!$isStaff && !empty($__userDivisions)):
             // Filtrer divisions actives + panel activé dans admin_panels
             $__myDivs = [];
             foreach ($__userDivisions as $md) {
@@ -1254,14 +1274,6 @@ if (div_is_staff_bypass()) {
                 <div class="category-line"></div>
             </div>
             <div class="panels-grid">
-                <a href="https://lspa.lysoria.fr" class="panel-card" style="--p-color:#2563eb;">
-                    <div class="panel-card-icon"><i class="fa-solid fa-shield-halved"></i></div>
-                    <div class="panel-card-body">
-                        <div class="panel-card-name">Site LSPA</div>
-                        <div class="panel-card-faction">Candidature LSPA</div>
-                    </div>
-                    <div class="panel-card-arrow"><i class="fa-solid fa-arrow-right"></i></div>
-                </a>
                 <a href="<?php echo SITE_URL; ?>/pages/companies/life-invader/public/index.php" target="_blank" class="panel-card" style="--p-color:#4f7cff;">
                     <div class="panel-card-icon"><i class="fa-solid fa-newspaper"></i></div>
                     <div class="panel-card-body">
@@ -1278,6 +1290,23 @@ if (div_is_staff_bypass()) {
                     </div>
                     <div class="panel-card-arrow"><i class="fa-solid fa-arrow-right"></i></div>
                 </a>
+                <?php $dynastyLogo = getPanelLogoUrl('DYNASTY'); ?>
+                <a href="<?php echo SITE_URL; ?>/pages/companies/dynasty/public/index.php" target="_blank" class="panel-card" style="--p-color:#22c55e;">
+                    <div class="panel-card-icon">
+                        <?php if ($dynastyLogo): ?>
+                            <img src="<?php echo htmlspecialchars($dynastyLogo); ?>" alt="Dynasty" referrerpolicy="no-referrer"
+                                 style="width:100%;height:100%;object-fit:contain;padding:3px"
+                                 onerror="this.outerHTML='<i class=\'fa-solid fa-city\'></i>'">
+                        <?php else: ?>
+                            <i class="fa-solid fa-city"></i>
+                        <?php endif; ?>
+                    </div>
+                    <div class="panel-card-body">
+                        <div class="panel-card-name">Dynasty</div>
+                        <div class="panel-card-faction">Immobilier de Lysoria</div>
+                    </div>
+                    <div class="panel-card-arrow"><i class="fa-solid fa-arrow-right"></i></div>
+                </a>
             </div>
         </section>
 
@@ -1287,7 +1316,7 @@ if (div_is_staff_bypass()) {
 <footer>
     <div class="container footer-inner">
         <div>&copy; <?php echo date('Y'); ?> <a href="/pages/dashboard.php"><?php echo htmlspecialchars($siteName); ?></a>. Tous droits réservés.</div>
-        <div>Propulsé par Wolf12_ — développeur de Lysoria</div>
+        <div>Propulsé par Wolf12_ — Créateur de <a href="https://nexium-studio.com">Nexium Studio</a></div>
     </div>
 </footer>
 
