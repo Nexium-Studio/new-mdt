@@ -46,6 +46,11 @@ function mdt_proposals_status_meta(string $status): array
     return $all[$status] ?? $all['pending'];
 }
 
+function mdt_proposals_status_valid(string $status): bool
+{
+    return array_key_exists($status, mdt_proposals_statuses());
+}
+
 // ── Schéma ───────────────────────────────────────────────────────────────────
 function mdt_proposals_ensure_table(PDO $db): void
 {
@@ -167,6 +172,262 @@ function mdt_proposals_list_for_user(PDO $db, int $userId): array
     }
     unset($r);
     return $rows;
+}
+
+/** Met à jour le statut d'une proposition (appelé par le rappel du bot NexioZ). */
+function mdt_proposals_set_status(PDO $db, int $id, string $status): bool
+{
+    mdt_proposals_ensure_table($db);
+    if ($id <= 0 || !mdt_proposals_status_valid($status)) {
+        return false;
+    }
+    try {
+        $chk = $db->prepare("SELECT 1 FROM mdt_feature_proposals WHERE id = ? LIMIT 1");
+        $chk->execute([$id]);
+        if (!$chk->fetchColumn()) {
+            return false;
+        }
+        $st = $db->prepare("UPDATE mdt_feature_proposals SET status = ? WHERE id = ?");
+        $st->execute([$status, $id]);
+        return true;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ *  LIAISON NexioZ (bot Discord multi-serveur)
+ *  La « clé de liaison » est un token auto-suffisant : nxz_base64url({u,k})
+ *  où u = URL du bot et k = secret partagé.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** Token de liaison configuré (admin_settings), ou chaîne vide. */
+function mdt_proposals_liaison_token(PDO $db): string
+{
+    try {
+        $rows = mdt_admin_settings_fetch($db, ['nexioz_liaison_token']);
+        return trim((string) ($rows['nexioz_liaison_token'] ?? ''));
+    } catch (Throwable $e) {
+        return '';
+    }
+}
+
+/**
+ * Décode une clé de liaison.
+ * @return array{url:string,secret:string}|null
+ */
+function mdt_proposals_parse_token(string $token): ?array
+{
+    $token = trim($token);
+    if ($token === '') {
+        return null;
+    }
+    if (strncmp($token, 'nxz_', 4) === 0) {
+        $token = substr($token, 4);
+    }
+    $b64 = strtr($token, '-_', '+/');
+    $mod = strlen($b64) % 4;
+    if ($mod) {
+        $b64 .= str_repeat('=', 4 - $mod);
+    }
+    $json = base64_decode($b64, true);
+    if ($json === false) {
+        return null;
+    }
+    $data = json_decode($json, true);
+    if (!is_array($data)) {
+        return null;
+    }
+    $u = rtrim((string) ($data['u'] ?? ''), '/');
+    $k = (string) ($data['k'] ?? '');
+    if ($u === '' || $k === '' || !preg_match('#^https?://#i', $u)) {
+        return null;
+    }
+    return ['url' => $u, 'secret' => $k];
+}
+
+/**
+ * Pousse une proposition vers le bot NexioZ (auth par secret de la clé).
+ * @param array{id?:int|string,username?:string,content?:string,images?:string[]} $p
+ */
+function mdt_proposals_log(string $message): void
+{
+    error_log('[NexioZ] ' . $message);
+}
+
+function mdt_proposals_send_to_nexioz(PDO $db, array $p): bool
+{
+    if (!function_exists('curl_init')) {
+        mdt_proposals_log('cURL indisponible sur ce serveur : envoi impossible.');
+        return false;
+    }
+
+    $token = mdt_proposals_liaison_token($db);
+    if ($token === '') {
+        mdt_proposals_log('Aucune clé de liaison enregistrée (admin_settings.nexioz_liaison_token).');
+        return false;
+    }
+
+    $parsed = mdt_proposals_parse_token($token);
+    if ($parsed === null) {
+        mdt_proposals_log('Clé de liaison illisible : format attendu nxz_<base64url>. Regénérez-la depuis le dashboard NexioZ.');
+        return false;
+    }
+
+    $base = (defined('NEXIOZ_API_BASE') && NEXIOZ_API_BASE !== '')
+        ? rtrim((string) NEXIOZ_API_BASE, '/')
+        : $parsed['url'];
+
+    // Seules les images en URL absolue sont exploitables par Discord.
+    $images = array_values(array_filter(
+        (array) ($p['images'] ?? []),
+        static fn ($u) => is_string($u) && preg_match('#^https?://#i', $u) === 1
+    ));
+
+    $payload = json_encode([
+        'secret'     => $parsed['secret'],
+        'proposalId' => (string) ($p['id'] ?? ''),
+        'author'     => (string) ($p['username'] ?? ''),
+        'content'    => (string) ($p['content'] ?? ''),
+        'images'     => $images,
+        'site'       => defined('SITE_URL') ? SITE_URL : '',
+    ], JSON_UNESCAPED_SLASHES);
+    if ($payload === false) {
+        mdt_proposals_log('Encodage JSON de la proposition impossible.');
+        return false;
+    }
+
+    $endpoint = $base . '/api/mdt/proposals';
+
+    try {
+        $ch = curl_init($endpoint);
+        curl_setopt_array($ch, [
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => $payload,
+            CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 8,
+            CURLOPT_CONNECTTIMEOUT => 5,
+        ]);
+        $body = curl_exec($ch);
+        $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $err  = curl_error($ch);
+        curl_close($ch);
+
+        if ($err !== '') {
+            mdt_proposals_log("Connexion au bot impossible ({$endpoint}) : {$err}");
+            return false;
+        }
+        if ($code < 200 || $code >= 300) {
+            mdt_proposals_log(
+                "Bot joignable mais requête refusée ({$endpoint}) — HTTP {$code} : "
+                . mb_substr((string) $body, 0, 500)
+            );
+            return false;
+        }
+        return true;
+    } catch (Throwable $e) {
+        mdt_proposals_log('Exception lors de l\'envoi : ' . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Diagnostic de la liaison NexioZ : vérifie la clé, l'URL cible et la
+ * joignabilité du bot. Utilisé par l'action `nexioz_test` de l'API.
+ * @return array{ok:bool,steps:array<int,array{label:string,ok:bool,detail:string}>}
+ */
+function mdt_proposals_diagnose_nexioz(PDO $db): array
+{
+    $steps = [];
+    $add = static function (array &$steps, string $label, bool $ok, string $detail): void {
+        $steps[] = ['label' => $label, 'ok' => $ok, 'detail' => $detail];
+    };
+
+    $add($steps, 'Extension cURL', function_exists('curl_init'), function_exists('curl_init') ? 'Disponible' : 'Absente');
+
+    $token = mdt_proposals_liaison_token($db);
+    $add($steps, 'Clé de liaison enregistrée', $token !== '', $token !== '' ? 'Présente' : 'Aucune clé enregistrée');
+    if ($token === '') {
+        return ['ok' => false, 'steps' => $steps];
+    }
+
+    $parsed = mdt_proposals_parse_token($token);
+    $add($steps, 'Clé de liaison lisible', $parsed !== null, $parsed !== null ? 'Format valide' : 'Format invalide (attendu nxz_…)');
+    if ($parsed === null) {
+        return ['ok' => false, 'steps' => $steps];
+    }
+
+    $base = (defined('NEXIOZ_API_BASE') && NEXIOZ_API_BASE !== '')
+        ? rtrim((string) NEXIOZ_API_BASE, '/')
+        : $parsed['url'];
+    $endpoint = $base . '/api/mdt/proposals';
+    $add($steps, 'URL du bot', true, $endpoint);
+
+    if (!function_exists('curl_init')) {
+        return ['ok' => false, 'steps' => $steps];
+    }
+
+    // Ping d'authentification : payload minimal, sans créer de proposition.
+    $ch = curl_init($endpoint);
+    curl_setopt_array($ch, [
+        CURLOPT_POST           => true,
+        CURLOPT_POSTFIELDS     => json_encode([
+            'secret'     => $parsed['secret'],
+            'proposalId' => 'diagnostic',
+            'author'     => 'Diagnostic',
+            'content'    => '',
+            'images'     => [],
+            'site'       => defined('SITE_URL') ? SITE_URL : '',
+            'dryRun'     => true,
+        ], JSON_UNESCAPED_SLASHES),
+        CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT        => 8,
+        CURLOPT_CONNECTTIMEOUT => 5,
+    ]);
+    $body = (string) curl_exec($ch);
+    $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $err  = curl_error($ch);
+    curl_close($ch);
+
+    if ($err !== '') {
+        $add($steps, 'Bot joignable', false, $err);
+        return ['ok' => false, 'steps' => $steps];
+    }
+    $add($steps, 'Bot joignable', true, 'HTTP ' . $code);
+
+    $authOk = $code >= 200 && $code < 300;
+    $add(
+        $steps,
+        'Authentification (clé acceptée)',
+        $authOk,
+        $authOk ? 'Clé reconnue par le bot' : 'Refusée — ' . mb_substr($body, 0, 300)
+    );
+
+    return ['ok' => $authOk, 'steps' => $steps];
+}
+
+/**
+ * Notifie l'équipe (NexioZ prioritaire, sinon webhook Discord legacy).
+ * @param array{id?:int,username?:string,content?:string,page_url?:string,images?:string[]} $p
+ */
+function mdt_proposals_notify(PDO $db, array $p): void
+{
+    $id = (string) ($p['id'] ?? '?');
+    mdt_proposals_log("notify() appele pour la proposition #{$id}");
+
+    if (mdt_proposals_liaison_token($db) !== '') {
+        $ok = mdt_proposals_send_to_nexioz($db, $p);
+        mdt_proposals_log("notify() #{$id} -> NexioZ : " . ($ok ? 'ENVOYE' : 'ECHEC'));
+        return;
+    }
+
+    mdt_proposals_log("notify() #{$id} : aucune cle de liaison, repli sur le webhook legacy");
+    $wh = mdt_proposals_webhook_url($db);
+    if ($wh !== '') {
+        mdt_proposals_send_webhook($wh, $p);
+    }
 }
 
 // ── Webhook Discord ──────────────────────────────────────────────────────────

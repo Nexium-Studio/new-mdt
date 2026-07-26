@@ -93,8 +93,8 @@ if ($action === 'submit') {
         exit;
     }
 
-    // Webhook Discord (silencieux si non configuré / injoignable).
-    mdt_proposals_send_webhook(mdt_proposals_webhook_url($db), [
+    // Notification : bot NexioZ (liaison) prioritaire, sinon webhook Discord legacy.
+    mdt_proposals_notify($db, [
         'id'       => $res['id'],
         'username' => $username,
         'content'  => $content,
@@ -121,24 +121,36 @@ if ($action === 'list') {
     exit;
 }
 
-// ── Configurer le webhook (admin) ────────────────────────────────────────────
-if ($action === 'set_webhook') {
+// ── Configurer la liaison NexioZ (admin) ─────────────────────────────────────
+if ($action === 'set_liaison') {
     if (!hasRole(['*', 'Administrateur', 'Développeur'])) {
         http_response_code(403);
         echo json_encode(['ok' => false, 'error' => 'Réservé aux administrateurs']);
         exit;
     }
-    $url = trim((string) ($_POST['url'] ?? ''));
-    if ($url !== '' && (!filter_var($url, FILTER_VALIDATE_URL) || !preg_match('#^https?://#i', $url))) {
-        echo json_encode(['ok' => false, 'error' => 'URL de webhook invalide']);
+    $token = trim((string) ($_POST['token'] ?? ''));
+    if ($token !== '' && mdt_proposals_parse_token($token) === null) {
+        echo json_encode(['ok' => false, 'error' => 'Clé de liaison invalide']);
         exit;
     }
     try {
-        mdt_admin_settings_upsert($db, 'discord_webhook_proposals', $url);
+        mdt_admin_settings_upsert($db, 'nexioz_liaison_token', $token);
         echo json_encode(['ok' => true]);
     } catch (Throwable $e) {
-        echo json_encode(['ok' => false, 'error' => "Impossible d'enregistrer le webhook"]);
+        echo json_encode(['ok' => false, 'error' => "Impossible d'enregistrer la clé"]);
     }
+    exit;
+}
+
+// ── Diagnostic de la liaison NexioZ (admin) ──────────────────────────────────
+if ($action === 'nexioz_test') {
+    if (!hasRole(['*', 'Administrateur', 'Développeur'])) {
+        http_response_code(403);
+        echo json_encode(['ok' => false, 'error' => 'Réservé aux administrateurs']);
+        exit;
+    }
+    $diag = mdt_proposals_diagnose_nexioz($db);
+    echo json_encode(['ok' => $diag['ok'], 'steps' => $diag['steps']]);
     exit;
 }
 

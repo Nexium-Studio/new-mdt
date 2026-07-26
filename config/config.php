@@ -50,6 +50,16 @@ if (!defined('MDT_DISPLAY_ERRORS')) {
     define('MDT_DISPLAY_ERRORS', false);
 }
 
+/**
+ * Override optionnel de l'URL du bot NexioZ (liaison MDT).
+ * Normalement inutile : la clé de liaison contient déjà l'adresse du bot.
+ * À définir dans config.local.php seulement si le bot est joignable à une autre
+ * URL que celle encodée dans la clé (ex. réseau interne).
+ */
+if (!defined('NEXIOZ_API_BASE')) {
+    define('NEXIOZ_API_BASE', '');
+}
+
 /** URL du site vitrine Nexium Studio (endpoints /api/mdt/…). Surchargeable dans config.local.php */
 if (!defined('NEXIUM_UPDATES_API_BASE')) {
     define('NEXIUM_UPDATES_API_BASE', 'https://nexium-studio.com');

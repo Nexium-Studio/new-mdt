@@ -138,7 +138,7 @@ require_once ROOT_PATH . '/includes/mdt_proposals.php';
 $myProposals   = mdt_proposals_list_for_user($db, (int)($_SESSION['user_id'] ?? 0));
 $propStatuses  = mdt_proposals_statuses();
 $isProposalAdmin = hasRole(['*', 'Administrateur', 'Développeur']);
-$proposalsWebhookSet = $isProposalAdmin ? (mdt_proposals_webhook_url($db) !== '') : false;
+$proposalsLiaisonSet = $isProposalAdmin ? (mdt_proposals_liaison_token($db) !== '') : false;
 $proposalsInitial = array_map(static function (array $r) use ($propStatuses) {
     $st   = (string)($r['status'] ?? 'pending');
     $meta = $propStatuses[$st] ?? $propStatuses['pending'];
@@ -708,9 +708,9 @@ include __DIR__ . '/includes/header.php';
             </div>
         </div>
         <?php if ($isProposalAdmin): ?>
-        <button type="button" class="btn btn-secondary btn-sm" onclick="openModal('whModal')" title="Configurer le webhook Discord">
-            <i class="fa-brands fa-discord" style="color:#7289da"></i> Webhook
-            <?php echo $proposalsWebhookSet ? '<span class="sd-dot-ok"></span>' : '<span class="sd-dot-off"></span>'; ?>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="openModal('whModal')" title="Configurer la liaison NexioZ">
+            <i class="fa-brands fa-discord" style="color:#7289da"></i> Liaison NexioZ
+            <?php echo $proposalsLiaisonSet ? '<span class="sd-dot-ok"></span>' : '<span class="sd-dot-off"></span>'; ?>
         </button>
         <?php endif; ?>
     </div>
@@ -754,15 +754,16 @@ include __DIR__ . '/includes/header.php';
 <div class="modal-overlay" id="whModal">
     <div class="modal">
         <div class="modal-header">
-            <h3><i class="fa-brands fa-discord" style="color:#7289da;margin-right:8px;"></i>Webhook des propositions</h3>
+            <h3><i class="fa-brands fa-discord" style="color:#7289da;margin-right:8px;"></i>Liaison NexioZ</h3>
             <button class="modal-close" onclick="closeModal('whModal')"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="form-group">
-            <label class="form-label" for="whUrl">URL du webhook Discord</label>
-            <input type="url" id="whUrl" class="form-control" placeholder="https://discord.com/api/webhooks/…">
+            <label class="form-label" for="whUrl">Clé unique de liaison NexioZ</label>
+            <textarea id="whUrl" class="form-control" rows="3" style="font-family:'DM Mono',monospace;font-size:.78rem;resize:vertical;" placeholder="nxz_…"></textarea>
             <div class="form-hint">
-                Chaque nouvelle proposition y est envoyée automatiquement.
-                Statut actuel : <strong style="color:<?php echo $proposalsWebhookSet?'var(--green)':'var(--text-muted)';?>"><?php echo $proposalsWebhookSet?'configuré':'non configuré';?></strong>.
+                Générez cette clé dans NexioZ (module <strong>Liaison MDT → Propositions</strong>) puis collez-la ici.
+                Chaque proposition sera alors publiée sur votre serveur Discord, et les changements de statut reviendront ici automatiquement.<br>
+                Statut actuel : <strong style="color:<?php echo $proposalsLiaisonSet?'var(--green)':'var(--text-muted)';?>"><?php echo $proposalsLiaisonSet?'lié':'non lié';?></strong>.
                 Laisser vide pour désactiver.
             </div>
         </div>
@@ -866,6 +867,16 @@ setTimeout(() => {
     }
     renderHist();
 
+    /* ── Rafraîchit l'historique (statuts mis à jour depuis Discord) ── */
+    async function refreshHist() {
+        try {
+            const r = await fetch(API + '?action=list', { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+            const data = await r.json();
+            if (data.ok && Array.isArray(data.proposals)) { proposals = data.proposals; renderHist(); }
+        } catch (e) {}
+    }
+    setInterval(refreshHist, 45000);
+
     /* ── Envoi ── */
     form.addEventListener('submit', async e => {
         e.preventDefault();
@@ -898,20 +909,20 @@ setTimeout(() => {
         }
     });
 
-    /* ── Webhook (admin) ── */
+    /* ── Liaison NexioZ (admin) ── */
     const whSave = document.getElementById('whSave');
     if (whSave) {
         whSave.addEventListener('click', async () => {
-            const url = (document.getElementById('whUrl').value || '').trim();
+            const token = (document.getElementById('whUrl').value || '').trim();
             whSave.disabled = true;
             const fd = new FormData();
-            fd.append('action', 'set_webhook');
-            fd.append('url', url);
+            fd.append('action', 'set_liaison');
+            fd.append('token', token);
             try {
                 const r = await fetch(API, { method:'POST', headers:{'X-Requested-With':'XMLHttpRequest'}, body: fd });
                 const data = await r.json();
                 if (!data.ok) throw new Error(data.error || 'Erreur');
-                toast('Webhook enregistré', 'success');
+                toast(token ? 'Liaison NexioZ enregistrée' : 'Liaison désactivée', 'success');
                 closeModal('whModal');
             } catch (err) {
                 toast(err.message || 'Échec', 'error');
