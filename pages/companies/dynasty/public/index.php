@@ -30,7 +30,7 @@ $dataJson = json_encode([
     <section class="dy-hero">
         <h1>Estimez votre <span class="g">bien immobilier</span></h1>
         <p>Choisissez un quartier sur la carte, ajustez les options, et obtenez une estimation
-           instantanée du loyer ou du prix d'achat à Lysoria.</p>
+           instantanée du loyer ou du prix d'achat en ville.</p>
     </section>
 
     <?php if (empty($grille['categories'])): ?>
@@ -49,7 +49,7 @@ $dataJson = json_encode([
                 <span class="hint"><i class="fa-solid fa-arrow-pointer"></i> Cliquez une zone pour la sélectionner</span>
             </div>
             <div class="dy-stage" id="dyStage">
-                <div class="dy-plane" id="dyPlane"><img id="dyImg" alt="Carte de Lysoria" src=""></div>
+                <div class="dy-plane" id="dyPlane"><img id="dyImg" alt="Carte de Nexium Studio" src=""></div>
                 <canvas class="dy-canvas" id="dyCanvas"></canvas>
                 <div class="dy-overlay" id="dyOverlay"></div>
                 <div class="dy-tip" id="dyTip"></div>

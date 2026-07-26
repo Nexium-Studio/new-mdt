@@ -235,6 +235,60 @@ table.dyz-t input:focus, table.dyz-t select:focus { outline:0; border-color:var(
 .dyz-controle { font-size:.68rem; color:var(--tx-mute); margin-top:.35rem; }
 .dyz-controle.ok { color:var(--dy); }
 .dyz-controle.ko { color:var(--danger); }
+
+/* ============================================================
+   CONTRÔLES DE FORMULAIRE MODERNISÉS
+   Portée limitée aux conteneurs de cette page (tarification,
+   réglages, modale) — n'affecte aucune autre page du panel.
+   ============================================================ */
+
+/* Accent natif (curseurs, sélection) sur toute la page */
+#panel-tarifs, #panel-carte, #dyzZoneModal { accent-color: var(--dy); }
+
+/* ── Menus déroulants (table.dyz-t : même spécificité que la règle de base) ── */
+table.dyz-t select,
+.dyz-reglages .form-select,
+#dyzZoneModal .form-select {
+    -webkit-appearance:none; -moz-appearance:none; appearance:none;
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:right .65rem center;
+    padding-right:2rem; cursor:pointer;
+}
+table.dyz-t select { padding-right:1.7rem; background-position:right .4rem center; }
+.dyz-reglages .form-select:hover, #dyzZoneModal .form-select:hover { border-color:var(--bd-h); }
+
+/* ── Cases à cocher ── */
+.dyz-t input[type=checkbox] {
+    -webkit-appearance:none; appearance:none;
+    width:20px; height:20px; margin:0; border:1.6px solid var(--bd-2); border-radius:6px;
+    background:var(--bg-2); cursor:pointer; position:relative; vertical-align:middle;
+    transition:background .15s, border-color .15s, box-shadow .15s;
+}
+.dyz-t input[type=checkbox]:hover { border-color:var(--dy); }
+.dyz-t input[type=checkbox]:focus-visible { outline:0; box-shadow:0 0 0 3px var(--dy-soft); }
+.dyz-t input[type=checkbox]:checked { background:var(--dy); border-color:var(--dy); }
+.dyz-t input[type=checkbox]:checked::after {
+    content:''; position:absolute; left:6px; top:2px; width:5px; height:10px;
+    border:solid #04140e; border-width:0 2.2px 2.2px 0; transform:rotate(45deg);
+}
+
+/* ── Champs numériques (spinners masqués pour un rendu épuré) ── */
+.dyz-t input[type=number]::-webkit-outer-spin-button,
+.dyz-t input[type=number]::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
+.dyz-t input[type=number] { -moz-appearance:textfield; }
+
+/* ── Focus uniforme sur tous les champs ── */
+.dyz-t input:focus, .dyz-t select:focus,
+.dyz-reglages .form-input:focus, .dyz-reglages .form-select:focus,
+#dyzZoneModal .form-input:focus, #dyzZoneModal .form-select:focus {
+    outline:0; border-color:var(--dy); box-shadow:0 0 0 3px var(--dy-soft);
+}
+
+/* ── Sélecteur de couleur ── */
+.dyz-t input[type=color] { -webkit-appearance:none; appearance:none; }
+.dyz-t input[type=color]::-webkit-color-swatch-wrapper { padding:0; }
+.dyz-t input[type=color]::-webkit-color-swatch { border:none; border-radius:4px; }
+.dyz-t input[type=color]::-moz-color-swatch { border:none; border-radius:4px; }
 </style>
 
 <!-- ══ ONGLETS ══ -->
@@ -548,6 +602,7 @@ table.dyz-t input:focus, table.dyz-t select:focus { outline:0; border-color:var(
 <script>window.DYZ_CFG = <?php echo $cfgJson; ?>; window.DYZ_DATA = <?php echo $dataJson; ?>;</script>
 <script src="<?php echo SITE_URL; ?>/assets/js/maps/map-engine.js?v=<?php echo @filemtime(ROOT_PATH . '/assets/js/maps/map-engine.js') ?: '1'; ?>"></script>
 <script src="<?php echo SITE_URL; ?>/assets/js/dynasty/dynasty-pricing.js?v=<?php echo @filemtime(ROOT_PATH . '/assets/js/dynasty/dynasty-pricing.js') ?: '1'; ?>"></script>
+<script src="<?php echo SITE_URL; ?>/assets/js/dynasty/dynasty-ui.js?v=<?php echo @filemtime(ROOT_PATH . '/assets/js/dynasty/dynasty-ui.js') ?: '1'; ?>"></script>
 <script>
 /* ══════════════════════════════════════════════════════════════════════════
    Onglets — bloc autonome : la Tarification doit rester utilisable même
@@ -700,6 +755,8 @@ table.dyz-t input:focus, table.dyz-t select:focus { outline:0; border-color:var(
             ? ((ctx.el.meta && ctx.el.meta.categorie_id) || catActive)
             : catActive;
         if (catId) $('dyzCat').value = String(catId);
+        // Le menu déroulant custom doit refléter la valeur posée par programme.
+        if (window.DynastyUI) { DynastyUI.enhanceSelects($('dyzZoneModal')); DynastyUI.refresh($('dyzCat')); }
         Company.openModal('dyzZoneModal');
         setTimeout(() => $('dyzNom').focus(), 60);
     }
@@ -1002,6 +1059,9 @@ table.dyz-t input:focus, table.dyz-t select:focus { outline:0; border-color:var(
         rendreCats(); rendreOpts(); rendreGars(); rendreReglages();
         rendreSimulateur();
         calculer();
+        // Les tableaux sont reconstruits à chaque rendu : on (ré)applique les
+        // menus déroulants et sélecteurs de couleur personnalisés.
+        if (window.DynastyUI) DynastyUI.enhance($('panel-tarifs'));
     }
 
     /* ── Lecture d'une ligne de tableau ── */

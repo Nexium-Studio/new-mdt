@@ -110,6 +110,8 @@ if (!function_exists('dynasty_zones_bootstrap')) {
 
             dynasty_zones_seed($db);
             dynasty_zones_migrate_biens($db);
+            dynasty_biens_migrate_images($db);
+            dynasty_biens_migrate_categories($db);
         } catch (Throwable $e) {
             // Dégradation gracieuse : ne jamais casser une page si la base est indisponible.
             error_log('[Dynasty Zones] bootstrap: ' . $e->getMessage());
@@ -323,6 +325,173 @@ if (!function_exists('dynasty_zones_bootstrap')) {
             $cache = false;
         }
         return $cache;
+    }
+
+    /**
+     * Ajout de dynasty_biens.images (JSON, liste d'URL ou de chemins locaux).
+     * Colonne facultative : en son absence, les biens n'affichent qu'une icône.
+     */
+    function dynasty_biens_migrate_images(PDO $db): void
+    {
+        try {
+            if (dynasty_biens_has_images($db)) {
+                return;
+            }
+            $db->exec("ALTER TABLE dynasty_biens
+                         ADD COLUMN images LONGTEXT NULL DEFAULT NULL AFTER equipements");
+            dynasty_biens_has_images($db, true); // rafraîchit le cache après l'ALTER
+        } catch (Throwable $e) {
+            error_log('[Dynasty Zones] migrate_images: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Ajout de dynasty_biens.categorie_ids (JSON, liste d'ID de catégories/quartiers).
+     * Permet d'associer un bien à un ou plusieurs quartiers, affichés en tags
+     * sur le catalogue public. Rétro-rempli depuis le zone_id existant.
+     */
+    function dynasty_biens_migrate_categories(PDO $db): void
+    {
+        try {
+            if (dynasty_biens_has_categories($db)) {
+                return;
+            }
+            $db->exec("ALTER TABLE dynasty_biens
+                         ADD COLUMN categorie_ids LONGTEXT NULL DEFAULT NULL AFTER zone_id");
+            dynasty_biens_has_categories($db, true);
+
+            // Backfill : la catégorie de la zone rattachée devient le 1er quartier.
+            if (dynasty_zones_biens_has_zone_id($db)) {
+                $db->exec("UPDATE dynasty_biens b
+                             INNER JOIN dynasty_zones z ON z.id = b.zone_id
+                           SET b.categorie_ids = CONCAT('[', z.categorie_id, ']')
+                           WHERE b.zone_id IS NOT NULL
+                             AND z.categorie_id IS NOT NULL
+                             AND (b.categorie_ids IS NULL OR b.categorie_ids = '')");
+            }
+        } catch (Throwable $e) {
+            error_log('[Dynasty Zones] migrate_categories: ' . $e->getMessage());
+        }
+    }
+
+    /** La colonne dynasty_biens.categorie_ids existe-t-elle ? (cache par requête) */
+    function dynasty_biens_has_categories(PDO $db, bool $refresh = false): bool
+    {
+        static $cache = null;
+        if ($cache !== null && !$refresh) {
+            return $cache;
+        }
+        try {
+            $cache = (bool) $db->query("
+                SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE()
+                  AND TABLE_NAME   = 'dynasty_biens'
+                  AND COLUMN_NAME  = 'categorie_ids'
+            ")->fetchColumn();
+        } catch (Throwable $e) {
+            $cache = false;
+        }
+        return $cache;
+    }
+
+    /**
+     * Normalise une liste d'ID de catégories (POST ou base) : entiers positifs
+     * uniques, filtrés sur les catégories réellement existantes.
+     *
+     * @param mixed $raw       Tableau, chaîne JSON, ou null.
+     * @param int[] $validIds  Liste des ID de catégories valides.
+     * @return int[]
+     */
+    function dynasty_biens_clean_category_ids($raw, array $validIds): array
+    {
+        if (is_string($raw)) {
+            $raw = json_decode($raw, true);
+        }
+        if (!is_array($raw)) {
+            return [];
+        }
+        $valid = array_flip(array_map('intval', $validIds));
+        $out = [];
+        foreach ($raw as $v) {
+            $id = (int) $v;
+            if ($id > 0 && isset($valid[$id]) && !in_array($id, $out, true)) {
+                $out[] = $id;
+            }
+            if (count($out) >= 12) {
+                break;
+            }
+        }
+        return $out;
+    }
+
+    /** La colonne dynasty_biens.images existe-t-elle ? (cache par requête) */
+    function dynasty_biens_has_images(PDO $db, bool $refresh = false): bool
+    {
+        static $cache = null;
+        if ($cache !== null && !$refresh) {
+            return $cache;
+        }
+        try {
+            $cache = (bool) $db->query("
+                SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE()
+                  AND TABLE_NAME   = 'dynasty_biens'
+                  AND COLUMN_NAME  = 'images'
+            ")->fetchColumn();
+        } catch (Throwable $e) {
+            $cache = false;
+        }
+        return $cache;
+    }
+
+    /**
+     * Normalise et borne une liste d'images (venue d'un POST ou de la base).
+     * N'accepte que des URL http(s) ou des chemins internes /uploads/dynasty/…,
+     * pour qu'aucune valeur arbitraire ne finisse dans un attribut src.
+     *
+     * @param mixed $raw Tableau, chaîne JSON, ou null.
+     * @return string[] Liste nettoyée (max 24), sans doublon, ordre préservé.
+     */
+    function dynasty_biens_clean_images($raw): array
+    {
+        if (is_string($raw)) {
+            $raw = json_decode($raw, true);
+        }
+        if (!is_array($raw)) {
+            return [];
+        }
+        $out = [];
+        foreach ($raw as $u) {
+            if (!is_string($u)) {
+                continue;
+            }
+            $u = trim($u);
+            if ($u === '') {
+                continue;
+            }
+            // http(s) externe, ou chemin d'upload interne (jamais de ../, jamais de scheme exotique).
+            $ok = preg_match('#^https?://#i', $u)
+               || (strpos($u, '/uploads/dynasty/') === 0 && strpos($u, '..') === false);
+            if ($ok && !in_array($u, $out, true)) {
+                $out[] = mb_substr($u, 0, 800);
+            }
+            if (count($out) >= 24) {
+                break;
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Résout une image stockée en URL affichable : les chemins internes sont
+     * préfixés par SITE_URL, les URL externes renvoyées telles quelles.
+     */
+    function dynasty_biens_image_url(string $img): string
+    {
+        if (preg_match('#^https?://#i', $img)) {
+            return $img;
+        }
+        return rtrim(SITE_URL, '/') . '/' . ltrim($img, '/');
     }
 
     /**

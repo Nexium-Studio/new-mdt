@@ -48,11 +48,30 @@ foreach (dynasty_zones_load($db, $grille['categories']) as $z) {
     $zonesParNom[mb_strtolower(trim($z['title']))] = (int) ($z['meta']['categorie_id'] ?? 0);
 }
 
-/** Catégorie effective d'un bien : d'abord zone_id, sinon rapprochement par nom. */
-$catDuBien = function (array $b) use ($zonesParNom): int {
-    if (!empty($b['zone_cat'])) return (int) $b['zone_cat'];
+$hasCats = dy_has_column('dynasty_biens', 'categorie_ids');
+
+/**
+ * Quartiers (catégories) d'un bien : les tags explicites en priorité, sinon
+ * repli sur la catégorie dérivée (zone_id, puis rapprochement par nom).
+ * @return int[]
+ */
+$catsDuBien = function (array $b) use ($zonesParNom, $hasCats, $grille): array {
+    if ($hasCats) {
+        $ids = json_decode((string) ($b['categorie_ids'] ?? '[]'), true);
+        if (is_array($ids) && $ids) {
+            $out = [];
+            foreach ($ids as $id) {
+                $id = (int) $id;
+                if ($id > 0 && isset($grille['categories'][$id]) && !in_array($id, $out, true)) $out[] = $id;
+            }
+            if ($out) return $out;
+        }
+    }
+    // Repli mono-catégorie (compat biens sans tags explicites).
+    if (!empty($b['zone_cat']) && isset($grille['categories'][(int) $b['zone_cat']])) return [(int) $b['zone_cat']];
     $q = mb_strtolower(trim((string) ($b['quartier'] ?? '')));
-    return $zonesParNom[$q] ?? 0;
+    $cid = $zonesParNom[$q] ?? 0;
+    return ($cid && isset($grille['categories'][$cid])) ? [$cid] : [];
 };
 
 /* Bornes de prix pour le curseur (sur l'ensemble avant filtrage). */
@@ -73,7 +92,7 @@ require __DIR__ . '/_header.php';
 
     <section class="dy-hero">
         <h1>Le <span class="g">catalogue</span> Dynasty</h1>
-        <p>Tous les biens actuellement disponibles à la location ou à la vente à Lysoria.</p>
+        <p>Tous les biens actuellement disponibles à la location ou à la vente à Nexium Studio.</p>
     </section>
 
     <div class="dy-filters">
@@ -104,9 +123,15 @@ require __DIR__ . '/_header.php';
                 <option value="vente">Vente</option>
             </select>
         </div>
-        <div class="dy-field">
-            <label for="fPrix">Prix max : <span id="fPrixVal">—</span></label>
-            <input type="range" id="fPrix" min="0" max="<?php echo $prixMax; ?>" step="1000" value="<?php echo $prixMax; ?>" style="min-width:200px">
+        <div class="dy-field dy-price-field">
+            <div class="dy-price-head">
+                <label for="fPrix">Prix maximum</label>
+                <span class="dy-price-val" id="fPrixVal">—</span>
+            </div>
+            <div class="dy-range-wrap">
+                <input type="range" class="dy-range" id="fPrix" min="0" max="<?php echo $prixMax; ?>" step="1000" value="<?php echo $prixMax; ?>" style="--fill:100%">
+            </div>
+            <div class="dy-range-scale"><span>0 <?php echo dy_esc($devise); ?></span><span><?php echo number_format($prixMax, 0, ',', ' ') . ' ' . dy_esc($devise); ?></span></div>
         </div>
         <div class="dy-count" id="dyCount"></div>
     </div>
@@ -116,17 +141,27 @@ require __DIR__ . '/_header.php';
 
 <?php
 /* Sérialisation légère pour le filtrage client. */
+$hasImages = dy_has_column('dynasty_biens', 'images');
 $out = [];
 foreach ($biens as $b) {
-    $cat = $catDuBien($b);
+    $cats = $catsDuBien($b);
+    // Images résolues en URL absolues, prêtes à l'affichage.
+    $imgs = [];
+    if ($hasImages) {
+        foreach (dynasty_biens_clean_images($b['images'] ?? '[]') as $img) {
+            $imgs[] = dynasty_biens_image_url($img);
+        }
+    }
     $out[] = [
         'ref'      => (string) ($b['reference'] ?? ''),
         'type'     => (string) ($b['type_bien'] ?? ''),
         'titre'    => (string) ($b['titre'] ?? ''),
+        'images'   => $imgs,
         'desc'     => mb_substr(trim(strip_tags((string) ($b['description'] ?? ''))), 0, 220),
         'adresse'  => (string) ($b['adresse'] ?? ''),
         'quartier' => (string) ($b['zone_nom'] ?? $b['quartier'] ?? ''),
-        'cat'      => $cat,
+        'cats'     => array_values($cats),
+        'cat'      => $cats[0] ?? 0,
         'surface'  => (float) ($b['surface'] ?? 0),
         'pieces'   => (int) ($b['pieces'] ?? 0),
         'chambres' => (int) ($b['chambres'] ?? 0),
@@ -150,6 +185,13 @@ window.DY_ICONS = <?php echo json_encode((object) $ICONS, JSON_UNESCAPED_UNICODE
 window.DY_DEVISE = <?php echo json_encode($devise); ?>;
 </script>
 <script src="<?php echo SITE_URL; ?>/assets/js/dynasty/dynasty-pricing.js?v=<?php echo @filemtime(ROOT_PATH . '/assets/js/dynasty/dynasty-pricing.js') ?: '1'; ?>"></script>
-<script src="<?php echo dy_pub_url('assets/catalogue.js'); ?>?v=1"></script>
+<script src="<?php echo SITE_URL; ?>/assets/js/dynasty/dynasty-ui.js?v=<?php echo @filemtime(ROOT_PATH . '/assets/js/dynasty/dynasty-ui.js') ?: '1'; ?>"></script>
+<script src="<?php echo dy_pub_url('assets/catalogue.js'); ?>?v=<?php echo @filemtime(__DIR__ . '/assets/catalogue.js') ?: '1'; ?>"></script>
+<script>
+// Menus déroulants personnalisés sur la barre de filtres (Quartier / Type / Transaction).
+document.addEventListener('DOMContentLoaded', function () {
+    if (window.DynastyUI) DynastyUI.enhanceSelects(document.querySelector('.dy-filters'));
+});
+</script>
 
 <?php require __DIR__ . '/_footer.php'; ?>

@@ -1,0 +1,85 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   MDT · Modale de confirmation globale
+   Remplace les alert()/confirm() natifs. Chargée par
+   includes/mdt_company_confirm_load.php sur les panels entreprise.
+   Thémée via les variables du design system (repli si absentes).
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.mdtc-overlay {
+    position: fixed; inset: 0; z-index: 100000;
+    display: flex; align-items: center; justify-content: center;
+    padding: 1.2rem;
+    background: rgba(3, 7, 14, .62);
+    backdrop-filter: blur(4px);
+    opacity: 0; visibility: hidden;
+    transition: opacity .18s ease, visibility .18s ease;
+}
+.mdtc-overlay.open { opacity: 1; visibility: visible; }
+
+.mdtc-card {
+    width: min(440px, 100%);
+    background: var(--surface, var(--panel, #131922));
+    border: 1px solid var(--bd-2, rgba(148,163,184,.18));
+    border-radius: var(--r-lg, 14px);
+    box-shadow: 0 24px 70px rgba(0, 0, 0, .5);
+    overflow: hidden;
+    transform: translateY(8px) scale(.98);
+    transition: transform .2s cubic-bezier(.32, .72, .4, 1);
+}
+.mdtc-overlay.open .mdtc-card { transform: none; }
+
+.mdtc-head {
+    display: flex; align-items: center; gap: .85rem;
+    padding: 1.15rem 1.3rem .6rem;
+}
+.mdtc-ico {
+    width: 42px; height: 42px; flex-shrink: 0;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.05rem;
+    background: rgba(148, 163, 184, .12);
+    color: var(--tx-2, #cbd5e1);
+}
+.mdtc-ico.danger  { background: rgba(239, 68, 68, .14);  color: #fca5a5; }
+.mdtc-ico.warning { background: rgba(245, 158, 11, .14); color: #fbbf24; }
+.mdtc-ico.success { background: rgba(16, 185, 129, .14); color: #34d399; }
+.mdtc-ico.info    { background: rgba(59, 130, 246, .14); color: #93c5fd; }
+
+.mdtc-title {
+    font-size: .98rem; font-weight: 700;
+    color: var(--tx, #f1f5f9);
+    line-height: 1.3;
+}
+.mdtc-body {
+    padding: 0 1.3rem 1.15rem 4.15rem;
+    font-size: .86rem; line-height: 1.55;
+    color: var(--tx-3, #94a3b8);
+}
+.mdtc-body strong { color: var(--tx-2, #cbd5e1); font-weight: 700; }
+@media (max-width: 480px) { .mdtc-body { padding-left: 1.3rem; } }
+
+.mdtc-foot {
+    display: flex; justify-content: flex-end; gap: .55rem;
+    padding: .9rem 1.3rem;
+    border-top: 1px solid var(--bd, rgba(148,163,184,.10));
+    background: var(--bg-2, var(--panel-2, rgba(0,0,0,.14)));
+}
+.mdtc-btn {
+    border: 1px solid var(--bd-2, rgba(148,163,184,.18));
+    background: var(--surface-2, var(--panel-2, #182030));
+    color: var(--tx-2, #cbd5e1);
+    border-radius: var(--r-sm, 8px);
+    padding: .55rem 1.1rem;
+    font: 600 .84rem/1 'Inter', system-ui, sans-serif;
+    cursor: pointer;
+    transition: background .15s, border-color .15s, color .15s, transform .1s;
+}
+.mdtc-btn:hover { background: var(--surface-3, rgba(148,163,184,.12)); }
+.mdtc-btn:active { transform: translateY(1px); }
+.mdtc-btn-primary {
+    background: var(--dy, #10b981); border-color: var(--dy, #10b981); color: #04140e;
+}
+.mdtc-btn-primary:hover { background: var(--dy-h, #059669); border-color: var(--dy-h, #059669); }
+.mdtc-btn-danger  { background: #ef4444; border-color: #ef4444; color: #fff; }
+.mdtc-btn-danger:hover { background: #dc2626; border-color: #dc2626; }
+.mdtc-btn-warn    { background: #f59e0b; border-color: #f59e0b; color: #1a1206; }

@@ -1,0 +1,16 @@
+# Biens Dynasty : fichiers image uniquement.
+# Le blocage d'exécution PHP est encadré par <IfModule mod_php> : sous PHP-FPM/CGI
+# la directive php_flag n'existe pas et provoquerait une erreur 500 — on ne
+# l'applique donc que si mod_php est réellement chargé. La sécurité de fond
+# repose de toute façon sur la liste blanche d'extensions (jpg/png/gif) côté API.
+<IfModule mod_php.c>
+    php_flag engine off
+</IfModule>
+<IfModule mod_php7.c>
+    php_flag engine off
+</IfModule>
+<IfModule mod_headers.c>
+    <FilesMatch "\.(webp|jpe?g|png|gif)$">
+        Header set Cache-Control "public, max-age=2592000"
+    </FilesMatch>
+</IfModule>

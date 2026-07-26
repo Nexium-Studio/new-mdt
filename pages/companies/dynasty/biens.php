@@ -28,10 +28,22 @@ $canDelete = faction_acl_can($db, $uid, $companyFaction, 'stock.delete');
 require_once __DIR__ . '/includes/zones_bootstrap.php';
 dynasty_zones_bootstrap($db);
 $hasZoneId = dynasty_zones_biens_has_zone_id($db);
+$hasImages = dynasty_biens_has_images($db);
+$hasCatIds = dynasty_biens_has_categories($db);
+$dyCsrf    = dynasty_zones_csrf();
 $zonesListe = [];
 try {
     $zonesListe = $db->query("SELECT id, nom FROM dynasty_zones ORDER BY nom ASC")->fetchAll(PDO::FETCH_ASSOC);
 } catch (Throwable $e) { $zonesListe = []; }
+
+// Catégories de quartier (tags) sélectionnables sur un bien.
+$quartiersListe = [];
+try {
+    $quartiersListe = $db->query("SELECT id, label, couleur FROM dynasty_zone_categories WHERE actif=1 ORDER BY ordre ASC, id ASC")->fetchAll(PDO::FETCH_ASSOC);
+} catch (Throwable $e) { $quartiersListe = []; }
+$quartiersValidIds = array_map(fn($q) => (int)$q['id'], $quartiersListe);
+$quartiersById = [];
+foreach ($quartiersListe as $q) { $quartiersById[(int)$q['id']] = $q; }
 
 /* ── Helpers ── */
 function nextRef($db) {
@@ -105,10 +117,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canManage) {
             ]);
             // Rattachement facultatif à une zone (requête séparée : la colonne
             // peut ne pas exister sur une base pas encore migrée).
-            if ($hasZoneId) {
-                $newId = (int)$db->lastInsertId();
+            $newId = (int)$db->lastInsertId();
+            if ($hasZoneId && isset($_POST['zone_id'])) {
                 $zid = !empty($_POST['zone_id']) ? (int)$_POST['zone_id'] : null;
                 $db->prepare("UPDATE dynasty_biens SET zone_id=? WHERE id=?")->execute([$zid, $newId]);
+            }
+            if ($hasImages) {
+                $imgs = json_encode(dynasty_biens_clean_images($_POST['images'] ?? '[]'), JSON_UNESCAPED_SLASHES);
+                $db->prepare("UPDATE dynasty_biens SET images=? WHERE id=?")->execute([$imgs, $newId]);
+            }
+            if ($hasCatIds) {
+                $cats = dynasty_biens_clean_category_ids($_POST['categorie_ids'] ?? '[]', $quartiersValidIds);
+                $db->prepare("UPDATE dynasty_biens SET categorie_ids=? WHERE id=?")->execute([json_encode($cats), $newId]);
             }
             $message = "✅ Instance $ref créée avec succès."; $msgType = 'success';
         } catch(Exception $e) { $message = '❌ '.$e->getMessage(); $msgType = 'error'; }
@@ -148,9 +168,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canManage) {
                 (float)($_POST['commission_vente_pct']??5),(float)($_POST['commission_location_pct']??10),
                 $equip,$id,
             ]);
-            if ($hasZoneId) {
+            if ($hasZoneId && isset($_POST['zone_id'])) {
                 $zid = !empty($_POST['zone_id']) ? (int)$_POST['zone_id'] : null;
                 $db->prepare("UPDATE dynasty_biens SET zone_id=? WHERE id=?")->execute([$zid, $id]);
+            }
+            if ($hasImages) {
+                $imgs = json_encode(dynasty_biens_clean_images($_POST['images'] ?? '[]'), JSON_UNESCAPED_SLASHES);
+                $db->prepare("UPDATE dynasty_biens SET images=? WHERE id=?")->execute([$imgs, $id]);
+            }
+            if ($hasCatIds) {
+                $cats = dynasty_biens_clean_category_ids($_POST['categorie_ids'] ?? '[]', $quartiersValidIds);
+                $db->prepare("UPDATE dynasty_biens SET categorie_ids=? WHERE id=?")->execute([json_encode($cats), $id]);
             }
             $message = '✅ Instance mise à jour.'; $msgType = 'success';
         } catch(Exception $e) { $message = '❌ '.$e->getMessage(); $msgType = 'error'; }
@@ -202,7 +230,7 @@ foreach ($db->query("SELECT statut,COUNT(*) n FROM dynasty_biens GROUP BY statut
 // Agents — source unifiée : users.faction
 $agents = $db->query("
     SELECT u.id, u.username,
-           COALESCE(NULLIF(u.faction_rank,''), 'Agent') AS rank,
+           COALESCE(NULLIF(u.faction_rank,''), 'Agent') AS `rank`,
            p.firstname AS profile_firstname, p.lastname AS profile_lastname
     FROM users u
     LEFT JOIN profiles p ON p.id = u.profile_id
@@ -212,6 +240,71 @@ $agents = $db->query("
 
 include __DIR__ . '/includes/header.php';
 ?>
+
+<style>
+/* ── Gestionnaire d'images (modales créer / modifier) ── */
+.dy-imgmgr { display:flex; flex-direction:column; gap:.7rem; }
+.dy-imgmgr-add { display:grid; grid-template-columns:1fr auto; gap:.6rem; align-items:stretch; }
+@media (max-width:640px){ .dy-imgmgr-add { grid-template-columns:1fr; } }
+.dy-imgmgr-url { display:flex; gap:.5rem; }
+.dy-imgmgr-url .form-input { flex:1; }
+.dy-imgmgr-drop {
+    display:flex; align-items:center; gap:.6rem; padding:.7rem 1rem; cursor:pointer;
+    background:var(--surface-2); border:1px dashed var(--bd-2); border-radius:var(--r-md);
+    color:var(--tx-3); font-size:.8rem; font-weight:600; transition:border-color .15s, background .15s, color .15s;
+    white-space:nowrap;
+}
+.dy-imgmgr-drop:hover, .dy-imgmgr-drop.drag { border-color:var(--dy); background:var(--dy-soft); color:var(--dy); }
+.dy-imgmgr-drop i { font-size:1.05rem; }
+.dy-imgmgr-drop small { display:block; font-weight:500; color:var(--tx-mute); font-size:.68rem; }
+.dy-imgmgr-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(96px,1fr)); gap:.55rem; }
+.dy-imgmgr-empty { grid-column:1/-1; padding:1.3rem; text-align:center; color:var(--tx-mute); font-size:.78rem; border:1px dashed var(--bd); border-radius:var(--r-md); }
+.dy-thumb {
+    position:relative; aspect-ratio:1/1; border-radius:var(--r-md); overflow:hidden;
+    border:1px solid var(--bd-2); background:var(--surface-3); cursor:grab;
+}
+.dy-thumb.dragging { opacity:.4; }
+.dy-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+.dy-thumb .dy-thumb-broken { display:flex; align-items:center; justify-content:center; width:100%; height:100%; color:var(--tx-mute); font-size:1.1rem; }
+.dy-thumb-x {
+    position:absolute; top:4px; right:4px; width:22px; height:22px; border:0; border-radius:6px;
+    background:rgba(2,6,12,.7); color:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center;
+    font-size:.7rem; opacity:0; transition:opacity .15s, background .15s;
+}
+.dy-thumb:hover .dy-thumb-x { opacity:1; }
+.dy-thumb-x:hover { background:var(--danger); }
+.dy-thumb-cover {
+    position:absolute; left:0; bottom:0; right:0; padding:.2rem .35rem; font-size:.6rem; font-weight:700;
+    text-transform:uppercase; letter-spacing:.03em; text-align:center;
+    background:linear-gradient(0deg,rgba(16,185,129,.92),rgba(16,185,129,.55)); color:#04140e;
+}
+.dy-imgmgr-hint { font-size:.68rem; color:var(--tx-mute); }
+.dy-uploading { display:inline-flex; align-items:center; gap:.4rem; font-size:.75rem; color:var(--dy); }
+
+/* Cover réelle dans la carte de gestion */
+.bien-photo img.bien-cover { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+.bien-photo.has-cover > i { display:none; }
+
+/* ── Sélecteur de quartiers (tags) ── */
+.quartier-tags { display:flex; flex-wrap:wrap; gap:.45rem; }
+.quartier-tag {
+    display:inline-flex; align-items:center; gap:.4rem; cursor:pointer; user-select:none;
+    padding:.4rem .7rem; border-radius:var(--r-pill,999px); font-size:.78rem; font-weight:600;
+    color:var(--tx-3); background:var(--surface-2); border:1px solid var(--bd-2);
+    transition:background .15s, border-color .15s, color .15s;
+}
+.quartier-tag .qt-dot { width:9px; height:9px; border-radius:50%; background:var(--qc,#94a3b8); flex-shrink:0; }
+.quartier-tag:hover { border-color:var(--qc,var(--bd-h)); color:var(--tx-2); }
+.quartier-tag.on {
+    color:var(--tx); border-color:var(--qc,var(--dy));
+    background:color-mix(in srgb, var(--qc,var(--dy)) 16%, var(--surface-2));
+}
+
+/* Tags quartiers sur la carte de gestion */
+.bien-quartiers { display:flex; flex-wrap:wrap; gap:.35rem; margin-bottom:.6rem; }
+.bien-quartier-tag { display:inline-flex; align-items:center; gap:.35rem; font-size:.68rem; font-weight:600; color:var(--tx-2); background:var(--surface-2); border:1px solid var(--bd-2); border-radius:var(--r-pill,999px); padding:.2rem .55rem; }
+.bien-quartier-tag .qt-dot { width:7px; height:7px; border-radius:50%; }
+</style>
 
 <?php if($message): ?>
 <div class="alert alert-<?php echo $msgType; ?>"><i class="fas fa-<?php echo $msgType==='success'?'check-circle':'exclamation-circle'; ?>"></i><?php echo $message; ?></div>
@@ -293,10 +386,15 @@ include __DIR__ . '/includes/header.php';
 <?php foreach($biens as $b):
     $ico   = $ICONS[$b['type_bien']]??'fa-home';
     $equip = json_decode($b['equipements']??'[]',true) ?: [];
+    $imgs  = $hasImages ? dynasty_biens_clean_images($b['images'] ?? '[]') : [];
+    $cover = $imgs ? dynasty_biens_image_url($imgs[0]) : '';
+    $bienCats = $hasCatIds ? dynasty_biens_clean_category_ids($b['categorie_ids'] ?? '[]', $quartiersValidIds) : [];
 ?>
 <div class="bien-card">
-    <div class="bien-photo">
+    <div class="bien-photo<?php echo $cover?' has-cover':''; ?>">
+        <?php if($cover): ?><img class="bien-cover" src="<?php echo htmlspecialchars($cover); ?>" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove();this.parentNode.classList.remove('has-cover')"><?php endif; ?>
         <i class="fas <?php echo $ico; ?>"></i>
+        <?php if(count($imgs)>1): ?><span class="ov-ref" style="left:.7rem;right:auto;background:rgba(2,6,12,.7)"><i class="fas fa-images"></i> <?php echo count($imgs); ?></span><?php endif; ?>
         <span class="ov-statut"><span class="badge badge-<?php echo $b['statut']; ?>"><?php echo ucfirst($b['statut']); ?></span></span>
         <span class="ov-ref"><?php echo $b['reference']; ?></span>
     </div>
@@ -304,6 +402,13 @@ include __DIR__ . '/includes/header.php';
         <div class="bien-type-tag"><i class="fas <?php echo $ico; ?>"></i><?php echo $TYPES[$b['type_bien']]??$b['type_bien']; ?></div>
         <div class="bien-titre"><?php echo htmlspecialchars($b['titre']); ?></div>
         <div class="bien-adr"><i class="fas fa-map-marker-alt" style="color:#22c55e;"></i><?php echo htmlspecialchars($b['quartier']?$b['quartier'].', '.$b['adresse']:$b['adresse']); ?></div>
+        <?php if($bienCats): ?>
+        <div class="bien-quartiers">
+            <?php foreach($bienCats as $cid): if(!isset($quartiersById[$cid])) continue; $qc=$quartiersById[$cid]; ?>
+            <span class="bien-quartier-tag"><span class="qt-dot" style="background:<?php echo htmlspecialchars($qc['couleur']); ?>"></span><?php echo htmlspecialchars($qc['label']); ?></span>
+            <?php endforeach; ?>
+        </div>
+        <?php endif; ?>
 
         <div class="bien-specs">
             <?php if($b['surface']): ?><span class="bien-spec"><i class="fas fa-ruler-combined"></i><?php echo $b['surface']; ?> m²</span><?php endif; ?>
@@ -369,12 +474,20 @@ include __DIR__ . '/includes/header.php';
             <div class="form-group form-full"><label class="form-label">Titre *</label><input type="text" name="titre" class="form-input" required placeholder="Ex: Bel Appartement Vinewood Hills"></div>
             <div class="form-group form-full"><label class="form-label">Adresse *</label><input type="text" name="adresse" class="form-input" required placeholder="Adresse complète"></div>
             <div class="form-group"><label class="form-label">Quartier</label><input type="text" name="quartier" class="form-input" placeholder="Ex: Vinewood Hills"></div>
-            <?php if($hasZoneId): ?>
-            <div class="form-group"><label class="form-label">Zone du catalogue public <span style="color:var(--tx-mute);font-weight:400">(facultatif)</span></label>
-                <select name="zone_id" class="form-select"><option value="">— Aucune (rapprochée par nom) —</option>
-                <?php foreach($zonesListe as $z): ?><option value="<?php echo (int)$z['id']; ?>"><?php echo htmlspecialchars($z['nom']); ?></option><?php endforeach; ?></select></div>
-            <?php endif; ?>
             <div class="form-group"><label class="form-label">Année construction</label><input type="number" name="annee_construction" class="form-input" min="1800" max="2100" placeholder="Ex: 2020"></div>
+            <?php if($hasCatIds && $quartiersListe): ?>
+            <div class="form-group form-full">
+                <label class="form-label">Quartiers <span style="color:var(--tx-mute);font-weight:400">— tags affichés sur le catalogue public</span></label>
+                <div class="quartier-tags" id="quartierTags">
+                    <?php foreach($quartiersListe as $q): ?>
+                    <span class="quartier-tag" data-id="<?php echo (int)$q['id']; ?>" style="--qc:<?php echo htmlspecialchars($q['couleur']); ?>" onclick="toggleQuartier(this,'quartierTags','quartierInput')">
+                        <span class="qt-dot"></span><?php echo htmlspecialchars($q['label']); ?>
+                    </span>
+                    <?php endforeach; ?>
+                </div>
+                <input type="hidden" name="categorie_ids" id="quartierInput" value="[]">
+            </div>
+            <?php endif; ?>
             <div class="form-group form-full"><label class="form-label">Description</label><textarea name="description" class="form-textarea" placeholder="Description du bien..."></textarea></div>
         </div>
 
@@ -413,6 +526,26 @@ include __DIR__ . '/includes/header.php';
         </div>
         <input type="hidden" name="equipements" id="equipInput">
 
+        <?php if($hasImages): ?>
+        <div class="sec-title" style="margin-top:1rem;"><i class="fas fa-images"></i> Images du bien</div>
+        <div class="dy-imgmgr" data-imgmgr>
+            <div class="dy-imgmgr-add">
+                <div class="dy-imgmgr-url">
+                    <input type="url" class="form-input" placeholder="https://… URL directe d'une image" data-img-url>
+                    <button type="button" class="btn btn-secondary" data-img-addurl><i class="fas fa-link"></i></button>
+                </div>
+                <label class="dy-imgmgr-drop" data-img-drop tabindex="0">
+                    <input type="file" accept=".png,.jpg,.jpeg,.gif,.webp,image/png,image/jpeg,image/gif,image/webp" multiple hidden data-img-file>
+                    <i class="fas fa-cloud-arrow-up"></i>
+                    <span>Importer des fichiers<small>PNG, JPG, JPEG, GIF, WEBP · 6 Mo</small></span>
+                </label>
+            </div>
+            <div class="dy-imgmgr-grid" data-img-grid></div>
+            <div class="dy-imgmgr-hint"><i class="fas fa-arrows-up-down-left-right"></i> Glissez pour réordonner · la 1ʳᵉ image sert de couverture.</div>
+            <input type="hidden" name="images" data-img-input value="[]">
+        </div>
+        <?php endif; ?>
+
     </div><div class="modal-footer">
         <button type="button" class="btn btn-secondary" onclick="Company.closeModal('createModal')">Annuler</button>
         <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Créer l'instance</button>
@@ -430,12 +563,20 @@ include __DIR__ . '/includes/header.php';
             <div class="form-group form-full"><label class="form-label">Titre *</label><input type="text" name="titre" id="e_titre" class="form-input" required></div>
             <div class="form-group form-full"><label class="form-label">Adresse *</label><input type="text" name="adresse" id="e_adresse" class="form-input" required></div>
             <div class="form-group"><label class="form-label">Quartier</label><input type="text" name="quartier" id="e_quartier" class="form-input"></div>
-            <?php if($hasZoneId): ?>
-            <div class="form-group"><label class="form-label">Zone du catalogue public</label>
-                <select name="zone_id" id="e_zone_id" class="form-select"><option value="">— Aucune —</option>
-                <?php foreach($zonesListe as $z): ?><option value="<?php echo (int)$z['id']; ?>"><?php echo htmlspecialchars($z['nom']); ?></option><?php endforeach; ?></select></div>
-            <?php endif; ?>
             <div class="form-group"><label class="form-label">Statut</label><select name="statut" id="e_statut" class="form-select"><option value="disponible">Disponible</option><option value="loue">Loué</option><option value="vendu">Vendu</option><option value="reserve">Réservé</option><option value="indisponible">Indisponible</option></select></div>
+            <?php if($hasCatIds && $quartiersListe): ?>
+            <div class="form-group form-full">
+                <label class="form-label">Quartiers <span style="color:var(--tx-mute);font-weight:400">— tags affichés sur le catalogue public</span></label>
+                <div class="quartier-tags" id="editQuartierTags">
+                    <?php foreach($quartiersListe as $q): ?>
+                    <span class="quartier-tag" data-id="<?php echo (int)$q['id']; ?>" style="--qc:<?php echo htmlspecialchars($q['couleur']); ?>" onclick="toggleQuartier(this,'editQuartierTags','editQuartierInput')">
+                        <span class="qt-dot"></span><?php echo htmlspecialchars($q['label']); ?>
+                    </span>
+                    <?php endforeach; ?>
+                </div>
+                <input type="hidden" name="categorie_ids" id="editQuartierInput" value="[]">
+            </div>
+            <?php endif; ?>
             <div class="form-group form-full"><label class="form-label">Description</label><textarea name="description" id="e_desc" class="form-textarea"></textarea></div>
             <div class="form-group"><label class="form-label">Surface (m²)</label><input type="number" name="surface" id="e_surface" class="form-input" step="0.01"></div>
             <div class="form-group"><label class="form-label">Pièces</label><input type="number" name="pieces" id="e_pieces" class="form-input" min="1"></div>
@@ -464,11 +605,211 @@ include __DIR__ . '/includes/header.php';
             <?php endforeach; ?>
         </div>
         <input type="hidden" name="equipements" id="editEquipInput">
+
+        <?php if($hasImages): ?>
+        <div class="sec-title" style="margin-top:1rem;"><i class="fas fa-images"></i> Images du bien</div>
+        <div class="dy-imgmgr" data-imgmgr>
+            <div class="dy-imgmgr-add">
+                <div class="dy-imgmgr-url">
+                    <input type="url" class="form-input" placeholder="https://… URL directe d'une image" data-img-url>
+                    <button type="button" class="btn btn-secondary" data-img-addurl><i class="fas fa-link"></i></button>
+                </div>
+                <label class="dy-imgmgr-drop" data-img-drop tabindex="0">
+                    <input type="file" accept=".png,.jpg,.jpeg,.gif,.webp,image/png,image/jpeg,image/gif,image/webp" multiple hidden data-img-file>
+                    <i class="fas fa-cloud-arrow-up"></i>
+                    <span>Importer des fichiers<small>PNG, JPG, JPEG, GIF, WEBP · 6 Mo</small></span>
+                </label>
+            </div>
+            <div class="dy-imgmgr-grid" data-img-grid></div>
+            <div class="dy-imgmgr-hint"><i class="fas fa-arrows-up-down-left-right"></i> Glissez pour réordonner · la 1ʳᵉ image sert de couverture.</div>
+            <input type="hidden" name="images" data-img-input value="[]">
+        </div>
+        <?php endif; ?>
     </div><div class="modal-footer">
         <button type="button" class="btn btn-secondary" onclick="Company.closeModal('editModal')">Annuler</button>
         <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Enregistrer</button>
     </div></form>
 </div></div>
+<?php endif; ?>
+
+<?php if($hasImages): ?>
+<script>
+window.DY_UPLOAD_URL = '<?php echo SITE_URL; ?>/pages/companies/dynasty/api/upload_image.php';
+window.DY_CSRF = <?php echo json_encode($dyCsrf); ?>;
+window.DY_SITE = '<?php echo rtrim(SITE_URL,'/'); ?>';
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Gestionnaire d'images d'un bien : ajout par URL ou par import de fichiers,
+   vignettes réordonnables (glisser), 1ʳᵉ = couverture. La liste est tenue à
+   jour dans un <input hidden name="images"> sérialisé en JSON.
+   ══════════════════════════════════════════════════════════════════════════ */
+window.DynImages = (function () {
+    'use strict';
+    var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+        return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]; }); };
+
+    function resolveUrl(u) {
+        return /^https?:/i.test(u) ? u : (window.DY_SITE + '/' + String(u).replace(/^\/+/, ''));
+    }
+
+    function Manager(root) {
+        this.root  = root;
+        this.list  = [];
+        this.input = root.querySelector('[data-img-input]');
+        this.grid  = root.querySelector('[data-img-grid]');
+        this.dragIdx = null;
+        this._bind();
+        this.render();
+    }
+
+    Manager.prototype.setList = function (arr) {
+        this.list = Array.isArray(arr) ? arr.filter(function (u) { return typeof u === 'string' && u.trim(); }) : [];
+        this.sync();
+    };
+    Manager.prototype.sync = function () {
+        this.input.value = JSON.stringify(this.list);
+        this.render();
+    };
+    Manager.prototype.add = function (urls) {
+        var self = this;
+        (Array.isArray(urls) ? urls : [urls]).forEach(function (u) {
+            u = String(u || '').trim();
+            if (u && self.list.indexOf(u) < 0 && self.list.length < 24) self.list.push(u);
+        });
+        this.sync();
+    };
+    Manager.prototype.remove = function (i) { this.list.splice(i, 1); this.sync(); };
+    Manager.prototype.move = function (from, to) {
+        if (from === to || from < 0 || to < 0 || from >= this.list.length || to >= this.list.length) return;
+        var it = this.list.splice(from, 1)[0];
+        this.list.splice(to, 0, it);
+        this.sync();
+    };
+
+    Manager.prototype.render = function () {
+        var self = this;
+        if (!this.list.length) {
+            this.grid.innerHTML = '<div class="dy-imgmgr-empty">Aucune image. Ajoutez une URL ou importez des fichiers.</div>';
+            return;
+        }
+        this.grid.innerHTML = this.list.map(function (u, i) {
+            return '<div class="dy-thumb" draggable="true" data-i="' + i + '">' +
+                '<img src="' + esc(resolveUrl(u)) + '" alt="" referrerpolicy="no-referrer" ' +
+                'onerror="this.outerHTML=\'<div class=&quot;dy-thumb-broken&quot;><i class=&quot;fas fa-image&quot;></i></div>\'">' +
+                '<button type="button" class="dy-thumb-x" data-x="' + i + '" title="Retirer"><i class="fas fa-times"></i></button>' +
+                (i === 0 ? '<span class="dy-thumb-cover">Couverture</span>' : '') +
+                '</div>';
+        }).join('');
+    };
+
+    Manager.prototype._bind = function () {
+        var self = this;
+
+        // Ajout par URL
+        var urlInput = this.root.querySelector('[data-img-url]');
+        var addUrl = function () {
+            var v = (urlInput.value || '').trim();
+            if (!v) return;
+            if (!/^https?:\/\//i.test(v)) { Company.toast('URL invalide (http/https attendu).', 'warning'); return; }
+            self.add(v); urlInput.value = '';
+        };
+        this.root.querySelector('[data-img-addurl]').addEventListener('click', addUrl);
+        urlInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); addUrl(); } });
+
+        // Import de fichiers
+        var fileInput = this.root.querySelector('[data-img-file]');
+        fileInput.addEventListener('change', function () { self.upload(fileInput.files); fileInput.value = ''; });
+
+        // Glisser-déposer de fichiers sur la zone
+        var drop = this.root.querySelector('[data-img-drop]');
+        ['dragover', 'dragenter'].forEach(function (ev) {
+            drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add('drag'); });
+        });
+        ['dragleave', 'drop'].forEach(function (ev) {
+            drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove('drag'); });
+        });
+        drop.addEventListener('drop', function (e) {
+            if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) self.upload(e.dataTransfer.files);
+        });
+
+        // Suppression + réordonnancement (délégation)
+        this.grid.addEventListener('click', function (e) {
+            var x = e.target.closest('[data-x]'); if (x) { self.remove(parseInt(x.dataset.x, 10)); }
+        });
+        this.grid.addEventListener('dragstart', function (e) {
+            var t = e.target.closest('.dy-thumb'); if (!t) return;
+            self.dragIdx = parseInt(t.dataset.i, 10); t.classList.add('dragging');
+        });
+        this.grid.addEventListener('dragend', function (e) {
+            var t = e.target.closest('.dy-thumb'); if (t) t.classList.remove('dragging');
+        });
+        this.grid.addEventListener('dragover', function (e) { e.preventDefault(); });
+        this.grid.addEventListener('drop', function (e) {
+            e.preventDefault();
+            var t = e.target.closest('.dy-thumb'); if (!t || self.dragIdx === null) return;
+            self.move(self.dragIdx, parseInt(t.dataset.i, 10)); self.dragIdx = null;
+        });
+    };
+
+    Manager.prototype.upload = function (files) {
+        var self = this;
+        if (!files || !files.length) return;
+        var fd = new FormData();
+        fd.append('csrf', window.DY_CSRF);
+        var n = 0;
+        for (var i = 0; i < files.length; i++) {
+            if (/^image\/(png|jpe?g|gif|webp)$/i.test(files[i].type) || /\.(png|jpe?g|gif|webp)$/i.test(files[i].name)) {
+                fd.append('images[]', files[i]); n++;
+            }
+        }
+        if (!n) { Company.toast('Formats acceptés : PNG, JPG, JPEG, GIF, WEBP.', 'warning'); return; }
+
+        var drop = this.root.querySelector('[data-img-drop] span');
+        var old = drop ? drop.innerHTML : '';
+        if (drop) drop.innerHTML = '<span class="dy-uploading"><i class="fas fa-spinner fa-spin"></i> Envoi…</span>';
+
+        // X-Requested-With : indispensable pour que la garde de licence globale
+        // (config.php) traite la requête comme de l'AJAX et ne renvoie pas la
+        // page HTML « MDT desactive » à la place du JSON.
+        fetch(window.DY_UPLOAD_URL, {
+            method: 'POST', body: fd, credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+            .then(function (r) {
+                // Le corps peut ne pas être du JSON (500 Apache brut) : on le lit
+                // en texte d'abord pour donner un message exploitable.
+                return r.text().then(function (t) {
+                    try { return JSON.parse(t); }
+                    catch (e) { return { ok: false, error: 'Réponse serveur invalide (HTTP ' + r.status + ').' }; }
+                });
+            })
+            .then(function (j) {
+                if (j.ok && j.data && j.data.urls) {
+                    self.add(j.data.urls);
+                    if (j.data.refuses && j.data.refuses.length) Company.toast(j.data.refuses.join(' · '), 'warning');
+                    else Company.toast(j.data.urls.length + ' image(s) importée(s).', 'success');
+                } else {
+                    Company.toast(j.error || 'Échec de l\'import.', 'error');
+                }
+            })
+            .catch(function () { Company.toast('Le serveur n\'a pas répondu.', 'error'); })
+            .finally(function () { if (drop) drop.innerHTML = old; });
+    };
+
+    return {
+        mount: function (root) { return root ? new Manager(root) : null; }
+    };
+})();
+
+/* Un gestionnaire par modale (créer / modifier). */
+window.__imgCreate = null; window.__imgEdit = null;
+document.addEventListener('DOMContentLoaded', function () {
+    var c = document.querySelector('#createModal [data-imgmgr]');
+    var e = document.querySelector('#editModal [data-imgmgr]');
+    if (c) window.__imgCreate = DynImages.mount(c);
+    if (e) window.__imgEdit   = DynImages.mount(e);
+});
+</script>
 <?php endif; ?>
 
 <script>
@@ -484,8 +825,26 @@ function toggleEquipEdit(el) {
     document.getElementById('editEquipInput').value = JSON.stringify(vals);
 }
 
+/* ── Quartiers (tags catalogue) ── */
+function toggleQuartier(el, containerId, inputId) {
+    el.classList.toggle('on');
+    const ids = [...document.querySelectorAll('#'+containerId+' .quartier-tag.on')].map(e=>parseInt(e.dataset.id,10));
+    const inp = document.getElementById(inputId);
+    if (inp) inp.value = JSON.stringify(ids);
+}
+function setQuartiers(containerId, inputId, ids) {
+    ids = Array.isArray(ids) ? ids.map(Number) : [];
+    document.querySelectorAll('#'+containerId+' .quartier-tag').forEach(tag=>{
+        tag.classList.toggle('on', ids.includes(parseInt(tag.dataset.id,10)));
+    });
+    const inp = document.getElementById(inputId);
+    if (inp) inp.value = JSON.stringify(ids);
+}
+
 /* ── Ouvrir créer ── */
 function openCreate() {
+    if (window.__imgCreate) window.__imgCreate.setList([]);
+    if (document.getElementById('quartierTags')) setQuartiers('quartierTags','quartierInput',[]);
     Company.openModal('createModal');
 }
 
@@ -504,6 +863,16 @@ function editBien(b) {
     document.getElementById('e_agent').value = b.agent_id||'';
     const zoneSel = document.getElementById('e_zone_id');
     if (zoneSel) zoneSel.value = b.zone_id || '';
+    // Images
+    if (window.__imgEdit) {
+        let imgs=[]; try{ imgs=JSON.parse(b.images||'[]'); }catch(e){}
+        window.__imgEdit.setList(Array.isArray(imgs)?imgs:[]);
+    }
+    // Quartiers (tags)
+    if (document.getElementById('editQuartierTags')) {
+        let cats=[]; try{ cats=JSON.parse(b.categorie_ids||'[]'); }catch(e){}
+        setQuartiers('editQuartierTags','editQuartierInput',Array.isArray(cats)?cats:[]);
+    }
     // Recalc TTC after fill
     calcTTC('e_pv','e_pv_ttc'); calcTTC('e_ps','e_ps_ttc');
 
@@ -536,6 +905,26 @@ function calcTTC(inputId, displayId) {
 if(new URLSearchParams(location.search).get('open')==='new') {
     <?php if($canManage): ?>openCreate();<?php endif; ?>
 }
+</script>
+
+<!-- Menus déroulants personnalisés (cohérence avec le reste du module Dynasty) -->
+<script src="<?php echo SITE_URL; ?>/assets/js/dynasty/dynasty-ui.js?v=<?php echo @filemtime(ROOT_PATH . '/assets/js/dynasty/dynasty-ui.js') ?: '1'; ?>"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    if (window.DynastyUI) DynastyUI.enhance(document);
+});
+// Après pré-remplissage de l'édition, resynchroniser les menus custom.
+(function () {
+    var _edit = window.editBien;
+    if (typeof _edit === 'function') {
+        window.editBien = function (b) {
+            _edit(b);
+            if (window.DynastyUI) ['e_type','e_agent','e_statut'].forEach(function (id) {
+                DynastyUI.refresh(document.getElementById(id));
+            });
+        };
+    }
+})();
 </script>
 
 <?php include __DIR__ . '/includes/footer.php'; ?>

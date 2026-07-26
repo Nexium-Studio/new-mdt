@@ -1,8 +1,8 @@
 <?php
 require_once __DIR__ . '/_bootstrap.php';
 
-$DY_PAGE_TITLE = $DY_PAGE_TITLE ?? 'Dynasty · Immobilier de Lysoria';
-$DY_PAGE_DESC  = $DY_PAGE_DESC  ?? "Estimez un loyer ou un prix d'achat et explorez les quartiers de Lysoria.";
+$DY_PAGE_TITLE = $DY_PAGE_TITLE ?? 'Dynasty · Immobilier de Nexium Studio';
+$DY_PAGE_DESC  = $DY_PAGE_DESC  ?? "Estimez un loyer ou un prix d'achat et explorez les quartiers de Nexium Studio.";
 $DY_ACTIVE     = $DY_ACTIVE     ?? 'calc';   // calc | catalogue
 $DY_LOGO       = dy_pub_logo();
 ?>
@@ -32,7 +32,7 @@ $DY_LOGO       = dy_pub_logo();
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="<?php echo dy_pub_url('assets/style.css'); ?>?v=1">
+    <link rel="stylesheet" href="<?php echo dy_pub_url('assets/style.css'); ?>?v=<?php echo @filemtime(__DIR__ . '/assets/style.css') ?: '1'; ?>">
 </head>
 <body>
 
@@ -47,7 +47,7 @@ $DY_LOGO       = dy_pub_logo();
                     <i class="fa-solid fa-city"></i>
                 <?php endif; ?>
             </span>
-            <span>Dynasty <small>Immobilier de Lysoria</small></span>
+            <span>Dynasty <small>Immobilier de Nexium Studio</small></span>
         </a>
 
         <nav class="dy-nav-pill">

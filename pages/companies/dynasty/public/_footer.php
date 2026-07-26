@@ -1,7 +1,7 @@
 
 <footer class="dy-foot">
     <div class="dy-container dy-foot-inner">
-        <div>&copy; <?php echo date('Y'); ?> Dynasty — Immobilier de Lysoria.</div>
+        <div>&copy; <?php echo date('Y'); ?> Dynasty — Immobilier de Nexium Studio.</div>
         <div>Estimations indicatives · Site RP</div>
     </div>
 </footer>
