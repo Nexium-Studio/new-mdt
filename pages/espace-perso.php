@@ -128,6 +128,40 @@ if ($profile) {
     $s->execute([$profile['id']]); $mySamsInvoices=$s->fetchAll();
 }
 
+// ── MES DOCUMENTS (documents SAMS reçus par le profil actif) ────────────────
+$myDocuments = [];
+if ($profile) {
+    $pid = (int)$profile['id'];
+    // Ordonnances
+    try {
+        $s=$db->prepare("SELECT created_at,status,google_docs_url FROM medical_prescriptions WHERE patient_id=? ORDER BY created_at DESC");
+        $s->execute([$pid]);
+        foreach($s->fetchAll() as $r){ $myDocuments[]=['label'=>'Ordonnance','icon'=>'fa-prescription','date'=>$r['created_at']??'','url'=>$r['google_docs_url']??'']; }
+    } catch(Exception $e){}
+    // Certificats médicaux (tous types)
+    $mcLabels=[
+        'arret_travail'=>['Arrêt de travail','fa-bed'],
+        'aptitude'     =>["Certificat d'aptitude",'fa-clipboard-check'],
+        'aptitude_ppa' =>['Aptitude au port d\'arme','fa-shield-halved'],
+        'traumatisme'  =>['Certificat de traumatisme','fa-bone'],
+        'naissance'    =>['Certificat de naissance','fa-baby'],
+        'psy_suivi'    =>['Suivi psychologique','fa-brain'],
+        'psy_eval'     =>['Évaluation psychologique','fa-notes-medical'],
+    ];
+    try {
+        $s=$db->prepare("SELECT type,created_at,status,google_docs_url FROM medical_certificates WHERE patient_id=? ORDER BY created_at DESC");
+        $s->execute([$pid]);
+        foreach($s->fetchAll() as $r){ $meta=$mcLabels[$r['type']]??['Document médical','fa-file-medical']; $myDocuments[]=['label'=>$meta[0],'icon'=>$meta[1],'date'=>$r['created_at']??'','url'=>$r['google_docs_url']??'']; }
+    } catch(Exception $e){}
+    // Suivis de grossesse
+    try {
+        $s=$db->prepare("SELECT created_at,status,google_docs_url FROM pregnancy_tracking WHERE patient_id=? ORDER BY created_at DESC");
+        $s->execute([$pid]);
+        foreach($s->fetchAll() as $r){ $myDocuments[]=['label'=>'Suivi de grossesse','icon'=>'fa-baby','date'=>$r['created_at']??'','url'=>$r['google_docs_url']??'']; }
+    } catch(Exception $e){}
+    usort($myDocuments, fn($a,$b)=>strcmp((string)($b['date']??''),(string)($a['date']??'')));
+}
+
 $pendingContracts=[];
 $myContracts=[];
 try {
@@ -1105,6 +1139,37 @@ footer{border-top:1px solid var(--border);padding:1.5rem 0;margin-top:auto}
             <div style="font-size:.9rem;font-weight:600;margin-bottom:.4rem">Profil civil non lié</div>
             <div style="font-size:.8rem;color:var(--muted-2);margin-bottom:1.1rem">Liez votre profil du recensement LSPD pour accéder à vos demandes PPA et armes enregistrées.</div>
             <button onclick="openModal('linkModal')" class="ep-btn ep-btn-primary ep-btn-sm" style="width:100%;justify-content:center"><i class="fas fa-link"></i> Lier mon profil LSPD</button>
+        </div>
+    </div>
+    <?php endif; ?>
+
+    <!-- MES DOCUMENTS -->
+    <?php if($profile): ?>
+    <div class="ep-card">
+        <div class="ep-card-hd"><div class="ep-card-title"><i class="fas fa-folder-open" style="color:#c4b5fd"></i> Mes documents
+            <?php if($myDocuments): ?><span style="background:rgba(139,92,246,.15);color:#c4b5fd;padding:.1rem .48rem;border-radius:10px;font-size:.63rem;margin-left:.35rem;font-weight:700"><?php echo count($myDocuments); ?></span><?php endif; ?>
+        </div></div>
+        <div class="ep-card-bd">
+            <?php if(empty($myDocuments)): ?>
+            <div style="text-align:center;padding:1.5rem 1rem;color:var(--muted-2)"><i class="fas fa-folder-open" style="font-size:1.8rem;opacity:.18;display:block;margin-bottom:.5rem"></i><div style="font-size:.82rem">Aucun document pour le moment.</div></div>
+            <?php else: ?>
+            <div style="display:flex;flex-direction:column;gap:.5rem">
+                <?php foreach($myDocuments as $doc): ?>
+                <div style="display:flex;align-items:center;gap:.75rem;padding:.65rem .8rem;background:rgba(255,255,255,.025);border:1px solid var(--border);border-radius:9px">
+                    <div style="width:34px;height:34px;border-radius:8px;background:rgba(139,92,246,.12);color:#c4b5fd;display:grid;place-items:center;flex-shrink:0"><i class="fas <?php echo htmlspecialchars($doc['icon']); ?>"></i></div>
+                    <div style="flex:1;min-width:0">
+                        <div style="font-weight:600;font-size:.83rem;color:#f1f5f9"><?php echo htmlspecialchars($doc['label']); ?></div>
+                        <div style="font-size:.7rem;color:var(--muted-2)"><i class="fas fa-calendar" style="opacity:.6;margin-right:.25rem"></i><?php echo !empty($doc['date'])?date('d/m/Y H:i',strtotime($doc['date'])):'—'; ?></div>
+                    </div>
+                    <?php if(!empty($doc['url'])): ?>
+                    <a href="<?php echo htmlspecialchars($doc['url']); ?>" target="_blank" class="ep-btn ep-btn-primary ep-btn-sm"><i class="fas fa-external-link-alt"></i> Voir</a>
+                    <?php else: ?>
+                    <span style="font-size:.72rem;color:var(--muted-2);opacity:.7" title="Pas de document"><i class="fas fa-file-circle-xmark"></i></span>
+                    <?php endif; ?>
+                </div>
+                <?php endforeach; ?>
+            </div>
+            <?php endif; ?>
         </div>
     </div>
     <?php endif; ?>

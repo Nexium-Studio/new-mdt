@@ -14,7 +14,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $data=['motif_consultation'=>$_POST['motif_consultation'],'nombre_seances'=>intval($_POST['nombre_seances']??1),'frequence'=>$_POST['frequence']??'','traitement_medicamenteux'=>isset($_POST['traitement_medicamenteux'])?1:0];
             $db->prepare("INSERT INTO medical_certificates (type,patient_id,doctor_id,data,description_rich,valid_from,status) VALUES ('psy_suivi',?,?,?,?,?,'active')")
                ->execute([intval($_POST['patient_id']),$_SESSION['user_id'],json_encode($data),trim($_POST['notes']??''),date('Y-m-d')]);
+            $certId = $db->lastInsertId();
             $msg = 'Suivi créé(e) avec succès.'; $msgType = 'success';
+            // Génération automatique du document
+            $patient = sams_patient_row($db, $_POST['patient_id']);
+            $pname   = trim(($patient['firstname']??'').' '.($patient['lastname']??''));
+            $content  = "<h1>Suivi Psychologique</h1>";
+            $content .= "<p><strong>Patient :</strong> ".htmlspecialchars($pname)."</p>";
+            $content .= "<p><strong>Motif de consultation :</strong> ".htmlspecialchars($data['motif_consultation']??'—')."</p>";
+            $content .= "<p><strong>Nombre de séances :</strong> ".(int)($data['nombre_seances']??1)."</p>";
+            if(!empty($data['frequence'])) $content .= "<p><strong>Fréquence :</strong> ".htmlspecialchars($data['frequence'])."</p>";
+            $content .= "<p><strong>Traitement médicamenteux :</strong> ".(!empty($data['traitement_medicamenteux'])?'Oui':'Non')."</p>";
+            if(trim($_POST['notes']??'')!=='') $content .= "<hr><h2>Notes de séance</h2><p>".nl2br(htmlspecialchars(trim($_POST['notes'])))."</p>";
+            $content .= "<hr><p><strong>Dr. ".htmlspecialchars(sams_doctor_name($db,$_SESSION['user_id']))."</strong></p>";
+            $msg .= sams_doc_link(sams_generate_document($db,'medical_certificates',(int)$certId,"Suivi Psychologique — ".$pname,$content,'psy'));
         } catch(Exception $e) { $msg = 'Erreur : '.$e->getMessage(); $msgType = 'error'; }
     }
     if ($action === 'delete') {

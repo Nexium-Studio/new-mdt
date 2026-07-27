@@ -14,7 +14,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $data=['aptitude_physique'=>$_POST['aptitude_physique'],'aptitude_mentale'=>$_POST['aptitude_mentale'],'decision_finale'=>$_POST['decision_finale'],'restrictions'=>$_POST['restrictions']??''];
             $db->prepare("INSERT INTO medical_certificates (type,patient_id,doctor_id,data,description_rich,valid_from,valid_until,status) VALUES ('aptitude_ppa',?,?,?,?,?,?,'active')")
                ->execute([intval($_POST['patient_id']),$_SESSION['user_id'],json_encode($data),trim($_POST['observations']??''),date('Y-m-d'),$_POST['valid_until']]);
+            $certId = $db->lastInsertId();
             $msg = 'Aptitude créé(e) avec succès.'; $msgType = 'success';
+            // Génération automatique du document
+            $patient = sams_patient_row($db, $_POST['patient_id']);
+            $pname   = trim(($patient['firstname']??'').' '.($patient['lastname']??''));
+            $content  = "<h1>Certificat d'Aptitude au Port d'Arme (PPA)</h1>";
+            $content .= "<p><strong>Demandeur :</strong> ".htmlspecialchars($pname)."</p>";
+            $content .= "<p><strong>Aptitude physique :</strong> ".htmlspecialchars($data['aptitude_physique']??'—')."</p>";
+            $content .= "<p><strong>Aptitude mentale :</strong> ".htmlspecialchars($data['aptitude_mentale']??'—')."</p>";
+            $content .= "<p><strong>Décision finale :</strong> ".htmlspecialchars($data['decision_finale']??'—')."</p>";
+            if(!empty($data['restrictions'])) $content .= "<p><strong>Restrictions :</strong> ".htmlspecialchars($data['restrictions'])."</p>";
+            $content .= "<p><strong>Valable jusqu'au :</strong> ".date('d/m/Y',strtotime($_POST['valid_until']))."</p>";
+            if(trim($_POST['observations']??'')!=='') $content .= "<hr><h2>Observations</h2><p>".nl2br(htmlspecialchars(trim($_POST['observations'])))."</p>";
+            $content .= "<hr><p><strong>Dr. ".htmlspecialchars(sams_doctor_name($db,$_SESSION['user_id']))."</strong></p>";
+            $msg .= sams_doc_link(sams_generate_document($db,'medical_certificates',(int)$certId,"Aptitude PPA — ".$pname,$content,'aptitude_ppa'));
         } catch(Exception $e) { $msg = 'Erreur : '.$e->getMessage(); $msgType = 'error'; }
     }
     if ($action === 'delete') {

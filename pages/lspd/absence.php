@@ -38,6 +38,10 @@ try{$db->exec("CREATE TABLE IF NOT EXISTS `lspd_absences` (
     KEY `idx_statut` (`statut`),
     KEY `idx_dates` (`date_debut`,`date_fin`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");}catch(Exception $e){}
+// Colonnes annexes : couleur d'événement + provenance (ex. absences auto générées
+// par un arrêt de travail SAMS). Idempotent (MariaDB ADD COLUMN IF NOT EXISTS).
+try { $db->exec("ALTER TABLE `lspd_absences` ADD COLUMN IF NOT EXISTS `color` VARCHAR(20) NULL DEFAULT NULL"); } catch(Exception $e){}
+try { $db->exec("ALTER TABLE `lspd_absences` ADD COLUMN IF NOT EXISTS `source` VARCHAR(30) NULL DEFAULT NULL"); } catch(Exception $e){}
 
 $canManage = faction_acl_can($db,$uid,'LSPD','absence.manage');
 
@@ -133,7 +137,7 @@ if($myNew){ try{$db->prepare("UPDATE lspd_absences SET notif_seen=1 WHERE user_i
 // Événements calendrier = absences validées
 $calEvents=[];
 try{
-    $s=$db->query("SELECT id,agent_name,agent_avatar,date_debut,date_fin,motif,statut FROM lspd_absences WHERE statut='validee' ORDER BY date_debut ASC");
+    $s=$db->query("SELECT id,agent_name,agent_avatar,date_debut,date_fin,motif,statut,color FROM lspd_absences WHERE statut='validee' ORDER BY date_debut ASC");
     foreach($s->fetchAll(PDO::FETCH_ASSOC) as $r){
         $calEvents[]=[
             'id'=>(int)$r['id'],
@@ -143,6 +147,7 @@ try{
             'end'=>$r['date_fin'],
             'motif'=>$r['motif'],
             'statut'=>$r['statut'],
+            'color'=>$r['color'] ?? null,
             'days'=>abs_days($r['date_debut'],$r['date_fin']),
         ];
     }
@@ -375,6 +380,8 @@ function absAvatarUrl(a){ if(!a) return ''; return /^https?:\/\//i.test(a)?a:ABS
 function absInitials(n){ const p=(n||'').trim().split(/\s+/); let i=''; for(const w of p){ if(w){i+=w[0].toUpperCase();} if(i.length>=2)break; } return i||'?'; }
 function absToStr(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function absAvHtml(ev,cls){ const url=absAvatarUrl(ev.avatar); return url ? '<img src="'+absEsc(url)+'" alt="">' : absEsc(absInitials(ev.name)); }
+/* Style d'un événement coloré (ex. arrêt de travail SAMS = violet), sinon vert par défaut. */
+function absEvStyle(ev){ return ev && ev.color ? ' style="background:'+ev.color+'22;border-color:'+ev.color+'66;color:'+ev.color+'"' : ''; }
 
 function absEventsForDay(dayStr){ return ABS_EVENTS.filter(e=> dayStr>=e.start && dayStr<=e.end ); }
 
@@ -400,7 +407,7 @@ function absRender(){
         html+='<div class="ab-cell'+(c.out?' out':'')+(isToday?' today':'')+'">';
         html+='<div class="ab-daynum">'+c.n+'</div>';
         evs.slice(0,3).forEach(ev=>{
-            html+='<div class="ab-ev" onclick="absOpen('+ev.id+')" title="'+absEsc(ev.name)+'"><span class="av">'+absAvHtml(ev)+'</span><span class="nm">'+absEsc(ev.name)+'</span></div>';
+            html+='<div class="ab-ev"'+absEvStyle(ev)+' onclick="absOpen('+ev.id+')" title="'+absEsc(ev.name)+(ev.motif?' — '+absEsc(ev.motif):'')+'"><span class="av">'+absAvHtml(ev)+'</span><span class="nm">'+absEsc(ev.name)+'</span></div>';
         });
         if(evs.length>3){ html+='<div class="ab-more" onclick="absOpen('+evs[3].id+')">+'+(evs.length-3)+' autres</div>'; }
         html+='</div>';
@@ -417,10 +424,14 @@ function absRenderAgenda(y,m){
     const el=document.getElementById('abAgenda');
     if(!list.length){ el.innerHTML='<div class="ab-empty"><i class="fas fa-calendar"></i>Aucune absence ce mois-ci.</div>'; return; }
     el.innerHTML=list.map(ev=>{
-        return '<div class="ab-ag-row" onclick="absOpen('+ev.id+')"><div class="ab-ag-av">'+absAvHtml(ev)+'</div>'
+        const rowStyle = ev.color ? ' style="border-left:3px solid '+ev.color+'"' : '';
+        const badge = ev.color
+            ? '<span class="badge" style="background:'+ev.color+'22;color:'+ev.color+';border:1px solid '+ev.color+'66">'+absEsc(ev.motif||'Absence')+'</span>'
+            : '<span class="badge bg-green">Validée</span>';
+        return '<div class="ab-ag-row"'+rowStyle+' onclick="absOpen('+ev.id+')"><div class="ab-ag-av">'+absAvHtml(ev)+'</div>'
             +'<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:.85rem">'+absEsc(ev.name)+'</div>'
             +'<div style="font-size:.72rem;color:var(--txt-m)">'+absFmt(ev.start)+' → '+absFmt(ev.end)+' · '+ev.days+' j</div></div>'
-            +'<span class="badge bg-green">Validée</span></div>';
+            +badge+'</div>';
     }).join('');
 }
 
@@ -434,7 +445,9 @@ function absOpen(id){
     const av=document.getElementById('adAv'); const url=absAvatarUrl(ev.avatar);
     av.innerHTML = url ? '<img src="'+absEsc(url)+'" alt="">' : absEsc(absInitials(ev.name));
     document.getElementById('adName').textContent=ev.name||'Agent';
-    document.getElementById('adStatut').innerHTML='<span class="badge bg-green"><i class="fas fa-circle-check"></i> Validée</span>';
+    document.getElementById('adStatut').innerHTML = ev.color
+        ? '<span class="badge" style="background:'+ev.color+'22;color:'+ev.color+';border:1px solid '+ev.color+'66"><i class="fas fa-notes-medical"></i> '+absEsc(ev.motif||'Absence')+'</span>'
+        : '<span class="badge bg-green"><i class="fas fa-circle-check"></i> Validée</span>';
     document.getElementById('adStart').textContent=absFmt(ev.start);
     document.getElementById('adEnd').textContent=absFmt(ev.end);
     document.getElementById('adDays').textContent=ev.days+' jour'+(ev.days>1?'s':'');

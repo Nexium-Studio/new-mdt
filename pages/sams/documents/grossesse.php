@@ -11,13 +11,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     if ($action === 'add') {
         try {
-            $db->prepare("INSERT INTO pregnancy_tracking (patient_id,doctor_id,conception_date,due_date,current_week,trimester,notes_rich,status) VALUES (?,?,?,?,?,?,'active')")
+            $db->prepare("INSERT INTO pregnancy_tracking (patient_id,doctor_id,conception_date,due_date,current_week,trimester,notes_rich,status) VALUES (?,?,?,?,?,?,?,'active')")
                ->execute([intval($_POST['patient_id']),$_SESSION['user_id'],$_POST['conception_date']?:null,$_POST['due_date']?:null,(int)($_POST['current_week']??1),(int)($_POST['trimester']??1),trim($_POST['notes']??'')]);
-            // fix: wrong execute (missing one param) - rebuild
+            $certId = $db->lastInsertId();
             $msg = 'Suivi de grossesse créé.'; $msgType = 'success';
+            // Génération automatique du document
+            $patient = sams_patient_row($db, $_POST['patient_id']);
+            $pname   = trim(($patient['firstname']??'').' '.($patient['lastname']??''));
+            $content  = "<h1>Suivi de Grossesse</h1>";
+            $content .= "<p><strong>Patiente :</strong> ".htmlspecialchars($pname)."</p>";
+            if(!empty($_POST['conception_date'])) $content .= "<p><strong>Date de conception (estimée) :</strong> ".date('d/m/Y',strtotime($_POST['conception_date']))."</p>";
+            if(!empty($_POST['due_date'])) $content .= "<p><strong>Date prévue d'accouchement :</strong> ".date('d/m/Y',strtotime($_POST['due_date']))."</p>";
+            $content .= "<p><strong>Semaine actuelle :</strong> ".(int)($_POST['current_week']??1)." — <strong>Trimestre :</strong> ".(int)($_POST['trimester']??1)."</p>";
+            if(trim($_POST['notes']??'')!=='') $content .= "<hr><h2>Notes médicales</h2><p>".nl2br(htmlspecialchars(trim($_POST['notes'])))."</p>";
+            $content .= "<hr><p><strong>Dr. ".htmlspecialchars(sams_doctor_name($db,$_SESSION['user_id']))."</strong></p>";
+            $msg .= sams_doc_link(sams_generate_document($db,'pregnancy_tracking',(int)$certId,"Suivi de Grossesse — ".$pname,$content,'grossesse'));
         } catch(Exception $e){ $msg='Erreur : '.$e->getMessage(); $msgType='error'; }
     }
-    if ($action === 'add') { /* already handled above */ }
     if ($action === 'delete') {
         $db->prepare("DELETE FROM pregnancy_tracking WHERE id=?")->execute([intval($_POST['cert_id'])]);
         $msg = 'Suivi supprimé.'; $msgType = 'success';
@@ -26,11 +36,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $db->prepare("UPDATE pregnancy_tracking SET status=? WHERE id=?")->execute([$_POST['new_status'],intval($_POST['cert_id'])]);
         $msg = 'Statut mis à jour.'; $msgType = 'success';
     }
-}
-
-// Correct add action (PDO binding fix)
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action']??'') === 'add' && $msgType !== 'error') {
-    // handled above
 }
 
 $items=[];

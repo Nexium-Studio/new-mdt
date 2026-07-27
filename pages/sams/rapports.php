@@ -13,6 +13,9 @@ function srColExists(PDO $db, string $col): bool {
 }
 $hasCivCol = srColExists($db, 'civilians_involved');
 $hasVehCol = srColExists($db, 'vehicles_involved');
+// Colonne data (signes vitaux + prescription + notes) — migration idempotente.
+try { $db->exec("ALTER TABLE `sams_reports` ADD COLUMN IF NOT EXISTS `data` LONGTEXT NULL DEFAULT NULL"); } catch (Exception $e) {}
+$hasDataCol = srColExists($db, 'data');
 
 // ─── ACTIONS POST ───────────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -27,23 +30,77 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $veh = array_values(array_filter(array_map('intval', $_POST['vehicles'] ?? [])));
             $patientId = !empty($_POST['patient_id']) ? intval($_POST['patient_id']) : null;
 
+            // Nouvelles sections : signes vitaux, prescription, notes
+            $vitals = [
+                'tension'     => trim($_POST['vital_tension'] ?? ''),
+                'pouls'       => trim($_POST['vital_pouls'] ?? ''),
+                'temperature' => trim($_POST['vital_temp'] ?? ''),
+            ];
+            $prescription = trim($_POST['prescription'] ?? '');
+            $notes        = trim($_POST['notes'] ?? '');
+            $reportDataJson = json_encode(['vitals'=>$vitals,'prescription'=>$prescription,'notes'=>$notes], JSON_UNESCAPED_UNICODE);
+
             if ($action === 'create') {
                 $cols = ['type','title','tags','doctors_involved','patient_id','description_rich','created_by'];
                 $vals = [$_POST['type'], trim($_POST['title']), json_encode($tags), json_encode($doctors), $patientId, trim($_POST['description'] ?? ''), $uid];
                 if ($hasCivCol) { $cols[]='civilians_involved'; $vals[]=json_encode($civ); }
                 if ($hasVehCol) { $cols[]='vehicles_involved'; $vals[]=json_encode($veh); }
+                if ($hasDataCol){ $cols[]='data'; $vals[]=$reportDataJson; }
                 $ph = implode(',', array_fill(0, count($cols), '?'));
                 $db->prepare("INSERT INTO sams_reports (".implode(',',$cols).") VALUES ($ph)")->execute($vals);
-                $msg = 'Rapport #'.$db->lastInsertId().' créé avec succès.'; $msgType = 'success';
+                $rid = (int)$db->lastInsertId();
+                $msg = 'Rapport #'.$rid.' créé avec succès.'; $msgType = 'success';
             } else {
                 $rid = intval($_POST['report_id']);
                 $sets = ['type=?','title=?','tags=?','doctors_involved=?','patient_id=?','description_rich=?'];
                 $vals = [$_POST['type'], trim($_POST['title']), json_encode($tags), json_encode($doctors), $patientId, trim($_POST['description'] ?? '')];
                 if ($hasCivCol) { $sets[]='civilians_involved=?'; $vals[]=json_encode($civ); }
                 if ($hasVehCol) { $sets[]='vehicles_involved=?'; $vals[]=json_encode($veh); }
+                if ($hasDataCol){ $sets[]='data=?'; $vals[]=$reportDataJson; }
                 $vals[] = $rid;
                 $db->prepare("UPDATE sams_reports SET ".implode(',',$sets)." WHERE id=?")->execute($vals);
                 $msg = 'Rapport mis à jour.'; $msgType = 'success';
+            }
+
+            // Génération / régénération du document HTML (logo SAMS via le helper centralisé)
+            $patientName = '';
+            if ($patientId) { $pr = sams_patient_row($db, (int)$patientId); $patientName = trim(($pr['firstname']??'').' '.($pr['lastname']??'')); }
+            $rTitle = trim($_POST['title']); $rType = (string)($_POST['type'] ?? ''); $rDesc = trim($_POST['description'] ?? '');
+            $content  = '<div class="doc-section"><div class="doc-section-title">Informations du patient</div><div class="doc-grid2">';
+            $content .= '<div><div class="doc-field-label">Nom complet</div><div class="doc-field-value">'.htmlspecialchars($patientName !== '' ? $patientName : '—').'</div></div>';
+            $content .= '<div><div class="doc-field-label">Type de rapport</div><div class="doc-field-value">'.htmlspecialchars(ucfirst($rType)).'</div></div>';
+            $content .= '</div></div>';
+            if ($rDesc !== '') $content .= '<div class="doc-section"><div class="doc-section-title">Description de l\'incident</div><p>'.nl2br(htmlspecialchars($rDesc)).'</p></div>';
+            if ($vitals['tension']!==''||$vitals['pouls']!==''||$vitals['temperature']!=='') {
+                $content .= '<div class="doc-section"><div class="doc-section-title">Signes vitaux</div><div class="doc-vitals">';
+                $content .= '<div class="doc-vital v-blue"><div class="vl">Tension artérielle</div><div class="vv">'.htmlspecialchars($vitals['tension'] !== '' ? $vitals['tension'] : '—').'</div><div class="vu">mmHg</div></div>';
+                $content .= '<div class="doc-vital v-red"><div class="vl">Pouls</div><div class="vv">'.htmlspecialchars($vitals['pouls'] !== '' ? $vitals['pouls'] : '—').'</div><div class="vu">bpm</div></div>';
+                $content .= '<div class="doc-vital v-amber"><div class="vl">Température</div><div class="vv">'.htmlspecialchars($vitals['temperature'] !== '' ? $vitals['temperature'] : '—').'</div><div class="vu">°C</div></div>';
+                $content .= '</div></div>';
+            }
+            if ($prescription !== '') $content .= '<div class="doc-section"><div class="doc-section-title">Prescription / Traitement</div><div class="doc-letter">'.nl2br(htmlspecialchars($prescription)).'</div></div>';
+            if ($notes !== '')        $content .= '<div class="doc-section"><div class="doc-section-title">Notes complémentaires</div><p>'.nl2br(htmlspecialchars($notes)).'</p></div>';
+            // $msg est échappé (htmlspecialchars) sur cette page → pas de lien dans le message ;
+            // le document est accessible via le bouton des cartes et la modale « voir ».
+            if (!empty($rid)) {
+                $rRef = 'RPT-'.str_pad((string)$rid,4,'0',STR_PAD_LEFT);
+                $rDoc = sams_doctor_name($db,$uid);
+                $meta = [
+                    'layout'         => 'banner',
+                    'doc_label'      => 'Rapport Médical',
+                    'reference'      => $rRef,
+                    'date'           => date('d/m/Y'),
+                    'badge'          => $rType !== '' ? ucfirst($rType) : '',
+                    'subbar'         => [
+                        ['label'=>'Réf. document','value'=>$rRef],
+                        ['label'=>'Établi le','value'=>date('d/m/Y')],
+                        ['label'=>'Médecin','value'=>$rDoc !== '' ? $rDoc : '—'],
+                    ],
+                    'signatory_name' => $rDoc,
+                    'signatory_sub'  => 'SAMS — Médecin certificateur',
+                    'foot_note'      => 'Rapport médical officiel établi par un professionnel de santé agréé du SAMS · '.$rRef,
+                ];
+                sams_generate_document($db,'sams_reports',(int)$rid,"Rapport médical — ".$rTitle,$content,'rapport',$meta);
             }
         } catch (Exception $e) { $msg = 'Erreur: '.$e->getMessage(); $msgType = 'error'; }
     }
@@ -152,6 +209,12 @@ include __DIR__ . '/includes/header.php';
   background:rgba(225,29,72,.1); border:1px solid rgba(225,29,72,.28); color:var(--red-l); }
 .pk-chip .x { cursor:pointer; opacity:.7; } .pk-chip .x:hover { opacity:1; }
 .pick-btn { justify-content:center; border-style:dashed!important; }
+/* Corps du formulaire : hauteur fixe + scrollbar personnalisée (charte SAMS) */
+#modal-create .modal-bd{max-height:60vh;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--red,#e11d48) rgba(255,255,255,.05);}
+#modal-create .modal-bd::-webkit-scrollbar{width:10px;}
+#modal-create .modal-bd::-webkit-scrollbar-track{background:rgba(255,255,255,.03);border-radius:10px;margin:4px 0;}
+#modal-create .modal-bd::-webkit-scrollbar-thumb{background:linear-gradient(180deg,var(--red,#e11d48),var(--red-l,#f43f5e));border-radius:10px;border:2px solid transparent;background-clip:padding-box;}
+#modal-create .modal-bd::-webkit-scrollbar-thumb:hover{background:var(--red-l,#f43f5e);}
 </style>
 
 <div class="page-hdr">
@@ -222,10 +285,12 @@ include __DIR__ . '/includes/header.php';
             <?php endif; ?>
         </div>
         <div style="display:flex;gap:.4rem;align-items:center;flex-shrink:0;">
+            <?php if(!empty($r['google_docs_url'])): ?><a href="<?php echo htmlspecialchars($r['google_docs_url']); ?>" target="_blank" class="btn btn-ghost btn-xs" title="Document HTML"><i class="fas fa-file-lines"></i></a><?php endif; ?>
             <button class="btn btn-ghost btn-xs" onclick="viewReport(<?php echo $r['id']; ?>)" title="Voir"><i class="fas fa-eye"></i></button>
             <button class="btn btn-secondary btn-xs" onclick='editReport(<?php echo htmlspecialchars(json_encode([
                 "id"=>(int)$r["id"],"type"=>$r["type"],"title"=>$r["title"],"description"=>$r["description_rich"],
                 "patient_id"=>$r["patient_id"]?(int)$r["patient_id"]:null,
+                "data"=>$r["data"]??null,
                 "tags"=>json_decode($r["tags"]??"[]",true)?:[],
                 "doctors"=>json_decode($r["doctors_involved"]??"[]",true)?:[],
                 "civilians"=>$hasCivCol?(json_decode($r["civilians_involved"]??"[]",true)?:[]):[],
@@ -310,6 +375,28 @@ include __DIR__ . '/includes/header.php';
                 <div class="form-group" style="margin-bottom:.85rem">
                     <label class="form-label required"><i class="fas fa-notes-medical"></i> Description / Observations</label>
                     <textarea name="description" id="cr-description" class="form-textarea" rows="5" placeholder="Observations cliniques, actes effectués..." required style="min-height:110px;"></textarea>
+                </div>
+
+                <!-- Signes vitaux (optionnel) -->
+                <div class="form-group" style="margin-bottom:.85rem">
+                    <label class="form-label"><i class="fas fa-heart-pulse"></i> Signes vitaux <span style="color:var(--txt-m);font-weight:400">(optionnel)</span></label>
+                    <div class="form-grid-3">
+                        <input type="text" name="vital_tension" id="cr-vital-tension" class="form-input" placeholder="Tension (ex: 120/80)">
+                        <input type="text" name="vital_pouls" id="cr-vital-pouls" class="form-input" placeholder="Pouls BPM (ex: 72)">
+                        <input type="text" name="vital_temp" id="cr-vital-temp" class="form-input" placeholder="Temp. °C (ex: 37,5)">
+                    </div>
+                </div>
+
+                <!-- Prescription -->
+                <div class="form-group" style="margin-bottom:.85rem">
+                    <label class="form-label"><i class="fas fa-prescription"></i> Prescription</label>
+                    <textarea name="prescription" id="cr-prescription" class="form-textarea" rows="3" placeholder="Traitement prescrit, posologie..."></textarea>
+                </div>
+
+                <!-- Notes complémentaires (optionnel) -->
+                <div class="form-group" style="margin-bottom:.85rem">
+                    <label class="form-label"><i class="fas fa-note-sticky"></i> Notes complémentaires <span style="color:var(--txt-m);font-weight:400">(optionnel)</span></label>
+                    <textarea name="notes" id="cr-notes" class="form-textarea" rows="3" placeholder="Informations complémentaires..."></textarea>
                 </div>
 
                 <!-- Sélections avancées (SamsPicker) -->
@@ -411,6 +498,11 @@ function openCreate(){
     document.getElementById('cr-type').value='';
     document.getElementById('cr-title').value='';
     document.getElementById('cr-description').value='';
+    document.getElementById('cr-vital-tension').value='';
+    document.getElementById('cr-vital-pouls').value='';
+    document.getElementById('cr-vital-temp').value='';
+    document.getElementById('cr-prescription').value='';
+    document.getElementById('cr-notes').value='';
     document.querySelectorAll('#type-btns .report-type-btn').forEach(b=>b.classList.remove('active'));
     document.querySelectorAll('#tag-opts .tag-opt').forEach(el=>el.classList.remove('sel'));
     syncTagInputs();
@@ -428,6 +520,14 @@ function editReport(r){
     selectType(r.type||'');
     document.getElementById('cr-title').value=r.title||'';
     document.getElementById('cr-description').value=r.description||'';
+    // signes vitaux / prescription / notes
+    let _d={}; try{ _d=JSON.parse(r.data||'{}')||{}; }catch(e){ _d={}; }
+    const _v=_d.vitals||{};
+    document.getElementById('cr-vital-tension').value=_v.tension||'';
+    document.getElementById('cr-vital-pouls').value=_v.pouls||'';
+    document.getElementById('cr-vital-temp').value=_v.temperature||'';
+    document.getElementById('cr-prescription').value=_d.prescription||'';
+    document.getElementById('cr-notes').value=_d.notes||'';
     // tags
     const set=new Set((r.tags||[]).map(String));
     document.querySelectorAll('#tag-opts .tag-opt').forEach(el=>el.classList.toggle('sel',set.has(el.dataset.tag)));
@@ -461,6 +561,16 @@ function viewReport(id){
         blk('Véhicules',r.vehicles_names,'fa-car');
         const tags=(()=>{try{return JSON.parse(r.tags||'[]')}catch(e){return[]}})();
         blk('Tags',tags,'fa-tags');
+        // Signes vitaux / prescription / notes
+        let dd={}; try{ dd=JSON.parse(r.data||'{}')||{}; }catch(e){ dd={}; }
+        const vv=dd.vitals||{};
+        if(vv.tension||vv.pouls||vv.temperature){
+            const parts=[vv.tension?'Tension '+vv.tension:'',vv.pouls?'Pouls '+vv.pouls+' BPM':'',vv.temperature?vv.temperature+' °C':''].filter(Boolean);
+            ex.insertAdjacentHTML('beforeend','<div><div class="form-label" style="margin-bottom:.3rem"><i class="fas fa-heart-pulse"></i> Signes vitaux</div><div style="display:flex;gap:.3rem;flex-wrap:wrap">'+parts.map(n=>'<span class="badge badge-gray">'+escapeHtmlR(n)+'</span>').join('')+'</div></div>');
+        }
+        if(dd.prescription){ ex.insertAdjacentHTML('beforeend','<div><div class="form-label" style="margin-bottom:.3rem"><i class="fas fa-prescription"></i> Prescription</div><div style="white-space:pre-wrap;font-size:.82rem;color:var(--txt-s)">'+escapeHtmlR(dd.prescription)+'</div></div>'); }
+        if(dd.notes){ ex.insertAdjacentHTML('beforeend','<div><div class="form-label" style="margin-bottom:.3rem"><i class="fas fa-note-sticky"></i> Notes complémentaires</div><div style="white-space:pre-wrap;font-size:.82rem;color:var(--txt-s)">'+escapeHtmlR(dd.notes)+'</div></div>'); }
+        if(r.google_docs_url){ ex.insertAdjacentHTML('beforeend','<div style="margin-top:.4rem"><a href="'+escapeHtmlR(r.google_docs_url)+'" target="_blank" class="btn btn-secondary btn-sm"><i class="fas fa-external-link-alt"></i> Voir le document</a></div>'); }
         openModal('modal-view-report');
     });
 }

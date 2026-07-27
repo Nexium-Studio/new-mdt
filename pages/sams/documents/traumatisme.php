@@ -14,7 +14,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $data=['type_traumatisme'=>$_POST['type_traumatisme'],'gravite'=>$_POST['gravite'],'soins_requis'=>$_POST['soins_requis']??''];
             $db->prepare("INSERT INTO medical_certificates (type,patient_id,doctor_id,data,description_rich,valid_from,status) VALUES ('traumatisme',?,?,?,?,?,'active')")
                ->execute([intval($_POST['patient_id']),$_SESSION['user_id'],json_encode($data),trim($_POST['description']??''),date('Y-m-d')]);
+            $certId = $db->lastInsertId();
             $msg = 'Certificats créé(e) avec succès.'; $msgType = 'success';
+            // Génération automatique du document
+            $patient = sams_patient_row($db, $_POST['patient_id']);
+            $pname   = trim(($patient['firstname']??'').' '.($patient['lastname']??''));
+            $content  = "<h1>Certificat de Traumatisme</h1>";
+            $content .= "<p><strong>Patient :</strong> ".htmlspecialchars($pname)."</p>";
+            $content .= "<p><strong>Type :</strong> ".htmlspecialchars($data['type_traumatisme']??'—')."</p>";
+            $content .= "<p><strong>Gravité :</strong> ".htmlspecialchars($data['gravite']??'—')."</p>";
+            if(!empty($data['soins_requis'])) $content .= "<p><strong>Soins requis :</strong> ".htmlspecialchars($data['soins_requis'])."</p>";
+            if(trim($_POST['description']??'')!=='') $content .= "<hr><h2>Description</h2><p>".nl2br(htmlspecialchars(trim($_POST['description'])))."</p>";
+            $content .= "<hr><p><strong>Dr. ".htmlspecialchars(sams_doctor_name($db,$_SESSION['user_id']))."</strong></p>";
+            $msg .= sams_doc_link(sams_generate_document($db,'medical_certificates',(int)$certId,"Certificat de Traumatisme — ".$pname,$content,'traumatisme'));
         } catch(Exception $e) { $msg = 'Erreur : '.$e->getMessage(); $msgType = 'error'; }
     }
     if ($action === 'delete') {

@@ -14,7 +14,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $data = ['type_aptitude'=>$_POST['type_aptitude'],'resultat'=>$_POST['resultat']??'Apte'];
             $db->prepare("INSERT INTO medical_certificates (type,patient_id,doctor_id,data,description_rich,valid_from,valid_until,status) VALUES ('aptitude',?,?,?,?,?,?,'active')")
                ->execute([intval($_POST['patient_id']),$_SESSION['user_id'],json_encode($data),trim($_POST['observations']??''),$_POST['valid_from'],$_POST['valid_until']]);
+            $certId = $db->lastInsertId();
             $msg = "Certificat d'aptitude créé."; $msgType = 'success';
+            // Génération automatique du document
+            $patient = sams_patient_row($db, $_POST['patient_id']);
+            $pname   = trim(($patient['firstname']??'').' '.($patient['lastname']??''));
+            $content  = "<h1>Certificat d'Aptitude</h1>";
+            $content .= "<p><strong>Patient :</strong> ".htmlspecialchars($pname)."</p>";
+            $content .= "<p><strong>Type :</strong> ".htmlspecialchars($data['type_aptitude']??'—')."</p>";
+            $content .= "<p><strong>Résultat :</strong> ".htmlspecialchars($data['resultat']??'—')."</p>";
+            $content .= "<p><strong>Validité :</strong> du ".date('d/m/Y',strtotime($_POST['valid_from']))." au ".date('d/m/Y',strtotime($_POST['valid_until']))."</p>";
+            if(trim($_POST['observations']??'')!=='') $content .= "<hr><h2>Observations</h2><p>".nl2br(htmlspecialchars(trim($_POST['observations'])))."</p>";
+            $content .= "<hr><p><strong>Dr. ".htmlspecialchars(sams_doctor_name($db,$_SESSION['user_id']))."</strong></p>";
+            $msg .= sams_doc_link(sams_generate_document($db,'medical_certificates',(int)$certId,"Certificat d'Aptitude — ".$pname,$content,'aptitude'));
         } catch(Exception $e){ $msg='Erreur : '.$e->getMessage(); $msgType='error'; }
     }
     if ($action === 'delete') {

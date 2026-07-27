@@ -21,20 +21,50 @@ $db->exec("CREATE TABLE IF NOT EXISTS `death_certificates` (
   `status` ENUM('active','archived') DEFAULT 'active',
   `google_docs_url` TEXT,
   `notes` TEXT,
+  `patient_id` INT NULL DEFAULT NULL,
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+// Colonne patient_id (lien vers le profil sélectionné) — idempotent pour les bases existantes.
+try { $db->exec("ALTER TABLE `death_certificates` ADD COLUMN IF NOT EXISTS `patient_id` INT NULL DEFAULT NULL"); } catch(Exception $e){}
+$dcHasPatient=false; try { $db->query("SELECT `patient_id` FROM death_certificates LIMIT 0"); $dcHasPatient=true; } catch(Exception $e){}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     if ($action === 'add') {
         try {
+            // Défunt = profil sélectionné (même sélecteur que les autres documents)
+            $patientId = intval($_POST['patient_id'] ?? 0);
+            $patient   = $patientId > 0 ? sams_patient_row($db, $patientId) : [];
+            $deceasedName = trim(($patient['firstname']??'').' '.($patient['lastname']??''));
+            if ($deceasedName === '') $deceasedName = trim($_POST['deceased_name'] ?? '');
+            if ($deceasedName === '') { throw new Exception('Veuillez sélectionner le défunt.'); }
+
             $year=(int)date('Y');
             $seq=(int)$db->query("SELECT COUNT(*)+1 FROM death_certificates WHERE YEAR(created_at)=$year")->fetchColumn();
             $num=sprintf("DC-%d-%04d",$year,$seq);
-            $db->prepare("INSERT INTO death_certificates (numero,deceased_name,date_of_birth,date_of_death,time_of_death,place_of_death,manner_of_death,cause_of_death,secondary_causes,certifying_doc,notes) VALUES (?,?,?,?,?,?,?,?,?,?,?)")
-               ->execute([$num,trim($_POST['deceased_name']),$_POST['date_of_birth']?:null,$_POST['date_of_death'],trim($_POST['time_of_death']??''),trim($_POST['place_of_death']??''),$_POST['manner_of_death'],trim($_POST['cause_of_death']??''),trim($_POST['secondary_causes']??''),$_SESSION['user_id'],trim($_POST['notes']??'')]);
+            $cols=['numero','deceased_name','date_of_birth','date_of_death','time_of_death','place_of_death','manner_of_death','cause_of_death','secondary_causes','certifying_doc','notes'];
+            $vals=[$num,$deceasedName,$_POST['date_of_birth']?:null,$_POST['date_of_death'],trim($_POST['time_of_death']??''),trim($_POST['place_of_death']??''),$_POST['manner_of_death'],trim($_POST['cause_of_death']??''),trim($_POST['secondary_causes']??''),$_SESSION['user_id'],trim($_POST['notes']??'')];
+            if ($dcHasPatient) { $cols[]='patient_id'; $vals[]=$patientId ?: null; }
+            $ph=implode(',',array_fill(0,count($cols),'?'));
+            $db->prepare("INSERT INTO death_certificates (".implode(',',$cols).") VALUES ($ph)")->execute($vals);
+            $certId = $db->lastInsertId();
             $msg="Certificat de décès $num enregistré."; $msgType='success';
+            // Génération automatique du document
+            $mannerLabels=['natural'=>'Naturelle','accident'=>'Accident','suicide'=>'Suicide','homicide'=>'Homicide','unknown'=>'Inconnue'];
+            $dname   = $deceasedName;
+            $content  = "<h1>Certificat de Décès</h1>";
+            $content .= "<p><strong>N° :</strong> ".htmlspecialchars($num)."</p>";
+            $content .= "<p><strong>Défunt :</strong> ".htmlspecialchars($dname)."</p>";
+            if(!empty($_POST['date_of_birth'])) $content .= "<p><strong>Date de naissance :</strong> ".date('d/m/Y',strtotime($_POST['date_of_birth']))."</p>";
+            $content .= "<p><strong>Date du décès :</strong> ".date('d/m/Y',strtotime($_POST['date_of_death'])).(!empty($_POST['time_of_death'])?" à ".htmlspecialchars($_POST['time_of_death']):'')."</p>";
+            if(!empty($_POST['place_of_death'])) $content .= "<p><strong>Lieu :</strong> ".htmlspecialchars($_POST['place_of_death'])."</p>";
+            $content .= "<p><strong>Nature :</strong> ".htmlspecialchars($mannerLabels[$_POST['manner_of_death']]??($_POST['manner_of_death']??'—'))."</p>";
+            if(trim($_POST['cause_of_death']??'')!=='') $content .= "<hr><h2>Cause du décès</h2><p>".nl2br(htmlspecialchars(trim($_POST['cause_of_death'])))."</p>";
+            if(trim($_POST['secondary_causes']??'')!=='') $content .= "<p><strong>Causes secondaires :</strong> ".nl2br(htmlspecialchars(trim($_POST['secondary_causes'])))."</p>";
+            if(trim($_POST['notes']??'')!=='') $content .= "<p><strong>Notes :</strong> ".nl2br(htmlspecialchars(trim($_POST['notes'])))."</p>";
+            $content .= "<hr><p><strong>Dr. ".htmlspecialchars(sams_doctor_name($db,$_SESSION['user_id']))."</strong></p>";
+            $msg .= sams_doc_link(sams_generate_document($db,'death_certificates',(int)$certId,"Certificat de Décès — ".$dname,$content,'certificat'));
         } catch(Exception $e){ $msg='Erreur : '.$e->getMessage(); $msgType='error'; }
     }
     if ($action === 'delete') {
@@ -50,6 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $certs=[];try{$certs=$db->query("SELECT dc.*,NULLIF(TRIM(CONCAT(COALESCE(cp.firstname,''),' ',COALESCE(cp.lastname,''))),'') AS doctor_name FROM death_certificates dc LEFT JOIN users u ON u.id=dc.certifying_doc LEFT JOIN profiles cp ON cp.id=u.profile_id ORDER BY dc.created_at DESC LIMIT 150")->fetchAll();}catch(Exception $e){}
 $total=count($certs); $actifs=count(array_filter($certs,fn($c)=>$c['status']==='active'));
 $mois=0;try{$mois=(int)$db->query("SELECT COUNT(*) FROM death_certificates WHERE MONTH(created_at)=MONTH(NOW()) AND YEAR(created_at)=YEAR(NOW())")->fetchColumn();}catch(Exception $e){}
+$patients=[];try{$patients=$db->query("SELECT id,firstname,lastname FROM profiles ORDER BY lastname,firstname LIMIT 500")->fetchAll();}catch(Exception $e){}
 
 $mannerLabels=['natural'=>'Naturelle','accident'=>'Accident','suicide'=>'Suicide','homicide'=>'Homicide','unknown'=>'Inconnue'];
 $mannerBadge=['natural'=>'badge-green','accident'=>'badge-yellow','suicide'=>'badge-purple','homicide'=>'badge-red','unknown'=>'badge-gray'];
@@ -114,7 +145,11 @@ include __DIR__ . '/../includes/header.php';
 <div class="modal modal-lg"><div class="modal-hd"><h2><i class="fas fa-cross"></i> Nouveau Certificat de Décès</h2><button class="modal-close" onclick="Sams.closeModal('addModal')"><i class="fas fa-times"></i></button></div>
 <form method="POST"><div class="modal-bd"><input type="hidden" name="action" value="add">
     <div class="form-grid">
-        <div class="form-group form-full"><label class="form-label required">Nom du défunt</label><input type="text" name="deceased_name" class="form-input" required placeholder="Prénom NOM"></div>
+        <div class="form-group form-full"><label class="form-label required">Défunt (patient enregistré)</label>
+            <button type="button" class="btn btn-secondary btn-sm" style="width:100%;justify-content:center;border-style:dashed" id="docPatBtn"><i class="fas fa-user-plus"></i> Sélectionner le défunt</button>
+            <input type="hidden" name="patient_id" id="docPatId">
+            <div id="docPatChip" style="margin-top:.5rem"></div>
+        </div>
         <div class="form-group"><label class="form-label">Date de naissance</label><input type="date" name="date_of_birth" class="form-input"></div>
         <div class="form-group"><label class="form-label required">Date du décès</label><input type="date" name="date_of_death" class="form-input" required value="<?php echo date('Y-m-d');?>"></div>
         <div class="form-group"><label class="form-label">Heure du décès</label><input type="time" name="time_of_death" class="form-input"></div>
@@ -131,4 +166,8 @@ include __DIR__ . '/../includes/header.php';
 </div><div class="modal-ft"><button type="button" class="btn btn-ghost" onclick="Sams.closeModal('addModal')">Annuler</button><button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Certifier le Décès</button></div>
 </form></div></div>
 <?php include __DIR__ . '/../includes/components.php'; ?>
+<script>
+const DOC_PATIENTS = <?php echo json_encode(array_map(fn($p)=>['id'=>(int)$p['id'],'name'=>trim($p['firstname'].' '.$p['lastname'])], $patients), JSON_UNESCAPED_UNICODE); ?>;
+samsPatientField({button:'docPatBtn',hidden:'docPatId',chip:'docPatChip',title:'Sélection du défunt',items:DOC_PATIENTS});
+</script>
 <?php include __DIR__ . '/../includes/footer.php'; ?>

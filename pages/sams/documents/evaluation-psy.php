@@ -14,7 +14,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $data=['type_evaluation'=>$_POST['type_evaluation'],'tests_realises'=>$_POST['tests_realises']??'','resultat_global'=>$_POST['resultat_global'],'recommandations'=>$_POST['recommandations']??''];
             $db->prepare("INSERT INTO medical_certificates (type,patient_id,doctor_id,data,description_rich,valid_from,status) VALUES ('psy_eval',?,?,?,?,?,'active')")
                ->execute([intval($_POST['patient_id']),$_SESSION['user_id'],json_encode($data),trim($_POST['conclusions']??''),date('Y-m-d')]);
+            $certId = $db->lastInsertId();
             $msg = 'Évaluations créé(e) avec succès.'; $msgType = 'success';
+            // Génération automatique du document
+            $patient = sams_patient_row($db, $_POST['patient_id']);
+            $pname   = trim(($patient['firstname']??'').' '.($patient['lastname']??''));
+            $content  = "<h1>Évaluation Psychologique</h1>";
+            $content .= "<p><strong>Patient :</strong> ".htmlspecialchars($pname)."</p>";
+            $content .= "<p><strong>Type d'évaluation :</strong> ".htmlspecialchars($data['type_evaluation']??'—')."</p>";
+            if(!empty($data['tests_realises'])) $content .= "<p><strong>Tests réalisés :</strong> ".htmlspecialchars($data['tests_realises'])."</p>";
+            $content .= "<p><strong>Résultat global :</strong> ".htmlspecialchars($data['resultat_global']??'—')."</p>";
+            if(!empty($data['recommandations'])) $content .= "<p><strong>Recommandations :</strong> ".nl2br(htmlspecialchars($data['recommandations']))."</p>";
+            if(trim($_POST['conclusions']??'')!=='') $content .= "<hr><h2>Conclusions détaillées</h2><p>".nl2br(htmlspecialchars(trim($_POST['conclusions'])))."</p>";
+            $content .= "<hr><p><strong>Dr. ".htmlspecialchars(sams_doctor_name($db,$_SESSION['user_id']))."</strong></p>";
+            $msg .= sams_doc_link(sams_generate_document($db,'medical_certificates',(int)$certId,"Évaluation Psychologique — ".$pname,$content,'psy'));
         } catch(Exception $e) { $msg = 'Erreur : '.$e->getMessage(); $msgType = 'error'; }
     }
     if ($action === 'delete') {

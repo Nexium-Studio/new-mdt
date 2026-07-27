@@ -390,6 +390,12 @@ function getFactionLogo($faction) {
 define('DOCUMENTS_DIR', __DIR__ . '/../public/documents');
 define('DOCUMENTS_URL', SITE_URL . '/public/documents');
 
+// Générateur de documents HTML SAMS (ordonnances, certificats…) + helpers.
+// Chargé ici pour être disponible partout : l'ancien include par page reposait
+// sur $_SERVER['DOCUMENT_ROOT'] + un nom de fichier en minuscules, introuvable
+// sur un système de fichiers sensible à la casse (serveur Linux de production).
+require_once __DIR__ . '/GoogleDocsGenerator.php';
+
 if (!is_dir(DOCUMENTS_DIR)) {
     if (!mkdir(DOCUMENTS_DIR, 0755, true)) {
         error_log('Impossible de créer le dossier documents');

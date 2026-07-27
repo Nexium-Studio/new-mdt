@@ -14,7 +14,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $data=['prenom_bebe'=>$_POST['prenom_bebe'],'nom_bebe'=>$_POST['nom_bebe'],'sexe'=>$_POST['sexe'],'poids'=>$_POST['poids']??'','taille'=>$_POST['taille']??'','nom_pere'=>$_POST['nom_pere']??'','nom_mere'=>$_POST['nom_mere']??''];
             $db->prepare("INSERT INTO medical_certificates (type,patient_id,doctor_id,data,description_rich,valid_from,status) VALUES ('naissance',?,?,?,?,?,'active')")
                ->execute([intval($_POST['patient_id']),$_SESSION['user_id'],json_encode($data),trim($_POST['observations']??''),$_POST['date_naissance']]);
+            $certId = $db->lastInsertId();
             $msg = 'Certificats créé(e) avec succès.'; $msgType = 'success';
+            // Génération automatique du document
+            $patient = sams_patient_row($db, $_POST['patient_id']);
+            $bebe    = trim(($data['prenom_bebe']??'').' '.($data['nom_bebe']??''));
+            $content  = "<h1>Certificat de Naissance</h1>";
+            $content .= "<p><strong>Enfant :</strong> ".htmlspecialchars($bebe)." — ".htmlspecialchars($data['sexe']??'')."</p>";
+            $content .= "<p><strong>Date de naissance :</strong> ".date('d/m/Y',strtotime($_POST['date_naissance']))."</p>";
+            if(!empty($data['poids'])||!empty($data['taille'])) $content .= "<p><strong>Poids :</strong> ".htmlspecialchars($data['poids']?:'—')." kg — <strong>Taille :</strong> ".htmlspecialchars($data['taille']?:'—')." cm</p>";
+            $content .= "<p><strong>Mère :</strong> ".htmlspecialchars(trim(($patient['firstname']??'').' '.($patient['lastname']??'')))."</p>";
+            if(!empty($data['nom_pere'])) $content .= "<p><strong>Père :</strong> ".htmlspecialchars($data['nom_pere'])."</p>";
+            if(trim($_POST['observations']??'')!=='') $content .= "<hr><h2>Observations</h2><p>".nl2br(htmlspecialchars(trim($_POST['observations'])))."</p>";
+            $content .= "<hr><p><strong>Dr. ".htmlspecialchars(sams_doctor_name($db,$_SESSION['user_id']))."</strong></p>";
+            $msg .= sams_doc_link(sams_generate_document($db,'medical_certificates',(int)$certId,"Certificat de Naissance — ".$bebe,$content,'naissance'));
         } catch(Exception $e) { $msg = 'Erreur : '.$e->getMessage(); $msgType = 'error'; }
     }
     if ($action === 'delete') {

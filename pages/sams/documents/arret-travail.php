@@ -7,36 +7,105 @@ $pageTitle = 'Arrêts de Travail';
 $db = Database::getInstance()->getConnection();
 $msg = ''; $msgType = '';
 
+/**
+ * Crée une absence LSPD validée (motif « Arrêt de travail », couleur violette)
+ * lorsque le patient d'un arrêt de travail est un agent LSPD. Idempotent : pas
+ * de doublon pour le même agent et les mêmes dates. Best-effort — un échec ne
+ * doit jamais empêcher la création de l'arrêt.
+ */
+if (!function_exists('sams_arret_sync_lspd_absence')) {
+    function sams_arret_sync_lspd_absence(PDO $db, int $patientId, string $patientName, string $start, string $end): void {
+        if ($patientId <= 0) return;
+        $d1 = $start ? date('Y-m-d', strtotime($start)) : '';
+        $d2 = $end   ? date('Y-m-d', strtotime($end))   : '';
+        if ($d1 === '' || $d2 === '') return;
+        try {
+            // Colonnes annexes (couleur d'événement + provenance) — idempotent (MariaDB).
+            try { $db->exec("ALTER TABLE `lspd_absences` ADD COLUMN IF NOT EXISTS `color` VARCHAR(20) NULL DEFAULT NULL"); } catch (Throwable $e) {}
+            try { $db->exec("ALTER TABLE `lspd_absences` ADD COLUMN IF NOT EXISTS `source` VARCHAR(30) NULL DEFAULT NULL"); } catch (Throwable $e) {}
+
+            // Le patient est-il un agent LSPD ? Personnage lié en priorité, sinon compte.
+            $agent = null;
+            $s = $db->prepare("SELECT user_id, id AS character_id, avatar, firstname, lastname FROM characters WHERE profile_id=? AND faction='LSPD' AND is_deleted=0 LIMIT 1");
+            $s->execute([$patientId]);
+            $c = $s->fetch(PDO::FETCH_ASSOC);
+            if ($c) {
+                $agent = ['user_id'=>(int)$c['user_id'],'character_id'=>$c['character_id']?:null,'avatar'=>$c['avatar']??null,
+                          'name'=>trim(($c['firstname']??'').' '.($c['lastname']??''))];
+            } else {
+                $s = $db->prepare("SELECT id AS user_id, avatar FROM users WHERE profile_id=? AND faction='LSPD' LIMIT 1");
+                $s->execute([$patientId]);
+                $u = $s->fetch(PDO::FETCH_ASSOC);
+                if ($u) $agent = ['user_id'=>(int)$u['user_id'],'character_id'=>null,'avatar'=>$u['avatar']??null,'name'=>''];
+            }
+            if (!$agent) return;
+
+            $agentName = $agent['name'] !== '' ? $agent['name'] : $patientName;
+            $uid = (int) $agent['user_id'];
+
+            // Dé-doublonnage : même agent, même arrêt.
+            $chk = $db->prepare("SELECT id FROM lspd_absences WHERE user_id=? AND source='sams_arret' AND date_debut=? AND date_fin=? LIMIT 1");
+            $chk->execute([$uid, $d1, $d2]);
+            if ($chk->fetchColumn()) return;
+
+            $db->prepare("INSERT INTO lspd_absences (user_id,character_id,profile_id,agent_name,agent_avatar,date_debut,date_fin,motif,statut,color,source,notif_seen)
+                          VALUES (?,?,?,?,?,?,?,?,'validee',?, 'sams_arret',1)")
+               ->execute([$uid, $agent['character_id'], $patientId, $agentName, $agent['avatar'], $d1, $d2, 'Arrêt de travail', '#8b5cf6']);
+        } catch (Throwable $e) {
+            error_log('sams_arret_sync_lspd_absence: ' . $e->getMessage());
+        }
+    }
+}
+
 // ── ACTIONS ──────────────────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
 
     if ($action === 'add') {
         try {
+            $patientId = intval($_POST['patient_id']);
             $data = [
                 'repos_complet'      => isset($_POST['repos_complet']) ? 1 : 0,
                 'sorties_autorisees' => isset($_POST['sorties_autorisees']) ? 1 : 0,
                 'motif'              => trim($_POST['motif'] ?? ''),
             ];
             $db->prepare("INSERT INTO medical_certificates (type,patient_id,doctor_id,data,description_rich,valid_from,valid_until,status) VALUES ('arret_travail',?,?,?,?,?,?,'active')")
-               ->execute([intval($_POST['patient_id']),$_SESSION['user_id'],json_encode($data),trim($_POST['diagnostic']??''),$_POST['date_debut'],$_POST['date_fin']]);
+               ->execute([$patientId,$_SESSION['user_id'],json_encode($data),trim($_POST['diagnostic']??''),$_POST['date_debut'],$_POST['date_fin']]);
             $certId = $db->lastInsertId();
             $msg = "Arrêt de travail #".str_pad($certId,5,'0',STR_PAD_LEFT)." créé avec succès."; $msgType = 'success';
-            // Google Docs generation (optional)
-            if (class_exists('GoogleDocsGenerator')) {
-                try {
-                    $generator = new GoogleDocsGenerator();
-                    $p = $db->prepare("SELECT firstname,lastname,age FROM profiles WHERE id=?"); $p->execute([intval($_POST['patient_id'])]); $patient=$p->fetch();
-                    $d = $db->prepare("SELECT pr.firstname,pr.lastname FROM users u LEFT JOIN profiles pr ON pr.id=u.profile_id WHERE u.id=?"); $d->execute([$_SESSION['user_id']]); $doctor=$d->fetch(); $doctorName=mdt_rp_display_name($doctor['firstname']??null,$doctor['lastname']??null,'');
-                    $content = "<h1>Arrêt de Travail Médical</h1><p><strong>Patient :</strong> ".htmlspecialchars($patient['firstname'].' '.$patient['lastname'])."</p>";
-                    $content .= "<p><strong>Période :</strong> Du ".date('d/m/Y',strtotime($_POST['date_debut']))." au ".date('d/m/Y',strtotime($_POST['date_fin']))."</p>";
-                    $content .= "<p><strong>Repos complet :</strong> ".(isset($_POST['repos_complet'])?'Oui':'Non')."</p>";
-                    $content .= "<p><strong>Sorties autorisées :</strong> ".(isset($_POST['sorties_autorisees'])?'Oui':'Non')."</p>";
-                    $content .= "<hr><p>".($data['motif'])."</p><p><strong>Dr. ".htmlspecialchars($doctorName ?: '')."</strong></p>";
-                    $url = $generator->generateDocument("Arrêt de Travail — ".($patient['firstname']??'')." ".($patient['lastname']??''), $content, 'arret_travail');
-                    if ($url) { $db->prepare("UPDATE medical_certificates SET google_docs_url=? WHERE id=?")->execute([$url,$certId]); $msg .= ' <a href="'.htmlspecialchars($url).'" target="_blank" style="color:var(--red-l);text-decoration:underline">Voir le document →</a>'; }
-                } catch(Exception $e) {}
-            }
+
+            // Génération automatique du document (logo SAMS via le helper centralisé)
+            $patient = sams_patient_row($db, $patientId);
+            $pname   = trim(($patient['firstname']??'').' '.($patient['lastname']??''));
+            $doctorName = sams_doctor_name($db,$_SESSION['user_id']);
+            $d1 = new DateTime(date('Y-m-d', strtotime($_POST['date_debut'])));
+            $d2 = new DateTime(date('Y-m-d', strtotime($_POST['date_fin'])));
+            $duree = max(1, $d1->diff($d2)->days + 1);
+            $ref = sprintf('ATT-%s-%04d', date('Ym'), (int)$certId);
+            $content  = '<p style="color:#6b7280;margin-bottom:1rem">Rédigé à <strong>Los Santos</strong> le '.date('d/m/Y').'</p>';
+            $content .= '<div class="doc-letter">';
+            $content .= '<p>Je soussigné(e) <span class="hl">'.htmlspecialchars($doctorName !== '' ? $doctorName : 'le médecin').'</span>, médecin agréé du SAMS, déclare par la présente que <span class="hl">'.htmlspecialchars($pname).'</span> est actuellement en arrêt de travail pour une durée de <span class="hl">'.$duree.' jour'.($duree>1?'s':'').'</span>, à compter du <span class="hl">'.date('d/m/Y',strtotime($_POST['date_debut'])).'</span> et jusqu\'au <span class="hl">'.date('d/m/Y',strtotime($_POST['date_fin'])).'</span>'.($data['motif']!==''?', pour le motif suivant :':'.').'</p>';
+            if ($data['motif'] !== '') $content .= '<p>- '.htmlspecialchars($data['motif']).'</p>';
+            if (trim($_POST['diagnostic']??'') !== '') $content .= '<p>'.nl2br(htmlspecialchars(trim($_POST['diagnostic']))).'</p>';
+            $content .= '<p>Il est demandé à l\'employeur de prendre en compte cet arrêt de travail et de ne pas solliciter le patient durant cette période, sous peine de poursuites.</p>';
+            $flags = [];
+            if ($data['repos_complet'])      $flags[] = 'Repos complet prescrit';
+            if ($data['sorties_autorisees']) $flags[] = 'Sorties autorisées';
+            if ($flags) $content .= '<p style="color:#6b7280;font-size:.82rem">'.htmlspecialchars(implode(' · ', $flags)).'</p>';
+            $content .= '</div>';
+            $meta = [
+                'layout'         => 'letter',
+                'doc_label'      => 'Arrêt de travail : '.$pname,
+                'reference'      => $ref,
+                'date'           => date('d/m/Y'),
+                'signatory_name' => $doctorName,
+                'signatory_sub'  => 'SAMS — Los Santos, San Andreas',
+                'foot_note'      => 'SAMS — Document officiel · Los Santos, San Andreas · '.$ref,
+            ];
+            $msg .= sams_doc_link(sams_generate_document($db,'medical_certificates',(int)$certId,"Arrêt de Travail — ".$pname,$content,'arret_travail',$meta));
+
+            // Si le patient est un agent LSPD : absence validée automatique (violette)
+            sams_arret_sync_lspd_absence($db, $patientId, $pname, $_POST['date_debut'], $_POST['date_fin']);
         } catch(Exception $e) { $msg = 'Erreur : '.$e->getMessage(); $msgType = 'error'; }
     }
 
