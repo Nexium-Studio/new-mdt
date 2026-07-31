@@ -2,13 +2,16 @@
 // pages/admin/users/roles.php
 define('STAFF_PANEL', true);
 require_once __DIR__ . '/../../../config/config.php';
-require_once ROOT_PATH . '/includes/mdt_faction_discord_sync.php';
+require_once ROOT_PATH . '/includes/mdt_faction_nexioz_sync.php';
 require_once ROOT_PATH . '/includes/faction_logo.php';
 requireLogin();
 if (!hasRole(['*', 'Administrateur', 'Développeur', 'Staff', 'Modérateur', 'Helper'])) redirect(SITE_URL . '/pages/dashboard.php');
 
 $db = Database::getInstance()->getConnection();
-mdt_faction_sync_ensure_tables($db);
+mdt_faction_nexioz_ensure_tables($db);
+
+// Configuration des liaisons NexioZ réservée aux administrateurs.
+$canManageLiaison = hasRole(['*', 'Administrateur', 'Développeur']);
 
 $pageTitle  = 'Rôles & Factions';
 $breadcrumb = [['label' => 'Utilisateurs', 'url' => 'index.php'], ['label' => 'Rôles & Factions']];
@@ -18,30 +21,27 @@ $uid = (int)($_SESSION['user_id'] ?? 0);
 if (empty($_SESSION['roles_faction_csrf'])) $_SESSION['roles_faction_csrf'] = bin2hex(random_bytes(16));
 $csrf = $_SESSION['roles_faction_csrf'];
 
-// ── AJAX : liste utilisateurs Discord pour resync factions ───────────────────
-if ($_SERVER['REQUEST_METHOD'] === 'GET' && ($_GET['action'] ?? '') === 'get_faction_discord_users') {
+// ── AJAX : tester une liaison NexioZ (dryRun) ────────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'test_faction_liaison') {
     header('Content-Type: application/json');
-    try {
-        $rows = $db->query("SELECT id, username, discord_id, faction FROM users WHERE discord_id IS NOT NULL AND discord_id != '' AND is_active=1 ORDER BY username ASC")->fetchAll(PDO::FETCH_ASSOC);
-        echo json_encode(['users' => $rows]);
-    } catch (Throwable $e) {
-        echo json_encode(['users' => [], 'error' => $e->getMessage()]);
-    }
+    if (!hash_equals($csrf, $_POST['csrf'] ?? '')) { echo json_encode(['ok'=>false,'error'=>'CSRF']); exit; }
+    if (!$canManageLiaison) { echo json_encode(['ok'=>false,'error'=>'Permission refusée']); exit; }
+    $slot = (int)($_POST['slot'] ?? 0);
+    $liaisons = mdt_faction_nexioz_liaisons($db);
+    if (!isset($liaisons[$slot])) { echo json_encode(['ok'=>false,'error'=>'Section inconnue']); exit; }
+    echo json_encode(mdt_faction_nexioz_diagnose($liaisons[$slot]));
     exit;
 }
 
-// ── AJAX : resync faction d'UN utilisateur ───────────────────────────────────
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'resync_faction_single') {
+// ── AJAX : envoyer la liste des factions vers NexioZ ─────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'push_factions') {
     header('Content-Type: application/json');
-    if (!hash_equals($csrf, $_POST['csrf'] ?? '')) { echo json_encode(['success'=>false,'message'=>'CSRF']); exit; }
-    $targetId  = (int)($_POST['user_id']    ?? 0);
-    $discordId = trim($_POST['discord_id']  ?? '');
-    if ($targetId > 0 && $discordId !== '') {
-        $result = mdt_faction_sync_user($db, $targetId, $discordId, 'manual');
-    } else {
-        $result = ['success'=>false,'changed'=>false,'message'=>'Paramètres manquants'];
-    }
-    echo json_encode($result);
+    if (!hash_equals($csrf, $_POST['csrf'] ?? '')) { echo json_encode(['ok'=>false,'error'=>'CSRF']); exit; }
+    if (!$canManageLiaison) { echo json_encode(['ok'=>false,'error'=>'Permission refusée']); exit; }
+    $slot = (int)($_POST['slot'] ?? 0);
+    $liaisons = mdt_faction_nexioz_liaisons($db);
+    if (!isset($liaisons[$slot]) || !$liaisons[$slot]['linked']) { echo json_encode(['ok'=>false,'error'=>'Section non liée']); exit; }
+    echo json_encode(mdt_faction_nexioz_push_factions($db, $liaisons[$slot]));
     exit;
 }
 
@@ -54,7 +54,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && ($_GET['action'] ?? '') === 'get_fac
     $gradeName = trim($_GET['grade_name'] ?? '');
 
     $pages      = faction_acl_scan_pages($fk);
-    $pagePerms  = ($gradeId > 0) ? faction_acl_get_grade_permissions($gradeId, $db) : [];
+    // Les permissions de page sont stockées par (faction_key, grade_name) — on
+    // relit donc par NOM (et non par grade_id, souvent NULL pour les grades
+    // institutionnels / company_ranks / orphelins). Fallback par id si besoin.
+    if ($gradeName !== '' && $fk !== '') {
+        $pagePerms = faction_acl_get_grade_permissions_by_name($fk, $gradeName, $db);
+        if (!$pagePerms && $gradeId > 0) {
+            $pagePerms = faction_acl_get_grade_permissions($gradeId, $db);
+        }
+    } else {
+        $pagePerms = ($gradeId > 0) ? faction_acl_get_grade_permissions($gradeId, $db) : [];
+    }
     $actPerms   = ($gradeName !== '' && $fk !== '') ? faction_acl_get_action_permissions($fk, $gradeName, $db) : [];
     $catalog    = faction_acl_action_catalog();
 
@@ -493,25 +503,28 @@ foreach ($memberCountsRaw as $row) {
     $globalMembersByGrade[$row['faction']][$row['grade_name']] = (int)$row['cnt'];
 }
 
-// ── POST : config Discord B + mapping factions ──────────────────────────────
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && hash_equals($csrf, $_POST['csrf'] ?? '')) {
-    $fAction = $_POST['faction_discord_action'] ?? '';
-
-    if ($fAction === 'save_faction_discord_config') {
-        $guildId  = preg_replace('/[^0-9]/', '', trim($_POST['faction_discord_guild_id'] ?? ''));
-        $botToken = trim($_POST['faction_discord_bot_token'] ?? '');
-        try {
-            mdt_faction_sync_save_config($db, $guildId, $botToken);
-            $success = 'Configuration Discord B (factions) sauvegardée.';
-        } catch (Throwable $e) { $error = 'Erreur : ' . $e->getMessage(); }
-    }
-
-    if ($fAction === 'save_faction_discord_map') {
-        $mappings = (array)($_POST['faction_role_map'] ?? []);
-        try {
-            mdt_faction_sync_save_map($db, $mappings);
-            $success = 'Mapping Discord → Factions sauvegardé.';
-        } catch (Throwable $e) { $error = 'Erreur : ' . $e->getMessage(); }
+// ── POST : enregistrer une liaison NexioZ (rôles de faction) ─────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST'
+    && ($_POST['faction_liaison_action'] ?? '') === 'save_faction_liaison'
+    && hash_equals($csrf, $_POST['csrf'] ?? '')) {
+    if (!$canManageLiaison) {
+        $error = 'Permission refusée.';
+    } else {
+        $slot = (int)($_POST['slot'] ?? 0);
+        if ($slot >= 1 && $slot <= 4) {
+            $token = trim($_POST['liaison_token'] ?? '');
+            $label = trim($_POST['liaison_label'] ?? '');
+            if ($token !== '' && mdt_proposals_parse_token($token) === null) {
+                $error = 'Clé invalide : format attendu nxz_… (regénérez-la depuis NexioZ).';
+            } else {
+                try {
+                    mdt_faction_nexioz_save_liaison($db, $slot, $token, $label !== '' ? $label : null);
+                    $success = $token !== '' ? 'Liaison enregistrée.' : 'Liaison désactivée.';
+                } catch (Throwable $e) { $error = 'Erreur : ' . $e->getMessage(); }
+            }
+        } else {
+            $error = 'Section de liaison invalide.';
+        }
     }
 }
 
@@ -649,12 +662,11 @@ foreach ($enumFactions as $factionKey => $factionInfo) {
     $factions[] = $f;
 }
 
-// ── Données Discord B (factions) ─────────────────────────────────────────────
-$factionDiscordCfg  = mdt_faction_sync_get_config($db);
-$factionDiscordMap  = mdt_faction_sync_get_map($db);
-$factionSyncLogs    = [];
+// ── Liaisons NexioZ (rôles de faction) ───────────────────────────────────────
+$factionLiaisons = mdt_faction_nexioz_liaisons($db);
+$factionSyncLogs = [];
 try {
-    $factionSyncLogs = $db->query("SELECT * FROM faction_discord_sync_log ORDER BY synced_at DESC LIMIT 10")->fetchAll(PDO::FETCH_ASSOC);
+    $factionSyncLogs = $db->query("SELECT * FROM nexioz_faction_sync_log ORDER BY synced_at DESC LIMIT 10")->fetchAll(PDO::FETCH_ASSOC);
 } catch (Throwable $e) {}
 
 include __DIR__ . '/../includes/header.php';
@@ -1860,285 +1872,143 @@ include __DIR__ . '/../includes/header.php';
 <?php endforeach; ?>
 
 <!-- ═══════════════════════════════════════════════════════════════════════
-     SECTION : SYNCHRONISATION DISCORD B — FACTIONS
+     SECTION : LIAISONS NEXIOZ — RÔLES DE FACTION
      ═══════════════════════════════════════════════════════════════════════ -->
 <style>
-.fd-section{margin-top:28px;display:grid;grid-template-columns:340px 1fr;gap:20px;align-items:flex-start}
-@media(max-width:1100px){.fd-section{grid-template-columns:1fr}}
-.fd-card{background:var(--bg-elevated);border:1px solid rgba(88,101,242,.25);border-radius:14px;overflow:hidden}
-.fd-card-header{padding:14px 18px;background:linear-gradient(135deg,rgba(88,101,242,.12),rgba(88,101,242,.04));border-bottom:1px solid rgba(88,101,242,.2);display:flex;align-items:center;gap:10px;font-weight:700;font-size:.88rem}
-.fd-card-header i{color:#7289da;font-size:1rem}
-.fd-card-body{padding:16px 18px}
-.fd-map-table{width:100%;border-collapse:collapse;font-size:.8rem}
-.fd-map-table th{padding:6px 10px;text-align:left;color:var(--text-secondary);font-weight:600;border-bottom:1px solid var(--border);font-size:.72rem;text-transform:uppercase;letter-spacing:.05em}
-.fd-map-table td{padding:6px 10px;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:middle}
-.fd-map-table tr:last-child td{border-bottom:none}
-.fd-role-input{width:160px;padding:5px 8px;background:var(--bg-overlay);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:.75rem;font-family:monospace}
-.fd-role-input:focus{outline:none;border-color:#7289da;box-shadow:0 0 0 2px rgba(88,101,242,.15)}
-.fd-status-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:4px;font-size:.65rem;font-weight:700}
-.fd-status-ok{background:rgba(34,197,94,.12);color:#22c55e;border:1px solid rgba(34,197,94,.25)}
-.fd-status-no{background:rgba(100,116,139,.08);color:#64748b;border:1px solid rgba(100,116,139,.15)}
-.fd-prog-bar{height:26px;background:rgba(255,255,255,.06);border-radius:7px;overflow:hidden;margin-bottom:10px;position:relative}
-.fd-prog-fill{height:100%;background:linear-gradient(90deg,#7289da,#5865f2);border-radius:7px;width:0%;transition:width .3s;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;color:white;min-width:28px}
-.fd-log-table{font-size:.75rem;width:100%;border-collapse:collapse}
-.fd-log-table td,.fd-log-table th{padding:5px 10px;border-bottom:1px solid rgba(255,255,255,.04);text-align:left}
-.fd-log-table thead th{color:var(--text-secondary);font-weight:600;font-size:.68rem;text-transform:uppercase;border-bottom:1px solid var(--border)}
+.fl-head{margin-top:36px;margin-bottom:16px;display:flex;align-items:center;gap:12px}
+.fl-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:18px}
+@media(max-width:1000px){.fl-grid{grid-template-columns:1fr}}
+.fl-card{background:var(--bg-elevated);border:1px solid rgba(88,101,242,.25);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;margin:0}
+.fl-card-head{padding:12px 16px;background:linear-gradient(135deg,rgba(88,101,242,.12),rgba(88,101,242,.04));border-bottom:1px solid rgba(88,101,242,.2);display:flex;align-items:center;justify-content:space-between;gap:10px}
+.fl-slot-num{width:26px;height:26px;flex:0 0 auto;border-radius:7px;background:rgba(88,101,242,.18);display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:.8rem;color:#7c8cff}
+.fl-label-input{background:transparent;border:none;border-bottom:1px dashed rgba(255,255,255,.15);color:var(--text);font-weight:700;font-size:.9rem;padding:2px 0;min-width:100px;max-width:210px}
+.fl-label-input:focus{outline:none;border-bottom-color:#7289da}
+.fl-label-input:disabled{opacity:.85;border-bottom-color:transparent}
+.fl-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;font-size:.68rem;font-weight:700;white-space:nowrap}
+.fl-badge-on{background:rgba(34,197,94,.12);color:#22c55e;border:1px solid rgba(34,197,94,.25)}
+.fl-badge-off{background:rgba(100,116,139,.1);color:#94a3b8;border:1px solid rgba(100,116,139,.2)}
+.fl-body{padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+.fl-token{width:100%;font-family:monospace;font-size:.74rem;resize:vertical;min-height:64px}
+.fl-actions{display:flex;flex-wrap:wrap;gap:8px}
+.fl-msg{font-size:.72rem;min-height:14px;line-height:1.4}
+.fl-log-table{font-size:.74rem;width:100%;border-collapse:collapse}
+.fl-log-table td,.fl-log-table th{padding:5px 10px;border-bottom:1px solid rgba(255,255,255,.04);text-align:left}
+.fl-log-table thead th{color:var(--text-secondary);font-weight:600;font-size:.66rem;text-transform:uppercase;border-bottom:1px solid var(--border)}
 </style>
 
-<!-- Titre section -->
-<div style="margin-top:36px;margin-bottom:16px;display:flex;align-items:center;gap:12px">
+<div class="fl-head">
     <div style="width:40px;height:40px;border-radius:10px;background:rgba(88,101,242,.18);border:1px solid rgba(88,101,242,.35);display:flex;align-items:center;justify-content:center">
-        <i class="fa-brands fa-discord" style="color:#7289da;font-size:1.2rem"></i>
+        <i class="fa-solid fa-link" style="color:#7289da;font-size:1.1rem"></i>
     </div>
     <div>
-        <div style="font-weight:800;font-size:1.05rem">Synchronisation Discord B — Factions</div>
-        <div style="font-size:.78rem;color:var(--text-secondary)">Serveur Discord dédié aux factions RP. Indépendant du Serveur A (rôles MDT).</div>
+        <div style="font-weight:800;font-size:1.05rem">Liaisons NexioZ — Rôles de faction</div>
+        <div style="font-size:.78rem;color:var(--text-secondary)">4 liaisons indépendantes. Chaque clé connecte un serveur Discord via NexioZ pour attribuer automatiquement les factions selon les rôles Discord des membres.</div>
     </div>
 </div>
 
-<div class="fd-section">
+<?php if (!$canManageLiaison): ?>
+<div class="fl-msg" style="color:var(--text-secondary);margin-bottom:14px">
+    <i class="fa-solid fa-lock"></i> La configuration des liaisons est réservée aux administrateurs.
+</div>
+<?php endif; ?>
 
-    <!-- Colonne gauche : Config + Resync -->
-    <div style="display:flex;flex-direction:column;gap:16px">
-
-        <!-- Config Serveur B -->
-        <div class="fd-card">
-            <div class="fd-card-header"><i class="fa-brands fa-discord"></i>Serveur Discord B</div>
-            <div class="fd-card-body">
-                <form method="POST">
-                    <input type="hidden" name="csrf" value="<?php echo $csrf; ?>">
-                    <input type="hidden" name="faction_discord_action" value="save_faction_discord_config">
-                    <div class="form-group">
-                        <label class="form-label">Guild ID (Serveur B)</label>
-                        <input type="text" name="faction_discord_guild_id" class="form-control" value="<?php echo htmlspecialchars($factionDiscordCfg['guild_id']); ?>" placeholder="Ex: 123456789012345678">
-                        <div class="form-hint">Clic droit sur le serveur → Copier l'identifiant</div>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Bot Token Discord <span style="color:#ef4444">*</span></label>
-                        <input type="password" name="faction_discord_bot_token" class="form-control" value="<?php echo htmlspecialchars($factionDiscordCfg['bot_token']); ?>" autocomplete="new-password" placeholder="MTxxxxxxxxxxxxxxxx...">
-                        <div class="form-hint">
-                            <a href="https://discord.com/developers/applications" target="_blank" style="color:#7289da">Discord Developer Portal</a> → Bot → Reset Token
-                            <?php if ($factionDiscordCfg['bot_token'] !== ''): ?>
-                            <span style="color:#22c55e;margin-left:6px">✓ Configuré</span>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                    <button class="btn btn-primary btn-sm"><i class="fa-solid fa-save"></i> Sauvegarder</button>
-                </form>
+<div class="fl-grid">
+<?php foreach ($factionLiaisons as $slot => $l): ?>
+    <form method="POST" class="fl-card">
+        <input type="hidden" name="csrf" value="<?php echo $csrf; ?>">
+        <input type="hidden" name="faction_liaison_action" value="save_faction_liaison">
+        <input type="hidden" name="slot" value="<?php echo (int)$slot; ?>">
+        <div class="fl-card-head">
+            <div style="display:flex;align-items:center;gap:10px;min-width:0">
+                <span class="fl-slot-num"><?php echo (int)$slot; ?></span>
+                <input class="fl-label-input" name="liaison_label" value="<?php echo htmlspecialchars($l['label']); ?>" maxlength="60" <?php echo $canManageLiaison ? '' : 'disabled'; ?>>
             </div>
+            <span class="fl-badge <?php echo $l['linked'] ? 'fl-badge-on' : 'fl-badge-off'; ?>">
+                <i class="fa-solid <?php echo $l['linked'] ? 'fa-circle-check' : 'fa-circle'; ?>"></i>
+                <?php echo $l['linked'] ? 'Lié' : 'Non lié'; ?>
+            </span>
         </div>
-
-        <!-- Resync -->
-        <div class="fd-card">
-            <div class="fd-card-header"><i class="fa-solid fa-rotate"></i>Resynchronisation factions</div>
-            <div class="fd-card-body">
-                <p style="font-size:.8rem;color:var(--text-secondary);margin-bottom:14px;line-height:1.5">
-                    Attribue automatiquement la faction MDT de chaque membre selon ses rôles sur le Serveur B.<br>
-                    <span style="font-size:.72rem;opacity:.7">Traitement asynchrone — pas de timeout.</span>
-                </p>
-                <button class="btn btn-sm" style="background:rgba(88,101,242,.15);border:1px solid rgba(88,101,242,.35);color:#7289da" onclick="startFactionResync()">
-                    <i class="fa-solid fa-rotate"></i> Resync toutes les factions
+        <div class="fl-body">
+            <textarea class="form-control fl-token" name="liaison_token" placeholder="nxz_…" <?php echo $canManageLiaison ? '' : 'disabled'; ?>><?php echo $canManageLiaison ? htmlspecialchars($l['token']) : ''; ?></textarea>
+            <div style="font-size:.72rem;color:var(--text-secondary)">
+                Générez la clé dans NexioZ (module <strong>MDT Link</strong> → onglet <strong>Rôles factions</strong>) puis collez-la ici. Laissez vide pour désactiver.
+            </div>
+            <div class="fl-actions">
+                <button type="submit" class="btn btn-primary btn-sm" <?php echo $canManageLiaison ? '' : 'disabled'; ?>>
+                    <i class="fa-solid fa-floppy-disk"></i> Enregistrer
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="flTest(<?php echo (int)$slot; ?>,this)" <?php echo ($canManageLiaison && $l['linked']) ? '' : 'disabled'; ?>>
+                    <i class="fa-solid fa-plug-circle-check"></i> Tester
+                </button>
+                <button type="button" class="btn btn-sm" style="background:rgba(88,101,242,.15);border:1px solid rgba(88,101,242,.35);color:#7c8cff" onclick="flPush(<?php echo (int)$slot; ?>,this)" <?php echo ($canManageLiaison && $l['linked']) ? '' : 'disabled'; ?>>
+                    <i class="fa-solid fa-cloud-arrow-up"></i> Envoyer les factions
                 </button>
             </div>
+            <div class="fl-msg" id="fl-msg-<?php echo (int)$slot; ?>"></div>
         </div>
-
-        <!-- Dernières syncs -->
-        <?php if (!empty($factionSyncLogs)): ?>
-        <div class="fd-card">
-            <div class="fd-card-header"><i class="fa-solid fa-scroll"></i>Dernières synchronisations</div>
-            <div style="max-height:240px;overflow-y:auto">
-                <table class="fd-log-table">
-                    <thead><tr><th>Utilisateur</th><th>Avant</th><th>Après</th><th>Date</th></tr></thead>
-                    <tbody>
-                    <?php foreach ($factionSyncLogs as $sl): ?>
-                    <tr>
-                        <td><?php echo htmlspecialchars($sl['username'] ?? $sl['discord_id'] ?? '—'); ?></td>
-                        <td style="color:var(--text-muted)"><?php echo htmlspecialchars($sl['old_faction'] ?? '—'); ?></td>
-                        <td><strong style="color:<?php echo ($sl['new_faction'] && $sl['new_faction'] !== 'NONE') ? '#22c55e' : '#64748b'; ?>"><?php echo htmlspecialchars($sl['new_faction'] ?? '—'); ?></strong></td>
-                        <td style="color:var(--text-muted)"><?php echo date('d/m H:i', strtotime($sl['synced_at'])); ?></td>
-                    </tr>
-                    <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-        <?php endif; ?>
-
-    </div><!-- /colonne gauche -->
-
-    <!-- Colonne droite : Mapping factions → Discord Role IDs -->
-    <div class="fd-card">
-        <div class="fd-card-header"><i class="fa-solid fa-link"></i>Mapping Factions ↔ Discord Role IDs</div>
-        <div class="fd-card-body">
-            <p style="font-size:.78rem;color:var(--text-secondary);margin-bottom:14px;line-height:1.5">
-                Pour chaque faction, renseigne l'ID du rôle Discord correspondant sur le <strong>Serveur B</strong>.<br>
-                Laisse vide pour ne pas synchroniser cette faction.
-            </p>
-            <form method="POST">
-                <input type="hidden" name="csrf" value="<?php echo $csrf; ?>">
-                <input type="hidden" name="faction_discord_action" value="save_faction_discord_map">
-
-                <!-- Barre de recherche -->
-                <div style="position:relative;margin-bottom:12px">
-                    <i class="fa-solid fa-magnifying-glass" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:.75rem;pointer-events:none"></i>
-                    <input type="text" id="fdMapSearch" placeholder="Filtrer les factions…"
-                           oninput="fdFilterMap(this.value)"
-                           style="width:100%;padding:7px 12px 7px 32px;border:1px solid var(--border);border-radius:8px;background:var(--bg-overlay);color:var(--text);font-size:.8rem;box-sizing:border-box">
-                </div>
-
-                <div style="max-height:520px;overflow-y:auto">
-                <table class="fd-map-table">
-                    <thead><tr>
-                        <th>Faction</th>
-                        <th style="text-align:center">Statut</th>
-                        <th>Discord Role ID</th>
-                    </tr></thead>
-                    <tbody id="fdMapBody">
-                    <?php foreach ($factions as $f):
-                        $fk      = $f['faction_key'];
-                        $roleId  = $factionDiscordMap[$fk]['discord_role_id'] ?? '';
-                    ?>
-                    <tr data-fname="<?php echo strtolower(htmlspecialchars($f['name'])); ?>" data-fkey="<?php echo strtolower($fk); ?>">
-                        <td>
-                            <div style="display:flex;align-items:center;gap:8px">
-                                <div style="width:28px;height:28px;border-radius:7px;background:<?php echo $f['color']; ?>22;color:<?php echo $f['color']; ?>;display:flex;align-items:center;justify-content:center;font-size:.75rem;flex-shrink:0">
-                                    <?php echo faction_logo_img($db, $fk, $f['icon'], 2); ?>
-                                </div>
-                                <div>
-                                    <div style="font-weight:600;font-size:.8rem"><?php echo htmlspecialchars($f['name']); ?></div>
-                                    <div style="font-size:.65rem;color:var(--text-muted);font-family:monospace"><?php echo $fk; ?></div>
-                                </div>
-                            </div>
-                        </td>
-                        <td style="text-align:center">
-                            <?php if ($roleId !== ''): ?>
-                            <span class="fd-status-badge fd-status-ok"><i class="fa-brands fa-discord" style="font-size:.6rem"></i> Lié</span>
-                            <?php else: ?>
-                            <span class="fd-status-badge fd-status-no">Non lié</span>
-                            <?php endif; ?>
-                        </td>
-                        <td>
-                            <input type="text" class="fd-role-input" name="faction_role_map[<?php echo $fk; ?>]"
-                                   value="<?php echo htmlspecialchars($roleId); ?>"
-                                   placeholder="ID rôle Discord…">
-                        </td>
-                    </tr>
-                    <?php endforeach; ?>
-                    </tbody>
-                </table>
-                </div>
-                <div style="margin-top:14px;display:flex;justify-content:flex-end">
-                    <button class="btn btn-primary btn-sm"><i class="fa-solid fa-save"></i> Sauvegarder le mapping</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-</div><!-- /fd-section -->
-
-<!-- ═══ MODAL RESYNC FACTIONS ═══ -->
-<div id="fdResyncModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);z-index:300;place-items:center;padding:20px">
-    <div style="background:var(--bg-elevated);border:1px solid rgba(88,101,242,.3);border-radius:16px;width:100%;max-width:520px;padding:24px">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">
-            <i class="fa-brands fa-discord" style="color:#7289da;font-size:1.2rem"></i>
-            <h3 style="font-size:.95rem;font-weight:800;margin:0">Resync Factions — Discord B</h3>
-        </div>
-        <div class="fd-prog-bar"><div id="fdProgFill" class="fd-prog-fill"></div></div>
-        <div id="fdProgStatus" style="font-size:.82rem;color:var(--text-secondary);margin-bottom:10px">Initialisation…</div>
-        <div id="fdProgLog" style="max-height:200px;overflow-y:auto;background:rgba(0,0,0,.25);border-radius:8px;padding:10px;font-family:monospace;font-size:.72rem;line-height:1.6;border:1px solid var(--border)">
-            <span style="color:var(--text-muted)">En attente…</span>
-        </div>
-        <div style="display:flex;justify-content:flex-end;margin-top:16px">
-            <button id="fdClosBtn" class="btn btn-secondary" disabled onclick="document.getElementById('fdResyncModal').style.display='none';location.reload()">
-                <i class="fa-solid fa-check"></i> Fermer
-            </button>
-        </div>
-    </div>
+    </form>
+<?php endforeach; ?>
 </div>
 
+<?php if (!empty($factionSyncLogs)): ?>
+<div class="fl-card" style="margin-top:18px">
+    <div class="fl-card-head"><i class="fa-solid fa-scroll" style="color:#7289da"></i>&nbsp;Dernières synchronisations</div>
+    <div style="max-height:260px;overflow-y:auto">
+        <table class="fl-log-table">
+            <thead><tr><th>Utilisateur</th><th>Avant</th><th>Après</th><th>Source</th><th>Date</th></tr></thead>
+            <tbody>
+            <?php foreach ($factionSyncLogs as $lg): ?>
+                <tr>
+                    <td><?php echo htmlspecialchars((string)($lg['username'] ?? '—')); ?></td>
+                    <td style="color:var(--text-secondary)"><?php echo htmlspecialchars((string)($lg['old_faction'] ?? '')); ?></td>
+                    <td style="font-weight:600"><?php echo htmlspecialchars((string)($lg['new_faction'] ?? '')); ?></td>
+                    <td style="color:var(--text-secondary)"><?php echo htmlspecialchars((string)($lg['source'] ?? '')); ?></td>
+                    <td style="color:var(--text-secondary)"><?php echo htmlspecialchars((string)($lg['synced_at'] ?? '')); ?></td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
+<?php endif; ?>
+
 <script>
-// ── Filtre faction dans le mapping ────────────────────────────────────────────
-function fdFilterMap(q) {
-    q = q.toLowerCase().trim();
-    document.querySelectorAll('#fdMapBody tr').forEach(tr => {
-        const n = (tr.dataset.fname || '') + ' ' + (tr.dataset.fkey || '');
-        tr.style.display = (!q || n.includes(q)) ? '' : 'none';
-    });
-}
+(function () {
+    const CSRF = '<?php echo $csrf; ?>';
+    const ENDPOINT = '<?php echo SITE_URL; ?>/pages/staff/users/roles.php';
 
-// ── Resync factions AJAX (un par un) ─────────────────────────────────────────
-function fdEsc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
-async function startFactionResync() {
-    const modal  = document.getElementById('fdResyncModal');
-    const fill   = document.getElementById('fdProgFill');
-    const status = document.getElementById('fdProgStatus');
-    const log    = document.getElementById('fdProgLog');
-    const btn    = document.getElementById('fdClosBtn');
-
-    fill.style.width = '0%'; fill.textContent = '';
-    log.innerHTML    = '';
-    status.textContent = 'Chargement des utilisateurs…';
-    btn.disabled     = true;
-    modal.style.display = 'grid';
-
-    // 1. Récupérer la liste
-    let users = [];
-    try {
-        const r = await fetch(window.location.pathname + '?action=get_faction_discord_users');
-        const d = await r.json();
-        users   = d.users || [];
-    } catch(e) {
-        status.textContent = 'Erreur : impossible de charger les utilisateurs.';
-        btn.disabled = false;
-        return;
-    }
-
-    if (users.length === 0) {
-        status.textContent = 'Aucun utilisateur avec un compte Discord lié.';
-        btn.disabled = false;
-        return;
-    }
-
-    let synced = 0, changed = 0, errors = 0;
-    status.textContent = '0 / ' + users.length + ' synchronisés…';
-
-    // 2. Traitement un par un
-    for (let i = 0; i < users.length; i++) {
-        const u = users[i];
-        const pct = Math.round(((i + 1) / users.length) * 100);
-
+    async function flCall(action, slot, btn, okBuilder) {
+        const msg = document.getElementById('fl-msg-' + slot);
+        const original = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+        if (msg) msg.textContent = '';
         try {
             const fd = new FormData();
-            fd.append('csrf',       '<?php echo $csrf; ?>');
-            fd.append('action',     'resync_faction_single');
-            fd.append('faction_discord_action', '');
-            fd.append('user_id',    u.id);
-            fd.append('discord_id', u.discord_id);
-
-            const r   = await fetch(window.location.pathname, { method: 'POST', body: fd });
-            const res = await r.json();
-            synced++;
-            if (res.changed) {
-                changed++;
-                log.innerHTML += `<div style="color:#22c55e;font-size:.73rem;margin-bottom:2px">✓ <strong>${fdEsc(u.username)}</strong> : ${fdEsc(res.old_faction||'NONE')} → <strong>${fdEsc(res.new_faction||'NONE')}</strong></div>`;
-            } else if (res.message && res.message !== '') {
-                log.innerHTML += `<div style="color:#64748b;font-size:.68rem;margin-bottom:1px">• ${fdEsc(u.username)} : ${fdEsc(res.message)}</div>`;
+            fd.append('action', action);
+            fd.append('csrf', CSRF);
+            fd.append('slot', slot);
+            const r = await fetch(ENDPOINT, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: fd });
+            const d = await r.json();
+            if (msg) {
+                if (d.ok) { msg.style.color = '#22c55e'; msg.innerHTML = okBuilder(d); }
+                else { msg.style.color = '#ef4444'; msg.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> ' + (d.error || 'Échec'); }
             }
-        } catch(e) {
-            errors++;
-            log.innerHTML += `<div style="color:#ef4444;font-size:.73rem;margin-bottom:2px">✗ <strong>${fdEsc(u.username)}</strong> : erreur réseau</div>`;
+        } catch (e) {
+            if (msg) { msg.style.color = '#ef4444'; msg.textContent = 'Erreur réseau.'; }
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = original;
         }
-
-        fill.style.width   = pct + '%';
-        fill.textContent   = pct + '%';
-        status.textContent = (i + 1) + ' / ' + users.length + ' traités…';
-        log.scrollTop = log.scrollHeight;
     }
 
-    status.innerHTML = '<strong style="color:#22c55e">Terminé</strong> — ' + synced + ' traités, <span style="color:#22c55e">' + changed + ' mis à jour</span>' + (errors > 0 ? ', <span style="color:#f59e0b">' + errors + ' erreurs</span>' : '') + '.';
-    btn.disabled = false;
-}
+    window.flTest = function (slot, btn) {
+        flCall('test_faction_liaison', slot, btn, () => '<i class="fa-solid fa-circle-check"></i> Liaison opérationnelle.');
+    };
+    window.flPush = function (slot, btn) {
+        flCall('push_factions', slot, btn, (d) => '<i class="fa-solid fa-circle-check"></i> ' + (d.count || 0) + ' factions envoyées à NexioZ.');
+    };
+})();
 </script>
 
 

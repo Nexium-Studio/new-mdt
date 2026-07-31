@@ -139,16 +139,16 @@ try {
         error_log('[discord-callback] Role sync error: ' . $syncErr->getMessage());
     }
 
-    // ── Synchronisation B : Factions MDT (Serveur Discord B) ────────────────
+    // ── Synchronisation des factions via NexioZ ─────────────────────────────
     try {
-        require_once __DIR__ . '/../includes/mdt_faction_discord_sync.php';
-        mdt_faction_sync_user($db, (int)$userData['id'], (string)$discord_id, 'login');
+        require_once __DIR__ . '/../includes/mdt_faction_nexioz_sync.php';
+        mdt_faction_nexioz_sync_user($db, (int)$userData['id'], (string)$discord_id, 'login');
         // Recharger la faction en session si changée
         $freshFaction = $db->prepare("SELECT faction FROM users WHERE id=? LIMIT 1");
         $freshFaction->execute([(int)$userData['id']]);
         $_SESSION['user_faction'] = (string)($freshFaction->fetchColumn() ?: 'NONE');
     } catch (Throwable $syncErr) {
-        error_log('[discord-callback] Faction sync error: ' . $syncErr->getMessage());
+        error_log('[discord-callback] Faction NexioZ sync error: ' . $syncErr->getMessage());
     }
 
     mdt_audit_log(
