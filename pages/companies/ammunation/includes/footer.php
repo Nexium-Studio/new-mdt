@@ -13,6 +13,22 @@ const Company = {
     },
     formatMoney(n) {
         return new Intl.NumberFormat('fr-FR',{style:'currency',currency:'USD',minimumFractionDigits:2}).format(n);
+    },
+    toggleSidebar(force) {
+        const sb = document.querySelector('.company-sidebar');
+        const sc = document.getElementById('cmpScrim');
+        if (!sb) return;
+        const open = (force === undefined) ? !sb.classList.contains('open') : !!force;
+        sb.classList.toggle('open', open);
+        if (sc) sc.classList.toggle('show', open);
+    },
+    toggleCollapse() {
+        const collapsed = document.body.classList.toggle('cmp-collapsed');
+        try { localStorage.setItem('ammuSidebarCollapsed', collapsed ? '1' : '0'); } catch(e){}
+    },
+    toggleSection(el) {
+        const sec = el.closest('.nav-section');
+        if (sec) sec.classList.toggle('collapsed');
     }
 };
 window.Company = Company;

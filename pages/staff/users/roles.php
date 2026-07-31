@@ -2063,15 +2063,13 @@ include __DIR__ . '/../includes/header.php';
 
                 <!-- ── Contrôles globaux ──────────────────────────────── -->
                 <div style="display:flex;align-items:center;gap:16px;margin-bottom:10px;flex-wrap:wrap;">
-                    <label style="display:flex;align-items:center;gap:7px;font-size:.82rem;cursor:pointer;user-select:none;">
-                        <input type="checkbox" id="eg-all-view" onchange="egToggleAll('view',this.checked)">
-                        <i class="fa-solid fa-eye" style="color:#3b82f6;width:14px;text-align:center;"></i>
-                        Tout voir
+                    <label class="eg-sw-chip" style="--sw-color:#3b82f6">
+                        <span class="eg-sw-txt"><i class="fa-solid fa-eye" style="color:#3b82f6"></i> Tout voir</span>
+                        <span class="eg-switch" style="--sw-color:#3b82f6"><input type="checkbox" id="eg-all-view" onchange="egToggleAll('view',this.checked)"><span class="eg-slider"></span></span>
                     </label>
-                    <label style="display:flex;align-items:center;gap:7px;font-size:.82rem;cursor:pointer;user-select:none;">
-                        <input type="checkbox" id="eg-all-edit" onchange="egToggleAll('edit',this.checked)">
-                        <i class="fa-solid fa-pen-to-square" style="color:#22c55e;width:14px;text-align:center;"></i>
-                        Tout éditer
+                    <label class="eg-sw-chip" style="--sw-color:#22c55e">
+                        <span class="eg-sw-txt"><i class="fa-solid fa-pen-to-square" style="color:#22c55e"></i> Tout éditer</span>
+                        <span class="eg-switch" style="--sw-color:#22c55e"><input type="checkbox" id="eg-all-edit" onchange="egToggleAll('edit',this.checked)"><span class="eg-slider"></span></span>
                     </label>
                     <div id="eg-perm-search-wrap" style="margin-left:auto;position:relative;">
                         <i class="fa-solid fa-magnifying-glass" style="position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:.75rem;pointer-events:none;"></i>
@@ -2128,9 +2126,38 @@ include __DIR__ . '/../includes/header.php';
 #eg-perm-container tbody tr:hover td { background:rgba(255,255,255,.025); }
 .eg-perm-cb { width:16px; height:16px; cursor:pointer; accent-color:var(--blue); }
 .eg-perm-cb.edit-cb { accent-color:#22c55e; }
-.eg-page-label { font-weight:500; color:var(--text); }
-.eg-page-path { font-size:.7rem; color:var(--text-muted); font-family:monospace; margin-top:1px; }
+.eg-page-label { font-weight:600; color:var(--text); font-size:.83rem; }
+.eg-page-path { font-size:.68rem; color:var(--text-muted); font-family:monospace; margin-top:2px; }
 tr[data-hidden="1"] { display:none; }
+
+/* ── En-tête de catégorie (hiérarchie renforcée) ─────────────── */
+#eg-perm-container tbody tr.eg-cat-header td {
+    padding:13px 12px 9px;
+    background:linear-gradient(90deg, color-mix(in srgb,var(--blue) 12%,transparent), transparent);
+    border-top:1px solid var(--border); border-bottom:1px solid var(--border);
+    box-shadow:inset 3px 0 0 var(--blue);
+}
+#eg-perm-container tbody tr.eg-cat-header:first-child td { border-top:none; }
+.eg-cat-badge { display:inline-flex; align-items:center; gap:8px; font-size:.8rem; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:var(--text); }
+.eg-cat-badge i { color:var(--blue); }
+.eg-cat-count { float:right; font-size:.66rem; font-weight:700; color:var(--text-muted); background:var(--bg-overlay); border:1px solid var(--border); border-radius:20px; padding:2px 10px; }
+
+/* ── Rangée d'interrupteurs ──────────────────────────────────── */
+.eg-sw-row { display:flex; flex-wrap:wrap; gap:7px; align-items:center; }
+.eg-sw-chip { display:inline-flex; align-items:center; gap:9px; padding:5px 10px; border:1px solid var(--border); border-radius:8px; background:var(--bg-overlay); cursor:pointer; user-select:none; transition:border-color .15s, background .15s; }
+.eg-sw-chip:hover { border-color:var(--border-hover, rgba(255,255,255,.22)); }
+.eg-sw-txt { font-size:.74rem; font-weight:600; color:var(--text-secondary); display:inline-flex; align-items:center; gap:5px; white-space:nowrap; }
+.eg-sw-chip:has(input:checked) { background:color-mix(in srgb, var(--sw-color,#3b82f6) 13%, var(--bg-overlay)); border-color:color-mix(in srgb, var(--sw-color,#3b82f6) 42%, transparent); }
+.eg-sw-chip:has(input:checked) .eg-sw-txt { color:var(--text); }
+
+/* ── Interrupteur (switch) — remplace les cases à cocher ─────── */
+.eg-switch { position:relative; display:inline-flex; align-items:center; flex-shrink:0; }
+.eg-switch input { position:absolute; opacity:0; width:0; height:0; margin:0; }
+.eg-slider { width:34px; height:19px; border-radius:19px; background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.16); position:relative; transition:background .18s, border-color .18s; }
+.eg-slider::after { content:''; position:absolute; top:1px; left:1px; width:15px; height:15px; border-radius:50%; background:#cbd5e1; transition:transform .18s, background .18s; }
+.eg-switch input:checked ~ .eg-slider { background:var(--sw-color,#3b82f6); border-color:var(--sw-color,#3b82f6); }
+.eg-switch input:checked ~ .eg-slider::after { transform:translateX(15px); background:#fff; }
+.eg-switch input:focus-visible ~ .eg-slider { box-shadow:0 0 0 3px color-mix(in srgb, var(--sw-color,#3b82f6) 35%, transparent); }
 </style>
 
 <script>
@@ -2292,12 +2319,13 @@ function egRenderPermTable(pages, pagePerms, actPerms, container) {
     });
 
     let html = '<table><thead><tr>'
-        + '<th style="width:42%">Page / Action</th>'
-        + '<th style="width:58%;text-align:left;padding-left:10px">Permissions</th>'
+        + '<th style="width:44%">Page / Fonctionnalité</th>'
+        + '<th style="width:56%;text-align:left;padding-left:14px">Autorisations</th>'
         + '</tr></thead><tbody>';
 
     Object.keys(groups).sort().forEach(cat => {
-        html += `<tr class="eg-cat-header"><td colspan="2"><i class="fa-solid fa-folder-open" style="margin-right:5px;opacity:.5;"></i>${egEsc(cat)}</td></tr>`;
+        const count = groups[cat].length;
+        html += `<tr class="eg-cat-header"><td colspan="2"><span class="eg-cat-badge"><i class="fa-solid fa-layer-group"></i>${egEsc(cat)}</span><span class="eg-cat-count">${count} page${count>1?'s':''}</span></td></tr>`;
 
         groups[cat].forEach(p => {
             const hasActions = p.actions && p.actions.length > 0;
@@ -2310,19 +2338,22 @@ function egRenderPermTable(pages, pagePerms, actPerms, container) {
                         <div class="eg-page-path">${egEsc(p.path)}</div>
                     </td>
                     <td>
-                        <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;">`;
+                        <div class="eg-sw-row">`;
 
                 p.actions.forEach(a => {
-                    // null = non configuré → case indéterminée, false = refusé, true = accordé
+                    // null = non configuré, false = refusé, true = accordé
                     const enabled = (a.enabled === true || actPerms[a.key] === true);
                     const isViewAction = a.key.endsWith('.view') || a.key.endsWith('.view_employees') || a.key.endsWith('.stats');
                     const chipColor = isViewAction ? '#3b82f6' : '#22c55e';
-                    html += `<label style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border:1px solid rgba(255,255,255,.1);border-radius:6px;cursor:pointer;font-size:.72rem;user-select:none;background:rgba(255,255,255,.03);transition:.15s" title="${egEsc(a.key)}" onmouseenter="this.style.borderColor='${chipColor}40'" onmouseleave="this.style.borderColor='rgba(255,255,255,.1)'">
-                        <input type="checkbox" class="eg-perm-cb action-cb" style="accent-color:${chipColor};width:13px;height:13px"
-                               name="actions[${egEsc(a.key)}]" value="1"
-                               data-page="${egEsc(p.path)}" data-action-key="${egEsc(a.key)}"
-                               ${enabled ? 'checked' : ''}>
-                        <span style="color:#e2e8f0">${egEsc(a.label)}</span>
+                    html += `<label class="eg-sw-chip" style="--sw-color:${chipColor}" title="${egEsc(a.key)}">
+                        <span class="eg-sw-txt">${egEsc(a.label)}</span>
+                        <span class="eg-switch" style="--sw-color:${chipColor}">
+                            <input type="checkbox" class="eg-perm-cb action-cb"
+                                   name="actions[${egEsc(a.key)}]" value="1"
+                                   data-page="${egEsc(p.path)}" data-action-key="${egEsc(a.key)}"
+                                   ${enabled ? 'checked' : ''}>
+                            <span class="eg-slider"></span>
+                        </span>
                     </label>`;
                 });
 
@@ -2340,20 +2371,26 @@ function egRenderPermTable(pages, pagePerms, actPerms, container) {
                         <div class="eg-page-path">${egEsc(p.path)}</div>
                     </td>
                     <td>
-                        <div style="display:flex;gap:12px;align-items:center;">
-                        <label style="display:inline-flex;align-items:center;gap:4px;font-size:.78rem;cursor:pointer">
-                            <input type="checkbox" class="eg-perm-cb view-cb" style="accent-color:#3b82f6"
-                                   name="pages[${egEsc(p.path)}][view]" value="1"
-                                   data-path="${egEsc(p.path)}" data-flag="view"
-                                   ${pv ? 'checked' : ''} onchange="egOnViewChange(this)">
-                            <span style="color:#3b82f6;font-weight:600"><i class="fa-solid fa-eye" style="font-size:.65rem"></i> Voir</span>
+                        <div class="eg-sw-row">
+                        <label class="eg-sw-chip" style="--sw-color:#3b82f6">
+                            <span class="eg-sw-txt"><i class="fa-solid fa-eye" style="font-size:.65rem;color:#3b82f6"></i> Voir</span>
+                            <span class="eg-switch" style="--sw-color:#3b82f6">
+                                <input type="checkbox" class="eg-perm-cb view-cb"
+                                       name="pages[${egEsc(p.path)}][view]" value="1"
+                                       data-path="${egEsc(p.path)}" data-flag="view"
+                                       ${pv ? 'checked' : ''} onchange="egOnViewChange(this)">
+                                <span class="eg-slider"></span>
+                            </span>
                         </label>
-                        <label style="display:inline-flex;align-items:center;gap:4px;font-size:.78rem;cursor:pointer">
-                            <input type="checkbox" class="eg-perm-cb edit-cb" style="accent-color:#22c55e"
-                                   name="pages[${egEsc(p.path)}][edit]" value="1"
-                                   data-path="${egEsc(p.path)}" data-flag="edit"
-                                   ${pe ? 'checked' : ''} onchange="egOnEditChange(this)">
-                            <span style="color:#22c55e;font-weight:600"><i class="fa-solid fa-pen-to-square" style="font-size:.65rem"></i> Éditer</span>
+                        <label class="eg-sw-chip" style="--sw-color:#22c55e">
+                            <span class="eg-sw-txt"><i class="fa-solid fa-pen-to-square" style="font-size:.65rem;color:#22c55e"></i> Éditer</span>
+                            <span class="eg-switch" style="--sw-color:#22c55e">
+                                <input type="checkbox" class="eg-perm-cb edit-cb"
+                                       name="pages[${egEsc(p.path)}][edit]" value="1"
+                                       data-path="${egEsc(p.path)}" data-flag="edit"
+                                       ${pe ? 'checked' : ''} onchange="egOnEditChange(this)">
+                                <span class="eg-slider"></span>
+                            </span>
                         </label>
                         </div>
                     </td>

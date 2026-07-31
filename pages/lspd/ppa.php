@@ -7,24 +7,9 @@ $db = Database::getInstance()->getConnection();
 $uid = (int)($_SESSION['user_id']??0);
 $msg = ''; $msgType = '';
 
-// ── Auto-création table ───────────────────────────────────────────────────────
-$db->exec("CREATE TABLE IF NOT EXISTS `lspd_ppa_demandes` (
-  `id`               INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  `citizen_id`       INT UNSIGNED NOT NULL,
-  `officer_id`       INT UNSIGNED,
-  `statut`           ENUM('demande','en_cours','valide','refuse') NOT NULL DEFAULT 'demande',
-  `type_arme`        VARCHAR(100),
-  `motif_demande`    TEXT,
-  `motif_refus`      TEXT,
-  `date_demande`     DATE NOT NULL,
-  `date_traitement`  DATE,
-  `notes_officier`   TEXT,
-  `created_by`       INT UNSIGNED,
-  `created_at`       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  `updated_at`       TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  KEY `idx_citizen` (`citizen_id`),
-  KEY `idx_statut`  (`statut`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+// ── Workflow PPA unifié (table + colonnes + helpers partagés) ──────────────────
+require_once ROOT_PATH . '/includes/ppa.php';
+mdt_ppa_migrate($db);
 
 // ── ACTIONS ──────────────────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -57,6 +42,72 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($new === 'valide') try{$db->prepare("UPDATE profiles SET license_ppa=1 WHERE id=?")->execute([$r['citizen_id']]);}catch(Exception $e){}
                 if ($new === 'refuse') try{$db->prepare("UPDATE profiles SET license_ppa=0 WHERE id=?")->execute([$r['citizen_id']]);}catch(Exception $e){}
             }
+
+            // ── Génération automatique du certificat final (style SAMS, logo LSPD) ──
+            if (in_array($new, ['valide','refuse'], true)) {
+                $D = null;
+                try { $q=$db->prepare("SELECT d.*, p.firstname, p.lastname, p.avatar FROM lspd_ppa_demandes d LEFT JOIN profiles p ON p.id=d.citizen_id WHERE d.id=?"); $q->execute([$id]); $D=$q->fetch(); } catch(Exception $e){}
+                if ($D) {
+                    // Résultat du test psychologique issu de l'évaluation SAMS liée.
+                    $psy=''; $samsDecision='';
+                    if (!empty($D['sams_cert_id'])) {
+                        try { $c=$db->prepare("SELECT data FROM medical_certificates WHERE id=?"); $c->execute([(int)$D['sams_cert_id']]); $cj=json_decode((string)$c->fetchColumn() ?: '{}', true) ?: []; $psy=$cj['aptitude_mentale']??''; $samsDecision=$cj['decision_finale']??''; } catch(Exception $e){}
+                    }
+                    // Nom RP de l'officier signataire.
+                    $offName = $_SESSION['user_username'] ?? '';
+                    try { $o=$db->prepare("SELECT pr.firstname,pr.lastname FROM users u LEFT JOIN profiles pr ON pr.id=u.profile_id WHERE u.id=?"); $o->execute([$uid]); $op=$o->fetch(); if($op){ $n=trim(($op['firstname']??'').' '.($op['lastname']??'')); if($n!=='') $offName=$n; } } catch(Exception $e){}
+
+                    $prenom  = trim((string)($D['prenom'] ?: $D['firstname']));
+                    $nom     = trim((string)($D['nom']    ?: $D['lastname']));
+                    $fullName= trim($prenom.' '.$nom);
+                    $dobRaw  = $D['date_naissance'] ?: ($D['date_of_birth'] ?? '');
+                    $dobStr  = ($dobRaw && $dobRaw!=='0000-00-00') ? date('d/m/Y',strtotime((string)$dobRaw)) : '—';
+                    $adresse = trim((string)($D['adresse'] ?: ($D['address'] ?? '')));
+                    $typeArme= (string)($D['type_arme'] ?? '');
+                    $piece   = mdt_ppa_abs_url($D['piece_identite'] ?? '');
+                    $avatarUrl = mdt_ppa_abs_url($D['avatar'] ?? '');
+                    $casier  = mdt_ppa_casier($db, (int)$D['citizen_id']);
+                    $accorde = ($new === 'valide');
+                    $avatarImg = $avatarUrl!=='' ? '<img src="'.htmlspecialchars($avatarUrl).'" alt="" referrerpolicy="no-referrer" style="width:74px;height:74px;border-radius:10px;object-fit:cover;border:2px solid #e5e7eb;margin-bottom:.6rem">' : '';
+
+                    $content  = '<div class="doc-grid2">';
+                    $content .= '<div class="doc-section" style="margin-bottom:0"><div class="doc-section-title">Titulaire</div>';
+                    $content .= $avatarImg;
+                    $content .= '<div class="doc-field-value" style="font-size:1.05rem">'.htmlspecialchars($fullName!==''?$fullName:'—').'</div>';
+                    $content .= '<div class="doc-field" style="margin-top:.5rem"><div class="doc-field-label">Date de naissance</div><div>'.htmlspecialchars($dobStr).'</div></div>';
+                    if($adresse!=='') $content .= '<div class="doc-field"><div class="doc-field-label">Adresse</div><div>'.htmlspecialchars($adresse).'</div></div>';
+                    $content .= '</div>';
+                    $content .= '<div class="doc-section" style="margin-bottom:0"><div class="doc-section-title">Décision</div>';
+                    $content .= '<div class="doc-field-value" style="font-size:1.15rem;color:'.($accorde?'#166534':'#b91c1c').'">'.($accorde?'PPA ACCORDÉ':'PPA REFUSÉ').'</div>';
+                    $content .= '<div class="doc-field" style="margin-top:.4rem"><div class="doc-field-label">Type d\'arme</div><div>'.htmlspecialchars($typeArme!==''?$typeArme:'—').'</div></div>';
+                    if($psy!=='') $content .= '<div class="doc-field"><div class="doc-field-label">Test psychologique (SAMS)</div><div>'.htmlspecialchars($psy).'</div></div>';
+                    $content .= '</div></div>';
+
+                    if($piece!==''){ $content .= '<div class="doc-section" style="margin-top:1.3rem"><div class="doc-section-title">Pièce d\'identité</div>'
+                        . '<img src="'.htmlspecialchars($piece).'" alt="Pièce d\'identité" referrerpolicy="no-referrer" style="max-width:100%;max-height:340px;border-radius:8px;border:1px solid #e5e7eb">'
+                        . '<div style="margin-top:.35rem;font-size:.82rem"><a href="'.htmlspecialchars($piece).'" target="_blank" style="color:#1d4ed8">Ouvrir la pièce d\'identité</a></div></div>'; }
+                    $content .= '<div class="doc-section"><div class="doc-section-title">Casier judiciaire</div>'.mdt_ppa_casier_doc_html($casier).'</div>';
+                    if(!$accorde && trim($_POST['motif_refus']??'')!=='') $content .= '<div class="doc-section"><div class="doc-section-title">Motif du refus</div><p>'.nl2br(htmlspecialchars(trim($_POST['motif_refus']))).'</p></div>';
+
+                    $meta = [
+                        'layout'         => 'clean',
+                        'brand'          => 'LSPD',
+                        'brand_sub'      => 'Los Santos Police Department',
+                        'doc_label'      => "Certificat d'Aptitude PPA",
+                        'reference'      => sprintf('PPA-LSPD-%s-%04d', date('Ym'), $id),
+                        'date'           => date('d/m/Y'),
+                        'badge'          => $accorde ? 'ACCORDÉ' : 'REFUSÉ',
+                        'signatory_name' => $offName,
+                        'signatory_sub'  => 'LSPD',
+                        'palette'        => ['c1'=>'#1d4ed8','c2'=>'#1e3a8a'],
+                        'foot_note'      => 'LSPD — Certificat officiel · PPA-LSPD-'.date('Ym').'-'.str_pad((string)$id,4,'0',STR_PAD_LEFT),
+                    ];
+                    $title = "Certificat d'Aptitude PPA - Civil - ".$fullName;
+                    $finalUrl = mdt_ppa_render_document($db, 'LSPD', $title, $content, 'aptitude_ppa', $meta);
+                    if ($finalUrl) { try { $db->prepare("UPDATE lspd_ppa_demandes SET final_doc_url=? WHERE id=?")->execute([$finalUrl, $id]); } catch(Exception $e){} }
+                }
+            }
+
             $msg = 'Statut mis à jour.'; $msgType = 'success';
         } catch(Exception $e) { $msg = 'Erreur : '.$e->getMessage(); $msgType = 'error'; }
     }
@@ -74,7 +125,7 @@ $cFilter      = intval($_GET['cid'] ?? 0);
 $page         = max(1, (int)($_GET['page'] ?? 1));
 $perPage      = 20;
 
-$where = ['1=1']; $params = [];
+$where = ["d.statut<>'demande'"]; $params = []; // les pré-demandes (statut 'demande') restent côté SAMS
 if ($filterStatut !== 'all') { $where[] = 'd.statut=?'; $params[] = $filterStatut; }
 if ($search)  { $where[] = "(p.firstname LIKE ? OR p.lastname LIKE ? OR d.type_arme LIKE ?)"; $pa="%$search%"; $params=array_merge($params,[$pa,$pa,$pa]); }
 if ($cFilter) { $where[] = 'd.citizen_id=?'; $params[] = $cFilter; }
@@ -110,14 +161,12 @@ try { foreach($db->query("SELECT statut,COUNT(*) n FROM lspd_ppa_demandes GROUP 
 $preselCitizen = null;
 if ($cFilter) { try { $s=$db->prepare("SELECT * FROM profiles WHERE id=?"); $s->execute([$cFilter]); $preselCitizen=$s->fetch(); } catch(Exception $e){} }
 
-$TYPES_ARME = ['Pistolet','Revolver','Fusil à pompe','Fusil d\'assaut','Carabine','Pistolet mitrailleur','Arme de défense','Autre'];
+$TYPES_ARME = mdt_ppa_types_arme();
 
-$STATUT_CFG = [
-    'demande'  => ['Demande',  'bg-yellow', 'fas fa-clock',         '#f59e0b','#fde68a','rgba(245,158,11,.08)','rgba(245,158,11,.25)'],
-    'en_cours' => ['En cours', 'bg-blue',   'fas fa-hourglass-half','#3b82f6','#93c5fd','rgba(37,99,235,.08)', 'rgba(37,99,235,.25)'],
-    'valide'   => ['Validé',   'bg-green',  'fas fa-check-circle',  '#10b981','#6ee7b7','rgba(16,185,129,.08)','rgba(16,185,129,.25)'],
-    'refuse'   => ['Refusé',   'bg-red',    'fas fa-times-circle',  '#ef4444','#fca5a5','rgba(239,68,68,.08)', 'rgba(239,68,68,.25)'],
-];
+$STATUT_CFG = mdt_ppa_statut_cfg();
+// Le LSPD ne traite que les demandes déjà transmises par le SAMS (en_cours → décision).
+$LSPD_STATUT_CFG = $STATUT_CFG; unset($LSPD_STATUT_CFG['demande']);
+$kpisLspd = array_intersect_key($kpis, $LSPD_STATUT_CFG);
 
 include __DIR__ . '/includes/header.php';
 ?>
@@ -194,8 +243,8 @@ include __DIR__ . '/includes/header.php';
 <?php endif;?>
 
 <!-- ── KPIs ── -->
-<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.85rem;margin-bottom:1.4rem">
-    <?php foreach($STATUT_CFG as $k=>[$l,$badge,$ico,$col,$lc,$bg,$bdr]):?>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.85rem;margin-bottom:1.4rem">
+    <?php foreach($LSPD_STATUT_CFG as $k=>[$l,$badge,$ico,$col,$lc,$bg,$bdr]):?>
     <a href="?s=<?php echo $k;?>&q=<?php echo urlencode($search);?>" style="text-decoration:none">
     <div style="background:<?php echo $bg;?>;border:1px solid <?php echo $bdr;?>;border-radius:12px;padding:1rem 1.1rem;transition:all .2s;<?php echo $filterStatut===$k?'border-width:2px;transform:translateY(-1px)':'';?>">
         <div style="display:flex;align-items:center;gap:.75rem">
@@ -215,8 +264,8 @@ include __DIR__ . '/includes/header.php';
     <div style="display:flex;align-items:center;gap:.55rem;flex-wrap:wrap">
         <!-- Onglets filtres -->
         <div class="filter-tabs">
-            <a href="?s=all&q=<?php echo urlencode($search);?>" class="filter-tab <?php echo $filterStatut==='all'?'active':'';?>">Tous<span class="tab-count">(<?php echo array_sum($kpis);?>)</span></a>
-            <?php foreach($STATUT_CFG as $k=>[$l]):?>
+            <a href="?s=all&q=<?php echo urlencode($search);?>" class="filter-tab <?php echo $filterStatut==='all'?'active':'';?>">Tous<span class="tab-count">(<?php echo array_sum($kpisLspd);?>)</span></a>
+            <?php foreach($LSPD_STATUT_CFG as $k=>[$l]):?>
             <a href="?s=<?php echo $k;?>&q=<?php echo urlencode($search);?>" class="filter-tab <?php echo $filterStatut===$k?'active':'';?>"><?php echo $l;?><span class="tab-count">(<?php echo $kpis[$k]??0;?>)</span></a>
             <?php endforeach;?>
         </div>
@@ -231,8 +280,10 @@ include __DIR__ . '/includes/header.php';
             <?php if($search):?><a href="?s=<?php echo $filterStatut;?>" class="btn btn-ghost btn-sm"><i class="fas fa-times"></i></a><?php endif;?>
         </form>
     </div>
-    <button onclick="LSPD.openModal('createPPAModal')" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> Nouvelle demande</button>
+    <button onclick="LSPD.openModal('createPPAModal')" class="btn btn-secondary btn-sm"><i class="fas fa-plus"></i> Créer une demande (manuel)</button>
 </div>
+
+<h2 style="font-size:1rem;font-weight:800;margin:0 0 .8rem;display:flex;align-items:center;gap:.5rem"><i class="fas fa-id-card-clip" style="color:var(--blue-l)"></i> Demandes de licence PPA <span style="font-size:.72rem;font-weight:600;color:var(--txt-s)">— transmises par le SAMS</span></h2>
 
 <!-- ── TABLE ── -->
 <div style="background:rgba(6,13,26,.72);border:1px solid rgba(37,99,235,.15);border-radius:13px;overflow:hidden;margin-bottom:1.3rem">
@@ -258,6 +309,10 @@ include __DIR__ . '/includes/header.php';
         $pInit  = strtoupper(substr($d['firstname']??'?',0,1));
         $gradMap = ['A'=>'#2563eb','B'=>'#10b981','C'=>'#8b5cf6','D'=>'#f59e0b','E'=>'#ec4899','F'=>'#06b6d4'];
         $pColor = $gradMap[$pInit]??'#475569';
+        $dCasier  = mdt_ppa_casier($db,(int)$d['citizen_id']);
+        $dDobRaw  = $d['date_naissance'] ?: ($d['date_of_birth'] ?? '');
+        $dDob     = ($dDobRaw && $dDobRaw!=='0000-00-00') ? date('d/m/Y',strtotime((string)$dDobRaw)) : '';
+        $dAdresse = trim((string)($d['adresse'] ?: ($d['address'] ?? '')));
     ?>
     <div class="ppa-row" style="border-left:3px solid <?php echo $scol;?>22">
         <!-- Avatar -->
@@ -274,6 +329,12 @@ include __DIR__ . '/includes/header.php';
                 <span class="mono">#<?php echo str_pad($d['id'],5,'0',STR_PAD_LEFT);?></span>
                 <?php if($d['phone']??''):?> · <?php echo htmlspecialchars($d['phone']);?><?php endif;?>
             </div>
+            <?php if($dDob||$dAdresse):?>
+            <div style="font-size:.69rem;color:var(--txt-m);margin-top:.1rem">
+                <?php if($dDob):?><i class="fas fa-cake-candles" style="opacity:.6;margin-right:.2rem"></i><?php echo htmlspecialchars($dDob);?><?php endif;?>
+                <?php if($dAdresse):?><?php if($dDob):?> · <?php endif;?><i class="fas fa-location-dot" style="opacity:.6;margin-right:.2rem"></i><?php echo htmlspecialchars(mb_substr($dAdresse,0,45));?><?php endif;?>
+            </div>
+            <?php endif;?>
             <?php if(!empty($d['motif_demande'])):?>
             <div style="font-size:.71rem;color:var(--txt-s);margin-top:.22rem;max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="<?php echo htmlspecialchars($d['motif_demande']);?>">
                 <i class="fas fa-quote-left" style="font-size:.55rem;opacity:.5;margin-right:.25rem"></i><?php echo htmlspecialchars($d['motif_demande']);?>
@@ -284,6 +345,12 @@ include __DIR__ . '/includes/header.php';
                 <i class="fas fa-times-circle" style="font-size:.6rem;margin-right:.22rem"></i><?php echo htmlspecialchars(mb_substr($d['motif_refus'],0,60));?><?php if(mb_strlen($d['motif_refus'])>60) echo '…';?>
             </div>
             <?php endif;?>
+            <div style="display:flex;gap:.35rem;flex-wrap:wrap;margin-top:.35rem">
+                <span style="font-size:.65rem;font-weight:600;padding:.15rem .45rem;border-radius:5px;<?php echo $dCasier['active']>0?'background:rgba(239,68,68,.1);color:#fca5a5;border:1px solid rgba(239,68,68,.2)':'background:rgba(100,116,139,.12);color:#94a3b8;border:1px solid rgba(100,116,139,.2)';?>"><i class="fas fa-scale-balanced" style="font-size:.58rem;margin-right:.2rem"></i>Casier : <?php echo $dCasier['active']>0?($dCasier['active'].' actif(s)'):'vierge';?></span>
+                <?php if(!empty($d['piece_identite'])):?><a href="<?php echo htmlspecialchars($d['piece_identite']);?>" target="_blank" onclick="return mdtOpenDoc('<?php echo htmlspecialchars($d['piece_identite']);?>','img')" style="font-size:.65rem;font-weight:600;padding:.15rem .45rem;border-radius:5px;background:rgba(148,163,184,.12);color:#cbd5e1;border:1px solid rgba(148,163,184,.2);text-decoration:none"><i class="fas fa-id-card" style="font-size:.58rem;margin-right:.2rem"></i>Pièce d'identité</a><?php endif;?>
+                <?php if(!empty($d['sams_doc_url'])):?><a href="<?php echo htmlspecialchars($d['sams_doc_url']);?>" target="_blank" onclick="return mdtOpenDoc('<?php echo htmlspecialchars($d['sams_doc_url']);?>','doc','Justificatif SAMS')" style="font-size:.65rem;font-weight:600;padding:.15rem .45rem;border-radius:5px;background:rgba(225,29,72,.1);color:#fda4af;border:1px solid rgba(225,29,72,.25);text-decoration:none"><i class="fas fa-file-medical" style="font-size:.58rem;margin-right:.2rem"></i>Justificatif SAMS</a><?php endif;?>
+                <?php if(!empty($d['final_doc_url'])):?><a href="<?php echo htmlspecialchars($d['final_doc_url']);?>" target="_blank" onclick="return mdtOpenDoc('<?php echo htmlspecialchars($d['final_doc_url']);?>','doc','Certificat PPA')" style="font-size:.65rem;font-weight:600;padding:.15rem .45rem;border-radius:5px;background:rgba(37,99,235,.12);color:#93c5fd;border:1px solid rgba(37,99,235,.25);text-decoration:none"><i class="fas fa-file-shield" style="font-size:.58rem;margin-right:.2rem"></i>Certificat PPA</a><?php endif;?>
+            </div>
         </div>
 
         <!-- Type d'arme -->
@@ -484,4 +551,5 @@ function updateTraitSummary(k) {
 
 document.querySelectorAll('input[name="statut"]').forEach(r => r.addEventListener('change', onStatutChange));
 </script>
+<?php include ROOT_PATH . '/includes/doc_viewer.php'; ?>
 <?php include __DIR__ . '/includes/footer.php'; ?>

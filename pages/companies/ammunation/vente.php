@@ -112,6 +112,25 @@ foreach($allItems as $it) {
     $categories[$cat][] = $it;
 }
 
+// ── Citoyens (sélection client) + PPA valides par citoyen ─────────────────────
+$venteCitizens = [];
+try {
+    foreach ($db->query("SELECT id, firstname, lastname, avatar FROM profiles ORDER BY lastname, firstname LIMIT 1000")->fetchAll() as $r) {
+        $av = trim((string)($r['avatar'] ?? ''));
+        $venteCitizens[] = [
+            'id'     => (int)$r['id'],
+            'name'   => trim(($r['firstname'] ?? '') . ' ' . ($r['lastname'] ?? '')),
+            'avatar' => $av !== '' ? (preg_match('/^https?:\/\//', $av) ? $av : rtrim((string)SITE_URL, '/') . $av) : '',
+        ];
+    }
+} catch (Exception $e) {}
+$ventePpa = [];
+try {
+    foreach ($db->query("SELECT citizen_id, type_arme FROM lspd_ppa_demandes WHERE statut='valide' AND type_arme IS NOT NULL AND type_arme<>'' ORDER BY created_at DESC")->fetchAll() as $r) {
+        $ventePpa[(int)$r['citizen_id']][] = $r['type_arme'];
+    }
+} catch (Exception $e) {}
+
 include __DIR__ . '/includes/header.php';
 ?>
 <style>
@@ -313,12 +332,16 @@ include __DIR__ . '/includes/header.php';
                 <input type="hidden" name="adjustment_value" id="adjValHidden" value="0">
 
                 <div class="form-group" style="margin-bottom:.75rem">
-                    <label class="form-label">Nom du Client *</label>
-                    <input type="text" name="customer_name" class="form-input" required placeholder="Prénom NOM">
+                    <label class="form-label">Client *</label>
+                    <button type="button" class="btn btn-secondary btn-sm" id="venteClientBtn" style="width:100%;justify-content:center;border-style:dashed"><i class="fas fa-user-plus"></i> Sélectionner un citoyen</button>
+                    <input type="hidden" name="customer_name" id="venteCustomerName">
+                    <div id="venteClientChip" style="margin-top:.5rem"></div>
+                    <div style="margin-top:.45rem"><a href="#" id="venteManualToggle" style="font-size:.72rem;color:#64748b;text-decoration:none"><i class="fas fa-pen" style="font-size:.65rem;margin-right:.25rem"></i>Client non recensé ? Saisir manuellement</a></div>
+                    <input type="text" id="venteManualName" class="form-input hidden" placeholder="Prénom NOM" style="margin-top:.45rem">
                 </div>
-                <div class="form-group" style="margin-bottom:1.1rem">
-                    <label class="form-label">N° Permis / Licence</label>
-                    <input type="text" name="license_number" class="form-input" placeholder="Optionnel">
+                <div class="form-group hidden" id="ventePpaGroup" style="margin-bottom:1.1rem">
+                    <label class="form-label">PPA concerné</label>
+                    <select name="license_number" id="ventePpaSelect" class="form-select"><option value="">Aucun / non concerné</option></select>
                 </div>
 
                 <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">
@@ -445,6 +468,60 @@ function removeItem(id) {
     });
     renderCart();
 }
+</script>
+
+<!-- ── Sélecteur de citoyen ── -->
+<style>
+.vente-cli{display:flex;align-items:center;gap:.65rem;padding:.5rem .6rem;border-radius:9px;border:1px solid transparent;cursor:pointer;transition:background .12s,border-color .12s}
+.vente-cli:hover{background:rgba(220,38,38,.08);border-color:rgba(220,38,38,.2)}
+.vente-cli-name{font-size:.86rem;font-weight:600;color:#e2e8f0}
+</style>
+<div id="venteClientModal" class="modal-overlay hidden">
+    <div class="modal modal-sm">
+        <div class="modal-header"><h2><i class="fas fa-user"></i> Sélectionner un citoyen</h2><button class="modal-close" onclick="Company.closeModal('venteClientModal')"><i class="fas fa-times"></i></button></div>
+        <div class="modal-body">
+            <input type="text" id="venteClientSearch" class="form-input" placeholder="Rechercher un citoyen…" style="margin-bottom:.85rem">
+            <div id="venteClientList" style="display:flex;flex-direction:column;gap:.3rem;max-height:55vh;overflow-y:auto"></div>
+        </div>
+    </div>
+</div>
+<script>
+const VENTE_CITIZENS = <?php echo json_encode($venteCitizens, JSON_UNESCAPED_UNICODE|JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_QUOT); ?>;
+const VENTE_PPA = <?php echo json_encode($ventePpa, JSON_UNESCAPED_UNICODE|JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_QUOT); ?>;
+(function(){
+  var btn=document.getElementById('venteClientBtn'), hid=document.getElementById('venteCustomerName'),
+      chip=document.getElementById('venteClientChip'), listEl=document.getElementById('venteClientList'),
+      searchEl=document.getElementById('venteClientSearch'), ppaGroup=document.getElementById('ventePpaGroup'),
+      ppaSel=document.getElementById('ventePpaSelect'), manualToggle=document.getElementById('venteManualToggle'),
+      manualInput=document.getElementById('venteManualName'), form=document.getElementById('saleForm');
+  if(!btn) return;
+  function esc(s){var d=document.createElement('div');d.textContent=s==null?'':s;return d.innerHTML;}
+  function avatarHtml(c,sz){sz=sz||34;return c.avatar?('<img src="'+esc(c.avatar)+'" referrerpolicy="no-referrer" style="width:'+sz+'px;height:'+sz+'px;border-radius:50%;object-fit:cover;flex-shrink:0">'):('<span style="width:'+sz+'px;height:'+sz+'px;border-radius:50%;background:linear-gradient(135deg,var(--cc),var(--cc-d));display:inline-flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:.75rem;flex-shrink:0">'+esc((c.name||'?').charAt(0).toUpperCase())+'</span>');}
+  function renderList(q){
+    q=(q||'').toLowerCase().trim();
+    var rows=VENTE_CITIZENS.filter(function(c){return !q||(c.name||'').toLowerCase().indexOf(q)>=0;}).slice(0,300);
+    listEl.innerHTML=rows.length?rows.map(function(c){return '<div class="vente-cli" data-id="'+esc(c.id)+'">'+avatarHtml(c)+'<span class="vente-cli-name">'+esc(c.name)+'</span></div>';}).join(''):'<div style="text-align:center;color:#64748b;padding:1.3rem;font-size:.82rem">Aucun résultat</div>';
+    listEl.querySelectorAll('.vente-cli').forEach(function(el){el.addEventListener('click',function(){pick(el.dataset.id);});});
+  }
+  function pick(id){
+    var c=VENTE_CITIZENS.find(function(x){return String(x.id)===String(id);}); if(!c)return;
+    hid.value=c.name;
+    chip.innerHTML='<span style="display:inline-flex;align-items:center;gap:.5rem;padding:.35rem .7rem;background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.3);border-radius:30px;font-size:.82rem;color:#f1f5f9">'+avatarHtml(c,22)+'<span>'+esc(c.name)+'</span><span class="vente-chip-x" style="cursor:pointer;color:#94a3b8;display:inline-flex"><i class="fas fa-times"></i></span></span>';
+    var x=chip.querySelector('.vente-chip-x'); if(x)x.addEventListener('click',clearClient);
+    var ppas=VENTE_PPA[c.id]||[];
+    ppaSel.innerHTML='<option value="">Aucun / non concerné</option>'+ppas.map(function(t){return '<option value="'+esc('PPA '+t)+'">'+esc(t)+'</option>';}).join('');
+    ppaGroup.classList.remove('hidden');
+    if(manualInput){manualInput.classList.add('hidden');manualInput.value='';}
+    Company.closeModal('venteClientModal');
+  }
+  function clearClient(e){if(e)e.stopPropagation();hid.value='';chip.innerHTML='';ppaGroup.classList.add('hidden');ppaSel.innerHTML='<option value="">Aucun / non concerné</option>';}
+  window.venteClearClient=clearClient;
+  btn.addEventListener('click',function(){renderList('');Company.openModal('venteClientModal');setTimeout(function(){searchEl.focus();},60);});
+  searchEl.addEventListener('input',function(){renderList(searchEl.value);});
+  if(manualToggle){manualToggle.addEventListener('click',function(e){e.preventDefault();manualInput.classList.toggle('hidden');if(!manualInput.classList.contains('hidden')){manualInput.focus();chip.innerHTML='';ppaGroup.classList.add('hidden');}else if(!chip.innerHTML){hid.value='';}});}
+  if(manualInput){manualInput.addEventListener('input',function(){hid.value=manualInput.value.trim();});}
+  if(form){form.addEventListener('submit',function(e){if(!hid.value.trim()){e.preventDefault();if(window.MDTConfirm&&MDTConfirm.toast)MDTConfirm.toast('Veuillez sélectionner un client','warning');else alert('Veuillez sélectionner un client');}});}
+})();
 </script>
 
 <?php include __DIR__ . '/includes/footer.php'; ?>

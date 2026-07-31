@@ -567,7 +567,11 @@ $VEH_ST=['normal'=>['Normal','#6ee7b7','rgba(16,185,129,.12)','rgba(16,185,129,.
     <?php else:foreach($ppaList as $pp):[$pl,$pb]=$PPA_ST[$pp['statut']]??[$pp['statut'],'bg-gray'];?>
     <div class="cz-row" style="cursor:default">
         <div><div style="font-weight:700;font-size:.85rem"><?php echo htmlspecialchars($pp['type_arme']?:'Demande PPA');?></div>
-        <div style="font-size:.7rem;color:var(--txt-m)"><?php echo !empty($pp['date_demande'])?date('d/m/Y',strtotime($pp['date_demande'])):'';?><?php if(!empty($pp['officer'])):?> · <?php echo htmlspecialchars($pp['officer']);?><?php endif;?></div></div>
+        <div style="font-size:.7rem;color:var(--txt-m)"><?php echo !empty($pp['date_demande'])?date('d/m/Y',strtotime($pp['date_demande'])):'';?><?php if(!empty($pp['officer'])):?> · <?php echo htmlspecialchars($pp['officer']);?><?php endif;?></div>
+        <div style="display:flex;gap:.35rem;flex-wrap:wrap;margin-top:.25rem">
+            <?php if(!empty($pp['sams_doc_url'])):?><a href="<?php echo htmlspecialchars($pp['sams_doc_url']);?>" target="_blank" onclick="return mdtOpenDoc('<?php echo htmlspecialchars($pp['sams_doc_url']);?>','doc','Justificatif SAMS')" class="badge bg-gray" style="text-decoration:none;font-size:.6rem"><i class="fas fa-file-medical"></i> Justificatif SAMS</a><?php endif;?>
+            <?php if(!empty($pp['final_doc_url'])):?><a href="<?php echo htmlspecialchars($pp['final_doc_url']);?>" target="_blank" onclick="return mdtOpenDoc('<?php echo htmlspecialchars($pp['final_doc_url']);?>','doc','Certificat PPA')" class="badge bg-blue" style="text-decoration:none;font-size:.6rem"><i class="fas fa-file-shield"></i> Certificat PPA</a><?php endif;?>
+        </div></div>
         <span class="badge <?php echo $pb;?>" style="font-size:.62rem"><?php echo $pl;?></span>
     </div>
     <?php endforeach;endif;?>
@@ -1140,4 +1144,5 @@ function pdEye(sel,revealId){const r=document.getElementById(revealId);if(r)r.cl
 function pdScar(p){const seg=document.getElementById(p+'ScarSeg');if(!seg)return;const c=seg.querySelector('input[name=has_scar]:checked');const loc=document.getElementById(p+'ScarLoc');if(loc)loc.classList.toggle('show',!!c&&c.value==='1');}
 function pdCheckGender(f){if(!f.querySelector('input[name=gender]:checked')){if(window.LSPD&&LSPD.toast)LSPD.toast('Le genre est requis.','error');else alert('Le genre est requis.');return false;}return true;}
 </script>
+<?php include ROOT_PATH . '/includes/doc_viewer.php'; ?>
 <?php include __DIR__ . '/includes/footer.php';?>

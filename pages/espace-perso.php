@@ -15,6 +15,10 @@ $msg = ''; $msgType = '';
 if (empty($_SESSION['characters_csrf'])) $_SESSION['characters_csrf'] = bin2hex(random_bytes(16));
 $charCsrf = $_SESSION['characters_csrf'];
 
+// Workflow PPA unifié (migration + helpers partagés)
+require_once ROOT_PATH . '/includes/ppa.php';
+mdt_ppa_migrate($db);
+
 $siteName = 'LysoriaMDT';
 try {
     $row = $db->query("SELECT setting_value FROM admin_settings WHERE setting_key='site_name' LIMIT 1")->fetch();
@@ -90,6 +94,61 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $docId = intval($_POST['doc_id'] ?? 0); $motif = trim($_POST['motif'] ?? '');
         $db->prepare("INSERT INTO avocat_signatures (document_id,user_id,statut,refus_motif) VALUES (?,?,'refuse',?) ON DUPLICATE KEY UPDATE statut='refuse',signed_at=NULL,refus_motif=?")->execute([$docId,$uid,$motif,$motif]);
         $msg='Contrat refusé.'; $msgType='ok';
+    }
+
+    // ── PPA : pré-demande de licence par le civil ─────────────────────────
+    if ($action === 'ppa_predemande') {
+        if (!hash_equals($charCsrf, $_POST['csrf'] ?? '')) {
+            $msg='Session expirée, veuillez réessayer.'; $msgType='err';
+        } else {
+            $pid = 0;
+            try { $s=$db->prepare("SELECT profile_id FROM users WHERE id=?"); $s->execute([$uid]); $pid=(int)$s->fetchColumn(); } catch(Exception $e){}
+            if ($pid <= 0) {
+                $msg='Aucun profil civil n\'est lié à votre compte. Liez votre fiche du recensement LSPD avant de faire une demande.'; $msgType='err';
+            } else {
+                $prof=[];
+                try { $s=$db->prepare("SELECT * FROM profiles WHERE id=?"); $s->execute([$pid]); $prof=$s->fetch() ?: []; } catch(Exception $e){}
+                $enCours=0;
+                try { $s=$db->prepare("SELECT COUNT(*) FROM lspd_ppa_demandes WHERE citizen_id=? AND statut IN ('demande','en_cours')"); $s->execute([$pid]); $enCours=(int)$s->fetchColumn(); } catch(Exception $e){}
+                $ownedChk=[];
+                try { $s=$db->prepare("SELECT DISTINCT type_arme FROM lspd_ppa_demandes WHERE citizen_id=? AND statut='valide' AND type_arme<>''"); $s->execute([$pid]); $ownedChk=array_map(fn($r)=>$r['type_arme'],$s->fetchAll()); } catch(Exception $e){}
+                $typeArme = trim($_POST['type_arme'] ?? '');
+                if ($enCours > 0) {
+                    $msg='Une pré-demande de PPA est déjà en cours de traitement.'; $msgType='err';
+                } elseif ($typeArme === '' || !in_array($typeArme, mdt_ppa_types_arme(), true)) {
+                    $msg='Veuillez sélectionner un type d\'arme valide.'; $msgType='err';
+                } elseif (in_array($typeArme, $ownedChk, true)) {
+                    $msg='Vous possédez déjà un PPA pour ce type d\'arme.'; $msgType='err';
+                } else {
+                    $up = mdt_ppa_handle_piece_upload($_FILES['piece_identite'] ?? null);
+                    if (!$up['ok']) {
+                        $msg=$up['error']; $msgType='err';
+                    } else {
+                        $piece = $up['path'] ?: mdt_ppa_sanitize_url($_POST['piece_url'] ?? '');
+                        try {
+                            $dob = trim((string)($prof['date_of_birth'] ?? '')); if ($dob==='' || $dob==='0000-00-00') $dob=null;
+                            $db->prepare("INSERT INTO lspd_ppa_demandes
+                                (citizen_id, source, nom, prenom, date_naissance, adresse, type_arme, piece_identite, motif_demande, date_demande, statut, created_by)
+                                VALUES (?, 'civil', ?, ?, ?, ?, ?, ?, ?, ?, 'demande', ?)")
+                               ->execute([
+                                   $pid,
+                                   $prof['lastname'] ?? '',
+                                   $prof['firstname'] ?? '',
+                                   $dob,
+                                   $prof['address'] ?? '',
+                                   $typeArme,
+                                   $piece,
+                                   trim($_POST['motif_demande'] ?? ''),
+                                   date('Y-m-d'),
+                                   $uid,
+                               ]);
+                            $msg='Votre pré-demande de PPA a bien été enregistrée. Merci de prendre rendez-vous à l\'hôpital pour votre évaluation médicale et psychologique auprès du SAMS.';
+                            $msgType='ok';
+                        } catch(Exception $e){ $msg='Erreur lors de l\'enregistrement de la demande.'; $msgType='err'; }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -180,6 +239,8 @@ $nbContracts=count($pendingContracts);
 $myPPA   = [];
 $myArmes = [];
 $nbPPAEnAttente = 0;
+$ownedPPATypes     = [];                    // types de PPA déjà détenus (valide)
+$availablePPATypes = mdt_ppa_types_arme();  // types encore demandables
 if ($profile) {
     try {
         $s = $db->prepare("
@@ -194,6 +255,14 @@ if ($profile) {
         $myPPA = $s->fetchAll();
         $nbPPAEnAttente = count(array_filter($myPPA, fn($p) => in_array($p['statut'], ['demande','en_cours'])));
     } catch(Exception $e) {}
+
+    // Types déjà détenus (PPA validé) → exclus des nouvelles pré-demandes
+    try {
+        $s = $db->prepare("SELECT DISTINCT type_arme FROM lspd_ppa_demandes WHERE citizen_id=? AND statut='valide' AND type_arme IS NOT NULL AND type_arme<>''");
+        $s->execute([$profile['id']]);
+        $ownedPPATypes = array_map(fn($r) => $r['type_arme'], $s->fetchAll());
+    } catch(Exception $e) {}
+    $availablePPATypes = array_values(array_diff(mdt_ppa_types_arme(), $ownedPPATypes));
 
     try {
         $s = $db->prepare("
@@ -897,6 +966,43 @@ footer{border-top:1px solid var(--border);padding:1.5rem 0;margin-top:auto}
 
             <!-- ONGLET PPA -->
             <div class="ep-tab-panel <?php echo empty($myArmes)?'on':''; ?>" id="tab-ppa">
+                <?php
+                    $latestPPA  = $myPPA[0] ?? null;
+                    $ppaPending = $nbPPAEnAttente > 0;
+                ?>
+                <?php if($latestPPA && in_array($latestPPA['statut'],['valide','refuse'],true)): ?>
+                <div style="margin-bottom:1rem;padding:.85rem 1rem;border-radius:10px;display:flex;align-items:center;gap:.7rem;border:1px solid <?php echo $latestPPA['statut']==='valide'?'rgba(34,197,94,.3)':'rgba(239,68,68,.3)';?>;background:<?php echo $latestPPA['statut']==='valide'?'rgba(34,197,94,.07)':'rgba(239,68,68,.07)';?>">
+                    <i class="fas <?php echo $latestPPA['statut']==='valide'?'fa-circle-check':'fa-circle-xmark';?>" style="font-size:1.3rem;color:<?php echo $latestPPA['statut']==='valide'?'#4ade80':'#f87171';?>;flex-shrink:0"></i>
+                    <div style="flex:1;min-width:0">
+                        <div style="font-weight:700;font-size:.85rem;color:<?php echo $latestPPA['statut']==='valide'?'#4ade80':'#f87171';?>">
+                            <?php echo $latestPPA['statut']==='valide'?'Votre demande de PPA a été acceptée par le LSPD.':'Votre demande de PPA a été refusée par le LSPD.'; ?>
+                        </div>
+                        <?php if($latestPPA['statut']==='refuse' && !empty($latestPPA['motif_refus'])): ?>
+                        <div style="font-size:.73rem;color:var(--muted-2);margin-top:.15rem"><?php echo htmlspecialchars($latestPPA['motif_refus']); ?></div>
+                        <?php endif; ?>
+                    </div>
+                    <?php if(!empty($latestPPA['final_doc_url'])): ?>
+                    <a href="<?php echo htmlspecialchars($latestPPA['final_doc_url']); ?>" target="_blank" onclick="return mdtOpenDoc('<?php echo htmlspecialchars($latestPPA['final_doc_url']); ?>','doc','Certificat PPA')" class="ep-btn ep-btn-sm" style="background:rgba(59,130,246,.12);color:#93c5fd;border:1px solid rgba(59,130,246,.3);flex-shrink:0"><i class="fas fa-file-shield"></i> Certificat</a>
+                    <?php endif; ?>
+                </div>
+                <?php endif; ?>
+
+                <?php if($ppaPending): ?>
+                <div style="margin-bottom:1rem;padding:.75rem .9rem;border-radius:9px;border:1px solid rgba(59,130,246,.25);background:rgba(59,130,246,.06);font-size:.8rem;color:#93c5fd;display:flex;align-items:center;gap:.55rem">
+                    <i class="fas fa-hourglass-half"></i> Une pré-demande de PPA est en cours de traitement. Pensez à prendre rendez-vous à l'hôpital.
+                </div>
+                <?php elseif(empty($availablePPATypes)): ?>
+                <div style="margin-bottom:1rem;padding:.75rem .9rem;border-radius:9px;border:1px solid rgba(34,197,94,.25);background:rgba(34,197,94,.06);font-size:.8rem;color:#4ade80;display:flex;align-items:center;gap:.55rem">
+                    <i class="fas fa-circle-check"></i> Vous possédez déjà toutes les licences PPA disponibles.
+                </div>
+                <?php else: ?>
+                <div style="margin-bottom:1rem;text-align:center">
+                    <button onclick="openModal('ppaPredemandeModal')" class="ep-btn ep-btn-primary ep-btn-sm">
+                        <i class="fas fa-id-card-clip"></i> Faire une pré-demande de licence du Permis de Port d'Arme
+                    </button>
+                </div>
+                <?php endif; ?>
+
                 <?php if(empty($myPPA)): ?>
                 <div style="text-align:center;padding:2.25rem;color:var(--muted-2)">
                     <i class="fas fa-file-circle-question" style="font-size:2rem;opacity:.2;display:block;margin-bottom:.5rem"></i>
@@ -932,6 +1038,13 @@ footer{border-top:1px solid var(--border);padding:1.5rem 0;margin-top:auto}
                         <?php if(!empty($ppa['notes_officier'])): ?>
                         <div style="margin-top:.25rem;font-size:.7rem;color:var(--muted-2);font-style:italic">
                             <i class="fas fa-sticky-note" style="font-size:.6rem;margin-right:.2rem;opacity:.5"></i><?php echo htmlspecialchars(mb_substr($ppa['notes_officier'],0,80)); ?>
+                        </div>
+                        <?php endif; ?>
+                        <?php if(!empty($ppa['final_doc_url'])): ?>
+                        <div style="margin-top:.35rem">
+                            <a href="<?php echo htmlspecialchars($ppa['final_doc_url']); ?>" target="_blank" onclick="return mdtOpenDoc('<?php echo htmlspecialchars($ppa['final_doc_url']); ?>','doc','Certificat PPA')" style="display:inline-flex;align-items:center;gap:.3rem;font-size:.72rem;font-weight:600;color:#93c5fd;text-decoration:none;background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.25);border-radius:5px;padding:.2rem .55rem">
+                                <i class="fas fa-file-shield" style="font-size:.62rem"></i> Voir le certificat PPA
+                            </a>
                         </div>
                         <?php endif; ?>
                     </div>
@@ -1162,7 +1275,7 @@ footer{border-top:1px solid var(--border);padding:1.5rem 0;margin-top:auto}
                         <div style="font-size:.7rem;color:var(--muted-2)"><i class="fas fa-calendar" style="opacity:.6;margin-right:.25rem"></i><?php echo !empty($doc['date'])?date('d/m/Y H:i',strtotime($doc['date'])):'—'; ?></div>
                     </div>
                     <?php if(!empty($doc['url'])): ?>
-                    <a href="<?php echo htmlspecialchars($doc['url']); ?>" target="_blank" class="ep-btn ep-btn-primary ep-btn-sm"><i class="fas fa-external-link-alt"></i> Voir</a>
+                    <a href="<?php echo htmlspecialchars($doc['url']); ?>" target="_blank" onclick="return mdtOpenDoc('<?php echo htmlspecialchars($doc['url']); ?>','doc')" class="ep-btn ep-btn-primary ep-btn-sm"><i class="fas fa-external-link-alt"></i> Voir</a>
                     <?php else: ?>
                     <span style="font-size:.72rem;color:var(--muted-2);opacity:.7" title="Pas de document"><i class="fas fa-file-circle-xmark"></i></span>
                     <?php endif; ?>
@@ -1409,6 +1522,152 @@ if($gsk!=='__none__'): ?><div class="law-sec"><i class="fas fa-minus" style="opa
 </div>
 <?php endif; ?>
 
+<?php if($profile): ?>
+<style>
+/* ── Select personnalisé (thème espace perso) ── */
+.ep-sel{position:relative}
+.ep-sel-btn{width:100%;display:flex;align-items:center;justify-content:space-between;gap:.5rem;padding:.65rem .9rem;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:7px;color:#f1f5f9;font-size:.845rem;font-family:inherit;cursor:pointer;transition:border-color .18s}
+.ep-sel-btn:hover{border-color:rgba(59,130,246,.45)}
+.ep-sel.open .ep-sel-btn{border-color:#3b82f6}
+.ep-sel-val.ph{color:var(--muted)}
+.ep-sel-btn>i{font-size:.68rem;color:var(--muted-2);transition:transform .2s}
+.ep-sel.open .ep-sel-btn>i{transform:rotate(180deg)}
+.ep-sel-panel{position:absolute;top:calc(100% + 5px);left:0;right:0;background:var(--bg-card);border:1px solid var(--border-2);border-radius:9px;box-shadow:0 14px 34px rgba(0,0,0,.4);z-index:60;max-height:230px;overflow-y:auto;padding:.3rem;display:none}
+.ep-sel.open .ep-sel-panel{display:block;animation:epSelIn .15s ease}
+@keyframes epSelIn{from{opacity:0;transform:translateY(-5px)}}
+.ep-sel-opt{display:flex;align-items:center;gap:.5rem;padding:.55rem .7rem;border-radius:6px;font-size:.83rem;color:#e2e8f0;cursor:pointer;transition:background .12s}
+.ep-sel-opt:hover{background:rgba(59,130,246,.12)}
+.ep-sel-opt.sel{background:rgba(59,130,246,.16);color:#93c5fd}
+:root[data-theme="light"] .ep-sel-btn{background:#F5F6FA;color:#1A1F30}
+:root[data-theme="light"] .ep-sel-opt{color:#1A1F30}
+:root[data-theme="light"] .ep-drop{border-color:#D5DAE6;background:#F5F6FA}
+:root[data-theme="light"] .ep-drop-prev img{background:#eef0f6}
+/* ── Zone d'upload pièce d'identité ── */
+.ep-drop{border:1.5px dashed rgba(255,255,255,.16);border-radius:10px;background:rgba(255,255,255,.02);transition:border-color .18s,background .18s;overflow:hidden}
+.ep-drop.drag{border-color:#3b82f6;background:rgba(59,130,246,.08)}
+.ep-drop-empty{display:flex;flex-direction:column;align-items:center;gap:.3rem;text-align:center;padding:1.4rem 1rem;cursor:pointer;color:var(--muted-2)}
+.ep-drop-empty i{font-size:1.6rem;color:#3b82f6;margin-bottom:.15rem}
+.ep-drop-t{font-size:.82rem}.ep-drop-t span{color:#93c5fd;text-decoration:underline}
+.ep-drop-h{font-size:.7rem;color:var(--muted)}
+.ep-drop-prev{display:none;padding:.7rem}
+.ep-drop-prev img{width:100%;max-height:230px;object-fit:contain;border-radius:8px;background:rgba(0,0,0,.25);display:block}
+.ep-drop-acts{display:flex;gap:.5rem;justify-content:center;margin-top:.6rem}
+.ep-drop.has-file .ep-drop-empty{display:none}
+.ep-drop.has-file .ep-drop-prev{display:block}
+</style>
+<div id="ppaPredemandeModal" class="ep-modal-ov">
+    <div class="ep-modal">
+        <div class="ep-modal-hd"><h3><i class="fas fa-id-card-clip" style="color:#93c5fd"></i> Pré-demande de licence PPA</h3><button class="ep-modal-cl" onclick="closeModal('ppaPredemandeModal')">×</button></div>
+        <form method="POST" enctype="multipart/form-data">
+            <div class="ep-modal-bd">
+                <input type="hidden" name="action" value="ppa_predemande">
+                <input type="hidden" name="csrf" value="<?php echo htmlspecialchars($charCsrf); ?>">
+                <div style="font-size:.78rem;color:var(--muted-2);margin-bottom:1rem;line-height:1.5">Vos informations d'identité sont pré-remplies depuis votre fiche du recensement. Sélectionnez le type d'arme souhaité et joignez votre pièce d'identité.</div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:.85rem;margin-bottom:.85rem">
+                    <div><label class="ep-label">Nom</label><input type="text" class="ep-input" value="<?php echo htmlspecialchars($profile['lastname']??''); ?>" readonly></div>
+                    <div><label class="ep-label">Prénom</label><input type="text" class="ep-input" value="<?php echo htmlspecialchars($profile['firstname']??''); ?>" readonly></div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:.85rem;margin-bottom:.85rem">
+                    <div><label class="ep-label">Date de naissance</label><input type="text" class="ep-input" value="<?php echo htmlspecialchars(!empty($profile['date_of_birth'])&&$profile['date_of_birth']!=='0000-00-00'?date('d/m/Y',strtotime($profile['date_of_birth'])):'—'); ?>" readonly></div>
+                    <div><label class="ep-label">Type d'arme souhaitée</label>
+                        <div class="ep-sel" data-ep-sel>
+                            <input type="hidden" name="type_arme" class="ep-sel-input">
+                            <button type="button" class="ep-sel-btn"><span class="ep-sel-val ph">Sélectionner…</span><i class="fas fa-chevron-down"></i></button>
+                            <div class="ep-sel-panel">
+                                <?php foreach($availablePPATypes as $t): ?>
+                                <div class="ep-sel-opt" data-value="<?php echo htmlspecialchars($t); ?>"><i class="fas fa-gun" style="font-size:.72rem;opacity:.55"></i><?php echo htmlspecialchars($t); ?></div>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div style="margin-bottom:.85rem"><label class="ep-label">Adresse complète</label><input type="text" class="ep-input" value="<?php echo htmlspecialchars($profile['address']??''); ?>" readonly></div>
+
+                <div style="margin-bottom:.85rem"><label class="ep-label">Pièce d'identité</label>
+                    <input type="file" name="piece_identite" id="ppaFile" accept="image/png,image/jpeg,image/webp" style="display:none">
+                    <div class="ep-drop" id="ppaDrop">
+                        <div class="ep-drop-empty" id="ppaDropEmpty">
+                            <i class="fas fa-cloud-arrow-up"></i>
+                            <div class="ep-drop-t">Glissez une image ici ou <span>choisissez un fichier</span></div>
+                            <div class="ep-drop-h">PNG, JPG, WEBP · 6 Mo max</div>
+                        </div>
+                        <div class="ep-drop-prev" id="ppaDropPreview">
+                            <img id="ppaPreviewImg" src="" alt="">
+                            <div class="ep-drop-acts">
+                                <button type="button" class="ep-btn ep-btn-ghost ep-btn-xs" id="ppaReplace"><i class="fas fa-arrows-rotate"></i> Remplacer</button>
+                                <button type="button" class="ep-btn ep-btn-danger ep-btn-xs" id="ppaRemove"><i class="fas fa-times"></i> Retirer</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div style="margin-bottom:.85rem"><label class="ep-label">…ou lien direct vers une image</label>
+                    <input type="url" name="piece_url" id="ppaUrl" class="ep-input" placeholder="https://…">
+                </div>
+                <div><label class="ep-label">Motif (facultatif)</label><textarea name="motif_demande" class="ep-input" rows="2" placeholder="Raison de la demande…"></textarea></div>
+            </div>
+            <div class="ep-modal-ft">
+                <button type="button" class="ep-btn ep-btn-ghost" onclick="closeModal('ppaPredemandeModal')">Annuler</button>
+                <button type="submit" class="ep-btn ep-btn-primary"><i class="fas fa-paper-plane"></i> Soumettre la pré-demande</button>
+            </div>
+        </form>
+    </div>
+</div>
+<script>
+(function(){
+  // Select personnalisé
+  function epInitSel(el){
+    if(el.dataset.epInit) return; el.dataset.epInit='1';
+    var btn=el.querySelector('.ep-sel-btn'), panel=el.querySelector('.ep-sel-panel'),
+        val=el.querySelector('.ep-sel-val'), hid=el.querySelector('.ep-sel-input');
+    btn.addEventListener('click',function(e){
+      e.stopPropagation();
+      document.querySelectorAll('.ep-sel.open').forEach(function(o){ if(o!==el) o.classList.remove('open'); });
+      el.classList.toggle('open');
+    });
+    panel.querySelectorAll('.ep-sel-opt').forEach(function(o){
+      o.addEventListener('click',function(){
+        hid.value=o.dataset.value; val.textContent=o.textContent.trim(); val.classList.remove('ph');
+        panel.querySelectorAll('.ep-sel-opt').forEach(function(x){x.classList.remove('sel');});
+        o.classList.add('sel'); el.classList.remove('open');
+        btn.style.borderColor='';
+        hid.dispatchEvent(new Event('change',{bubbles:true}));
+      });
+    });
+  }
+  document.querySelectorAll('.ep-sel[data-ep-sel]').forEach(epInitSel);
+  document.addEventListener('click',function(){ document.querySelectorAll('.ep-sel.open').forEach(function(o){o.classList.remove('open');}); });
+
+  // Zone d'upload + aperçu
+  var drop=document.getElementById('ppaDrop');
+  if(drop){
+    var input=document.getElementById('ppaFile'), img=document.getElementById('ppaPreviewImg'), urlIn=document.getElementById('ppaUrl');
+    function show(src){ img.src=src; drop.classList.add('has-file'); }
+    function clearFile(){ input.value=''; img.src=''; drop.classList.remove('has-file'); }
+    function readFile(f){ if(!f||!/^image\//.test(f.type))return; var r=new FileReader(); r.onload=function(e){ if(urlIn)urlIn.value=''; show(e.target.result); }; r.readAsDataURL(f); }
+    document.getElementById('ppaDropEmpty').addEventListener('click',function(){ input.click(); });
+    document.getElementById('ppaReplace').addEventListener('click',function(){ input.click(); });
+    document.getElementById('ppaRemove').addEventListener('click',function(){ clearFile(); if(urlIn) urlIn.value=''; });
+    input.addEventListener('change',function(){ if(input.files[0]) readFile(input.files[0]); });
+    ['dragenter','dragover'].forEach(function(ev){ drop.addEventListener(ev,function(e){ e.preventDefault(); drop.classList.add('drag'); }); });
+    ['dragleave','drop'].forEach(function(ev){ drop.addEventListener(ev,function(e){ e.preventDefault(); drop.classList.remove('drag'); }); });
+    drop.addEventListener('drop',function(e){
+      var f=e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      if(f){ try{ var dt=new DataTransfer(); dt.items.add(f); input.files=dt.files; }catch(_){} readFile(f); }
+    });
+    if(urlIn){ urlIn.addEventListener('input',function(){ var v=urlIn.value.trim(); if(v){ clearFile(); show(v); } else { drop.classList.remove('has-file'); img.src=''; } }); }
+  }
+
+  // Validation : type d'arme requis
+  var ppaForm=document.querySelector('#ppaPredemandeModal form');
+  if(ppaForm){ ppaForm.addEventListener('submit',function(e){
+    var t=ppaForm.querySelector('.ep-sel-input');
+    if(t && !t.value){ e.preventDefault(); var el=ppaForm.querySelector('.ep-sel'); if(el){ el.classList.add('open'); el.querySelector('.ep-sel-btn').style.borderColor='#f87171'; } }
+  }); }
+})();
+</script>
+<?php endif; ?>
+
 <div id="refuseModal" class="ep-modal-ov">
     <div class="ep-modal">
         <div class="ep-modal-hd"><h3><i class="fas fa-times" style="color:#f87171"></i> Refuser le contrat</h3><button class="ep-modal-cl" onclick="closeModal('refuseModal')">×</button></div>
@@ -1469,5 +1728,6 @@ function showLaw(a){
 
 </script>
 <?php nexium_theme_script(); ?>
+<?php include ROOT_PATH . '/includes/doc_viewer.php'; ?>
 </body>
 </html>

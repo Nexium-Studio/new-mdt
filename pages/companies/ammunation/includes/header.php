@@ -11,7 +11,8 @@ $__ammunationAllPages = [
     ['file'=>'effectifs',       'label'=>'Effectifs',         'icon'=>'fas fa-users',              'section'=>'Ressources Humaines'],
     ['file'=>'prises-service',  'label'=>'Prises de Service', 'icon'=>'fas fa-clock',              'section'=>''],
     ['file'=>'sanctions',       'label'=>'Sanctions',         'icon'=>'fas fa-gavel',              'section'=>''],
-    ['file'=>'stock',           'label'=>'Stock',             'icon'=>'fas fa-boxes',              'section'=>'Gestion Commerciale'],
+    ['file'=>'recencement-ppa', 'label'=>'Recensement PPA',   'icon'=>'fas fa-id-card-clip',       'section'=>'Gestion Commerciale'],
+    ['file'=>'stock',           'label'=>'Stock',             'icon'=>'fas fa-boxes',              'section'=>''],
     ['file'=>'vente',           'label'=>'Point de Vente',    'icon'=>'fas fa-cash-register',      'section'=>''],
     ['file'=>'facturation',     'label'=>'Facturation',       'icon'=>'fas fa-file-invoice-dollar','section'=>''],
     ['file'=>'depenses',        'label'=>'Dépenses',          'icon'=>'fas fa-money-bill-wave',    'section'=>''],
@@ -45,78 +46,98 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
             overflow-x: hidden;
         }
 
-        /* ── SIDEBAR ─────────────────────────────────────────── */
+        /* ── SIDEBAR (style moderne) ─────────────────────────── */
         .company-sidebar {
             position: fixed; left:0; top:0;
             width: 268px; height: 100vh;
             background: linear-gradient(180deg, #0d1526 0%, #080c17 100%);
             border-right: 1px solid rgba(220,38,38,.18);
-            overflow-y: auto; z-index:1000;
+            overflow: hidden; z-index:1000;
             box-shadow: 4px 0 40px rgba(0,0,0,.4);
+            display:flex; flex-direction:column;
+            transition: width .22s ease, transform .25s ease;
         }
-        .company-sidebar::-webkit-scrollbar { width:4px; }
-        .company-sidebar::-webkit-scrollbar-thumb { background:rgba(220,38,38,.3); border-radius:2px; }
-
+        /* Brand */
         .sidebar-header {
-            padding: 1.75rem 1.5rem 1.5rem;
-            border-bottom: 1px solid rgba(220,38,38,.12);
-            position: relative; overflow: hidden;
-        }
-        .sidebar-header::before {
-            content:'';
-            position:absolute; top:-30px; right:-30px;
-            width:120px; height:120px;
-            background: radial-gradient(circle, rgba(220,38,38,.15) 0%, transparent 70%);
-            pointer-events:none;
+            padding: 1rem 1rem; border-bottom: 1px solid rgba(220,38,38,.12);
+            display:flex; align-items:center; gap:.7rem;
         }
         .company-logo {
-            width:52px; height:52px;
+            width:42px; height:42px; flex-shrink:0;
             background: linear-gradient(135deg, var(--cc), var(--cc-d));
-            border-radius:13px;
-            display:flex; align-items:center; justify-content:center;
-            font-size:1.5rem; margin-bottom:.875rem;
-            box-shadow: 0 6px 24px rgba(220,38,38,.35);
+            border-radius:12px; display:flex; align-items:center; justify-content:center;
+            font-size:1.15rem; color:#fff; cursor:pointer;
+            box-shadow: 0 6px 20px rgba(220,38,38,.4);
         }
-        .company-name {
-            font-size:1.15rem; font-weight:800;
-            color:#f1f5f9; letter-spacing:-.3px;
+        .company-brand-txt { flex:1; min-width:0; }
+        .company-name { font-size:1rem; font-weight:800; color:#f1f5f9; letter-spacing:-.2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .company-subtitle { font-size:.72rem; color:#64748b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .company-collapse {
+            width:28px; height:28px; border-radius:8px; flex-shrink:0;
+            background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08);
+            color:#64748b; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all .18s;
         }
-        .company-subtitle { font-size:.8rem; color:#64748b; margin-top:.2rem; }
+        .company-collapse:hover { color:var(--cc-l); background:rgba(220,38,38,.12); border-color:rgba(220,38,38,.3); }
 
-        .sidebar-nav { padding: 1rem 0 2rem; }
-
+        /* Nav */
+        .sidebar-nav { padding:.55rem .55rem 1rem; flex:1; overflow-y:auto; overflow-x:hidden; }
+        .sidebar-nav::-webkit-scrollbar { width:4px; }
+        .sidebar-nav::-webkit-scrollbar-thumb { background:rgba(220,38,38,.3); border-radius:2px; }
+        .nav-section { margin-top:.3rem; }
         .nav-section-title {
-            padding: .875rem 1.5rem .4rem;
-            font-size:.65rem; font-weight:700;
-            text-transform:uppercase; letter-spacing:.12em;
-            color:#475569;
+            display:flex; align-items:center; justify-content:space-between;
+            padding:.7rem .75rem .35rem;
+            font-size:.63rem; font-weight:700; text-transform:uppercase; letter-spacing:.12em;
+            color:#475569; cursor:pointer; user-select:none;
         }
+        .nav-section-title .sec-chev { font-size:.58rem; opacity:.7; transition:transform .2s; }
+        .nav-section.collapsed .sec-chev { transform:rotate(-90deg); }
+        .nav-section.collapsed .nav-section-items { display:none; }
         .nav-item {
             display:flex; align-items:center; gap:.7rem;
-            padding:.8rem 1.5rem;
-            color:#64748b; text-decoration:none;
-            font-weight:500; font-size:.875rem;
-            transition:all .22s; position:relative;
+            padding:.6rem .75rem; margin:.12rem 0; border-radius:10px;
+            color:#94a3b8; text-decoration:none; font-weight:500; font-size:.85rem;
+            transition:background .18s, color .18s; white-space:nowrap;
         }
-        .nav-item::before {
-            content:''; position:absolute; left:0; top:50%;
-            transform:translateY(-50%);
-            width:3px; height:0;
-            background: var(--cc);
-            border-radius:0 3px 3px 0;
-            transition:height .22s;
-            box-shadow:0 0 8px var(--cc);
+        .nav-item i { width:20px; text-align:center; font-size:.92rem; flex-shrink:0; }
+        .nav-item .nav-lbl { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; }
+        .nav-item:hover { background:rgba(220,38,38,.08); color:var(--cc-l); }
+        .nav-item.active { background:linear-gradient(90deg, rgba(220,38,38,.24), rgba(220,38,38,.07)); color:#fff; box-shadow:inset 0 0 0 1px rgba(220,38,38,.32); }
+        .nav-item.active i { color:var(--cc-l); }
+        .nav-divider { height:1px; background:rgba(220,38,38,.1); margin:.55rem .75rem; }
+
+        /* Carte utilisateur (bas de sidebar) */
+        .company-usercard {
+            margin:.5rem .6rem .7rem; padding:.55rem .6rem;
+            background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.08);
+            border-radius:12px; display:flex; align-items:center; gap:.55rem;
         }
-        .nav-item:hover, .nav-item.active {
-            color: var(--cc-l);
-            background: rgba(220,38,38,.07);
+        .uc-avatar { width:38px; height:38px; border-radius:10px; overflow:hidden; flex-shrink:0; background:linear-gradient(135deg,var(--cc),var(--cc-d)); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:800; font-size:.85rem; }
+        .uc-avatar img { width:100%; height:100%; object-fit:cover; }
+        .uc-meta { flex:1; min-width:0; line-height:1.25; }
+        .uc-name { font-size:.8rem; font-weight:700; color:#f1f5f9; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .uc-grade { font-size:.66rem; color:var(--cc-l); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .uc-actions { display:flex; gap:.25rem; flex-shrink:0; }
+        .uc-btn { width:27px; height:27px; border-radius:7px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); color:#94a3b8; display:flex; align-items:center; justify-content:center; font-size:.72rem; cursor:pointer; text-decoration:none; transition:all .16s; }
+        .uc-btn:hover { color:var(--cc-l); background:rgba(220,38,38,.14); border-color:rgba(220,38,38,.32); }
+
+        /* État réduit (mini-rail) — desktop uniquement */
+        @media (min-width:1025px) {
+            body.cmp-collapsed .company-brand-txt,
+            body.cmp-collapsed .company-collapse,
+            body.cmp-collapsed .nav-section-title,
+            body.cmp-collapsed .nav-item .nav-lbl,
+            body.cmp-collapsed .uc-meta,
+            body.cmp-collapsed .uc-actions { display:none; }
+            body.cmp-collapsed .company-sidebar { width:76px; }
+            body.cmp-collapsed .sidebar-header { justify-content:center; padding:1rem .5rem; }
+            body.cmp-collapsed .nav-item { justify-content:center; padding:.6rem; }
+            body.cmp-collapsed .company-usercard { justify-content:center; padding:.5rem; }
+            body.cmp-collapsed .main-content { margin-left:76px; }
         }
-        .nav-item:hover::before, .nav-item.active::before { height:65%; }
-        .nav-item i { width:18px; text-align:center; font-size:.9rem; }
-        .nav-divider { height:1px; background:rgba(220,38,38,.1); margin:.75rem 1.5rem; }
 
         /* ── MAIN CONTENT ───────────────────────────────────── */
-        .main-content { margin-left:268px; min-height:100vh; }
+        .main-content { margin-left:268px; min-height:100vh; transition:margin-left .22s ease; }
 
         .company-topbar {
             position:sticky; top:0; z-index:100;
@@ -291,88 +312,121 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
         .text-yellow{ color:#fcd34d; }
         .mono { font-family:'Courier New',monospace; }
 
+        /* ── TOPBAR : bouton menu + voile mobile ───────────── */
+        .cmp-topbar-left{display:flex;align-items:center;gap:1rem;min-width:0}
+        .cmp-nav-toggle{display:none;width:40px;height:40px;border-radius:10px;background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.25);color:var(--cc-l);font-size:1.05rem;cursor:pointer;align-items:center;justify-content:center;flex-shrink:0}
+        .cmp-nav-toggle:hover{background:rgba(220,38,38,.2)}
+        .cmp-grade-chip{padding:.4rem 1rem;background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.25);border-radius:20px;font-weight:600;font-size:.8rem;color:var(--cc-l)}
+        .cmp-scrim{position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(2px);z-index:999;display:none}
+        .cmp-scrim.show{display:block}
+        /* ── FINITIONS ─────────────────────────────────────── */
+        .btn:focus-visible,.form-input:focus-visible,.form-select:focus-visible,.form-textarea:focus-visible{outline:2px solid var(--cc-l);outline-offset:1px}
+
         @media (max-width:1024px) {
             .company-sidebar { transform:translateX(-100%); }
+            .company-sidebar.open { transform:translateX(0); }
             .main-content { margin-left:0; }
             .form-grid { grid-template-columns:1fr; }
+            .cmp-nav-toggle { display:flex; }
+        }
+        @media (max-width:640px) {
+            .company-topbar { padding:.8rem 1rem; }
+            .page-content { padding:1.1rem 1rem; }
+            .page-title { font-size:1.1rem; }
+            .cmp-grade-chip { display:none; }
         }
     </style>
     <?php echo $__panelThemeCSS; ?>
 </head>
 <body>
-<aside class="company-sidebar">
+<script>try{if(localStorage.getItem('ammuSidebarCollapsed')==='1'&&window.innerWidth>1024)document.body.classList.add('cmp-collapsed');}catch(e){}</script>
+<?php
+// Regroupement des pages par section (sections repliables)
+$__navGroups = []; $__gi = -1;
+foreach ($__ammunationNavPages as $__p) {
+    $__ps = trim($__p['section'] ?? '');
+    if ($__gi < 0 || ($__ps !== '' && $__ps !== $__navGroups[$__gi]['title'])) {
+        $__navGroups[] = ['title' => $__ps, 'items' => []]; $__gi++;
+    }
+    $__navGroups[$__gi]['items'][] = $__p;
+}
+// Accès « Classement Ventes »
+$__ivRes = false;
+if (hasRole(['*','Administrateur','Developpeur','Staff','Moderateur','Helper'])) {
+    $__ivRes = true;
+} elseif (($_SESSION['user_faction'] ?? '') === 'AMMUNATION') {
+    try {
+        $__ivDb2 = Database::getInstance()->getConnection();
+        $__ivGrd = $_SESSION['user_faction_grade'] ?? $_SESSION['user_faction_rank'] ?? '';
+        if (!$__ivGrd) {
+            $__ivSt = $__ivDb2->prepare('SELECT COALESCE(faction_grade,faction_rank,\'\') FROM users WHERE id=? LIMIT 1');
+            $__ivSt->execute([$_SESSION['user_id'] ?? 0]);
+            $__ivGrd = (string)($__ivSt->fetchColumn() ?: '');
+        }
+        if ($__ivGrd) {
+            $__ivQ = $__ivDb2->prepare('SELECT fg.can_recruit FROM faction_grades fg JOIN factions f ON f.id=fg.faction_id WHERE f.faction_key=? AND fg.name=? LIMIT 1');
+            $__ivQ->execute(['AMMUNATION', $__ivGrd]);
+            $__ivR = $__ivQ->fetch(PDO::FETCH_ASSOC);
+            if ($__ivR && !empty($__ivR['can_recruit'])) $__ivRes = true;
+        }
+    } catch (Exception $__ivEx) {}
+}
+$__ucName  = mdt_session_display_name();
+$__ucGrade = $_SESSION['user_faction_grade'] ?? $_SESSION['user_faction_rank'] ?? 'Employé';
+?>
+<aside class="company-sidebar" id="cmpSidebar">
     <div class="sidebar-header">
-        <div class="company-logo"><i class="fas fa-crosshairs"></i></div>
-        <div class="company-name"><?php echo htmlspecialchars($__panelName); ?></div>
-        <div class="company-subtitle"><?php echo htmlspecialchars($__panelSubtitle); ?></div>
+        <div class="company-logo" onclick="Company.toggleCollapse()" title="Réduire / agrandir le menu"><i class="fas fa-crosshairs"></i></div>
+        <div class="company-brand-txt">
+            <div class="company-name"><?php echo htmlspecialchars($__panelName); ?></div>
+            <div class="company-subtitle"><?php echo htmlspecialchars($__panelSubtitle); ?></div>
+        </div>
+        <button type="button" class="company-collapse" onclick="Company.toggleCollapse()" title="Réduire le menu"><i class="fas fa-angle-left"></i></button>
     </div>
     <nav class="sidebar-nav">
-        <?php
-        $__sec = '';
-        foreach ($__ammunationNavPages as $__p):
-            if (!empty($__p['section']) && $__p['section'] !== $__sec):
-                $__sec = $__p['section'];
-                echo '<div class="nav-section-title">' . htmlspecialchars($__sec) . '</div>';
-            endif;
-            $__active = ($currentPage === $__p['file']) ? ' active' : '';
-        ?>
-        <a href="<?php echo $__p['file']; ?>.php" class="nav-item<?php echo $__active; ?>">
-            <i class="<?php echo $__p['icon']; ?>"></i>
-            <span><?php echo htmlspecialchars($__p['label']); ?></span>
-        </a>
+        <?php foreach ($__navGroups as $__g): ?>
+        <div class="nav-section">
+            <?php if ($__g['title'] !== ''): ?>
+            <div class="nav-section-title" onclick="Company.toggleSection(this)"><span><?php echo htmlspecialchars($__g['title']); ?></span><i class="fas fa-chevron-down sec-chev"></i></div>
+            <?php endif; ?>
+            <div class="nav-section-items">
+                <?php foreach ($__g['items'] as $__p): $__active = ($currentPage === $__p['file']) ? ' active' : ''; ?>
+                <a href="<?php echo $__p['file']; ?>.php" class="nav-item<?php echo $__active; ?>" title="<?php echo htmlspecialchars($__p['label']); ?>">
+                    <i class="<?php echo $__p['icon']; ?>"></i><span class="nav-lbl"><?php echo htmlspecialchars($__p['label']); ?></span>
+                </a>
+                <?php endforeach; ?>
+            </div>
+        </div>
         <?php endforeach; ?>
+
+        <?php if ($__ivRes): ?>
         <div class="nav-divider"></div>
-        
-        <?php
-        // -- Acces info_vente (independant de faction_helper) ------
-        if (!isset($__ivRes)) {
-            $__ivRes = false;
-            if (hasRole(['*','Administrateur','Developpeur','Staff','Moderateur','Helper'])) {
-                $__ivRes = true;
-            } elseif (($_SESSION['user_faction'] ?? '') === 'AMMUNATION') {
-                try {
-                    $__ivDb2 = Database::getInstance()->getConnection();
-                    $__ivGrd = $_SESSION['user_faction_grade'] ?? $_SESSION['user_faction_rank'] ?? '';
-                    if (!$__ivGrd) {
-                        $__ivSt = $__ivDb2->prepare('SELECT COALESCE(faction_grade,faction_rank,\'\') FROM users WHERE id=? LIMIT 1');
-                        $__ivSt->execute([$_SESSION['user_id'] ?? 0]);
-                        $__ivGrd = (string)($__ivSt->fetchColumn() ?: '');
-                    }
-                    if ($__ivGrd) {
-                        $__ivQ = $__ivDb2->prepare(
-                            'SELECT fg.can_recruit FROM faction_grades fg'
-                            .' JOIN factions f ON f.id=fg.faction_id'
-                            .' WHERE f.faction_key=? AND fg.name=? LIMIT 1'
-                        );
-                        $__ivQ->execute(['AMMUNATION', $__ivGrd]);
-                        $__ivR = $__ivQ->fetch(PDO::FETCH_ASSOC);
-                        if ($__ivR && !empty($__ivR['can_recruit'])) $__ivRes = true;
-                    }
-                } catch (Exception $__ivEx) {}
-            }
-        }
-        if ($__ivRes):
-        ?>
-        <a href="info_vente.php" class="nav-item<?php echo ($currentPage??'')==='info_vente'?' active':''; ?>">
-            <i class="fas fa-trophy"></i><span>Classement Ventes</span>
-        </a>
+        <a href="info_vente.php" class="nav-item<?php echo $currentPage==='info_vente'?' active':''; ?>" title="Classement Ventes"><i class="fas fa-trophy"></i><span class="nav-lbl">Classement Ventes</span></a>
         <?php endif; ?>
-<a href="<?php echo SITE_URL; ?>/pages/dashboard.php" class="nav-item">
-            <i class="fas fa-home"></i><span>Accueil MDT</span>
-        </a>
-        <a href="<?php echo SITE_URL; ?>/logout.php" class="nav-item">
-            <i class="fas fa-sign-out-alt"></i><span>Déconnexion</span>
-        </a>
+        <div class="nav-divider"></div>
+        <a href="<?php echo SITE_URL; ?>/pages/dashboard.php" class="nav-item" title="Accueil MDT"><i class="fas fa-house"></i><span class="nav-lbl">Accueil MDT</span></a>
     </nav>
+    <div class="company-usercard">
+        <div class="uc-avatar"><?php if(!empty($_SESSION['user_avatar'])): ?><img src="<?php echo htmlspecialchars($_SESSION['user_avatar']); ?>" alt=""><?php else: ?><?php echo htmlspecialchars(strtoupper(mb_substr($__ucName,0,1))); ?><?php endif; ?></div>
+        <div class="uc-meta">
+            <div class="uc-name"><?php echo htmlspecialchars($__ucName); ?></div>
+            <div class="uc-grade"><?php echo htmlspecialchars($__ucGrade); ?></div>
+        </div>
+        <div class="uc-actions">
+            <a href="<?php echo SITE_URL; ?>/pages/espace-perso.php" class="uc-btn" title="Espace personnel"><i class="fas fa-id-card-clip"></i></a>
+            <a href="<?php echo SITE_URL; ?>/profile.php" class="uc-btn" title="Connexion"><i class="fas fa-user-gear"></i></a>
+            <a href="<?php echo SITE_URL; ?>/logout.php" class="uc-btn" title="Déconnexion"><i class="fas fa-right-from-bracket"></i></a>
+        </div>
+    </div>
 </aside>
+<div class="cmp-scrim" id="cmpScrim" onclick="Company.toggleSidebar(false)"></div>
 
 <main class="main-content">
     <div class="company-topbar">
-        <h1 class="page-title"><?php echo htmlspecialchars($pageTitle ?? ''); ?></h1>
-        <span class="user-badge">
-            <?php echo htmlspecialchars(mdt_session_display_name()); ?>
-            &nbsp;·&nbsp;
-            <?php echo htmlspecialchars($_SESSION['user_faction_grade'] ?? $_SESSION['user_faction_rank'] ?? 'Employé'); ?>
-        </span>
+        <div class="cmp-topbar-left">
+            <button type="button" class="cmp-nav-toggle" onclick="Company.toggleSidebar()" aria-label="Ouvrir le menu"><i class="fas fa-bars"></i></button>
+            <h1 class="page-title"><?php echo htmlspecialchars($pageTitle ?? ''); ?></h1>
+        </div>
+        <span class="cmp-grade-chip"><?php echo htmlspecialchars($__ucGrade); ?></span>
     </div>
     <div class="page-content">

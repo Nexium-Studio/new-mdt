@@ -178,7 +178,7 @@ body{font-family:'Inter','Segoe UI',Arial,sans-serif;background:#eef1f5;color:#1
 .doc-hd{display:flex;justify-content:space-between;align-items:flex-start;gap:1.4rem;padding:1.9rem 2.2rem 1.4rem;border-bottom:2px solid {$c1}}
 .doc-brand{display:flex;align-items:center;gap:1rem}
 .doc-logo{width:56px;height:56px;border-radius:50%;border:2px solid {$c1};display:flex;align-items:center;justify-content:center;overflow:hidden;background:#fff;color:{$c1};flex-shrink:0}
-.doc-logo img{width:100%;height:100%;object-fit:contain;padding:6px}
+.doc-logo img{width:100%;height:100%;object-fit:cover;border-radius:50%;padding:0;display:block}
 .doc-brand-name{font-weight:800;font-size:1.05rem;color:#111827}
 .doc-brand-sub{font-size:.7rem;color:#6b7280;text-transform:uppercase;letter-spacing:.09em}
 .doc-hd-right{text-align:right}
