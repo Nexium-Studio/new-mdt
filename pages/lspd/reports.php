@@ -7,7 +7,53 @@ $pageTitle='Rapports'; $db=Database::getInstance()->getConnection();
 $uid=(int)($_SESSION['user_id']??0);
 $_uf=$_SESSION['user_faction']??'';
 $_ur=$_SESSION['user_role']??'';
-$msg='';$msgType='';$newId=null;
+$msg='';$msgType='';$newId=null;$newDocUrl=null;
+require_once ROOT_PATH . '/includes/mdt_display_name.php';
+require_once ROOT_PATH . '/pages/lspd/includes/report_document.php';
+require_once ROOT_PATH . '/includes/lspd_cdn.php';
+
+// ── CDN images (section « Preuves & pièces jointes ») : upload / liste ───────
+$__imgAction = $_POST['img_action'] ?? $_GET['img_action'] ?? '';
+if ($__imgAction !== '') {
+    header('Content-Type: application/json');
+    if ($__imgAction === 'upload')   { echo json_encode(lspd_cdn_store_file_raw($_FILES['file'] ?? [])); exit; }
+    if ($__imgAction === 'cdn_list') { echo json_encode(['success'=>true,'images'=>array_map(fn($r)=>['url'=>$r['public_url'],'title'=>$r['title']], lspd_cdn_all($db))]); exit; }
+    echo json_encode(['success'=>false,'error'=>'Action inconnue']); exit;
+}
+
+// Colonnes additionnelles (idempotent) : génération + document + workflow DOJ
+try {
+    $__rc = array_column($db->query("SHOW COLUMNS FROM reports")->fetchAll(PDO::FETCH_ASSOC),'Field');
+    if(!in_array('arrest_details',$__rc)) $db->exec("ALTER TABLE reports ADD COLUMN arrest_details LONGTEXT NULL");
+    if(!in_array('document_url',$__rc))   $db->exec("ALTER TABLE reports ADD COLUMN document_url VARCHAR(500) NULL");
+    if(!in_array('doj_alert',$__rc))      $db->exec("ALTER TABLE reports ADD COLUMN doj_alert TINYINT(1) NOT NULL DEFAULT 0");
+    if(!in_array('doj_treated',$__rc))    $db->exec("ALTER TABLE reports ADD COLUMN doj_treated TINYINT(1) NOT NULL DEFAULT 0");
+} catch(Exception $e){}
+
+// Quantité (multiplicateur) par infraction sur un rapport (idempotent).
+$__pccHasQty = false;
+try {
+    $__pcc = array_column($db->query("SHOW COLUMNS FROM report_penal_codes")->fetchAll(PDO::FETCH_ASSOC),'Field');
+    if(!in_array('quantity',$__pcc)) { $db->exec("ALTER TABLE report_penal_codes ADD COLUMN quantity INT NOT NULL DEFAULT 1"); $__pcc[]='quantity'; }
+    $__pccHasQty = in_array('quantity',$__pcc);
+} catch(Exception $e){}
+
+// Un rapport doit-il alerter le DOJ ? = au moins un de ses tags a doj_alert=1.
+if (!function_exists('lspd_tags_trigger_doj')) {
+    function lspd_tags_trigger_doj(PDO $db, $tags): int {
+        $labels = is_array($tags) ? $tags : (json_decode((string)$tags, true) ?: []);
+        $labels = array_values(array_filter(array_map('strval', $labels), fn($l)=>trim($l)!==''));
+        if (empty($labels)) return 0;
+        try {
+            $cols = array_column($db->query("SHOW COLUMNS FROM report_tags")->fetchAll(PDO::FETCH_ASSOC),'Field');
+            if (!in_array('doj_alert', $cols, true)) return 0;
+            $ph = implode(',', array_fill(0, count($labels), '?'));
+            $st = $db->prepare("SELECT COUNT(*) FROM report_tags WHERE doj_alert=1 AND label IN ($ph)");
+            $st->execute($labels);
+            return ((int)$st->fetchColumn() > 0) ? 1 : 0;
+        } catch (Throwable $e) { return 0; }
+    }
+}
 
 // ── POST ACTIONS ──────────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['submit_report'])) {
@@ -27,6 +73,8 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['submit_report'])) {
         $descRich=$_POST['description_rich']??'';
         $descPlain=strip_tags($descRich);
         $internalNotes=trim($_POST['internal_notes']??'');
+        $arrestDetails=trim($_POST['arrest_details']??'');
+        if($arrestDetails===''||strtolower($arrestDetails)==='null') $arrestDetails=null;
 
         // Evidence URLs
         $evidenceUrls=[];
@@ -43,6 +91,8 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['submit_report'])) {
         $hasLocation=in_array('location',$existingCols);
         $hasVehicles=in_array('vehicles',$existingCols);
         $hasNotes   =in_array('internal_notes',$existingCols);
+        $hasArrest  =in_array('arrest_details',$existingCols);
+        $hasDoj     =in_array('doj_alert',$existingCols);
 
         $cols=['type','title','tags','evidence','officers','officers_involved','civilians','witnesses','suspects','description','description_rich','faction','created_by'];
         $vals=[$type,$title,$tags,$evidence,$officers,$officers,$civilians,$witnesses,$suspects,$descPlain,$descRich,$_uf,$uid];
@@ -51,6 +101,8 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['submit_report'])) {
         if($hasLocation){$cols[]='location';$vals[]=$location?:null;$cols[]='incident_at';$vals[]=$incidentAt;}
         if($hasVehicles){$cols[]='vehicles';$vals[]=$vehicles;}
         if($hasNotes){$cols[]='internal_notes';$vals[]=$internalNotes?:null;}
+        if($hasArrest){$cols[]='arrest_details';$vals[]=$arrestDetails;}
+        if($hasDoj){$cols[]='doj_alert';$vals[]=lspd_tags_trigger_doj($db,$_POST['tags']??[]);}
 
         $db->prepare("INSERT INTO reports (".implode(',',$cols).") VALUES (".implode(',',array_fill(0,count($cols),'?')).")")->execute($vals);
         $newId=$db->lastInsertId();
@@ -60,11 +112,14 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['submit_report'])) {
             $pcIds=json_decode($_POST['penal_codes'],true);
             if(is_array($pcIds)){
                 try{
-                    $sp=$db->prepare("INSERT IGNORE INTO report_penal_codes (report_id,penal_code_id) VALUES (?,?)");
+                    $sp = $__pccHasQty
+                        ? $db->prepare("INSERT IGNORE INTO report_penal_codes (report_id,penal_code_id,quantity) VALUES (?,?,?)")
+                        : $db->prepare("INSERT IGNORE INTO report_penal_codes (report_id,penal_code_id) VALUES (?,?)");
                     foreach($pcIds as $pcEntry){
-                        // Nouveau format [{id,level,fine,up}] ou ancien format [int]
+                        // Nouveau format [{id,level,fine,up,qty}] ou ancien format [int]
                         $pcId = is_array($pcEntry) ? intval($pcEntry['id']) : intval($pcEntry);
-                        if($pcId>0) $sp->execute([$newId,$pcId]);
+                        $qty  = is_array($pcEntry) ? max(1,intval($pcEntry['qty']??1)) : 1;
+                        if($pcId>0){ $__pccHasQty ? $sp->execute([$newId,$pcId,$qty]) : $sp->execute([$newId,$pcId]); }
                     }
                 }catch(Exception $e){}
             }
@@ -223,7 +278,30 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['submit_report'])) {
             }
         }
         // ── FIN SYNC saisies ─────────────────────────────────────────────
+
+        // ── DOCUMENT OFFICIEL (même moteur que les certificats PPA) ──────
+        if ($newId) {
+            try {
+                $rowD=$db->prepare("SELECT r.*,u.username AS auteur FROM reports r LEFT JOIN users u ON u.id=r.created_by WHERE r.id=?");
+                $rowD->execute([$newId]); $rowD=$rowD->fetch(PDO::FETCH_ASSOC);
+                if($rowD){ $newDocUrl=lspd_build_report_document($db,$rowD); if($newDocUrl){ $db->prepare("UPDATE reports SET document_url=? WHERE id=?")->execute([$newDocUrl,$newId]); } }
+            } catch(Exception $eD){ error_log('LSPD doc gen: '.$eD->getMessage()); }
+        }
     } catch(Exception $e){$msg=$e->getMessage();$msgType='error';}
+}
+
+// ── GÉNÉRER / RÉGÉNÉRER LE DOCUMENT À LA DEMANDE (rapports existants) ───────
+if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['generate_document'])) {
+    $rid=intval($_POST['report_id']??0);
+    $rChk=$db->prepare("SELECT created_by FROM reports WHERE id=? AND faction='LSPD'");$rChk->execute([$rid]);$rr=$rChk->fetch();
+    if($rr && ($rr['created_by']==$uid || hasRole(['*','Administrateur','Développeur','Staff']))){
+        try{
+            $rowD=$db->prepare("SELECT r.*,u.username AS auteur FROM reports r LEFT JOIN users u ON u.id=r.created_by WHERE r.id=?");
+            $rowD->execute([$rid]); $rowD=$rowD->fetch(PDO::FETCH_ASSOC);
+            if($rowD){ $du=lspd_build_report_document($db,$rowD); if($du){ $db->prepare("UPDATE reports SET document_url=? WHERE id=?")->execute([$du,$rid]); } }
+        }catch(Exception $eD){ error_log('LSPD doc ondemand: '.$eD->getMessage()); }
+    }
+    header('Location: reports.php?id='.$rid); exit;
 }
 
 if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['delete_report'])) {
@@ -260,6 +338,8 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['edit_report'])) {
             $descRich = $_POST['description_rich']??'';
             $descPlain= strip_tags($descRich);
             $internalNotes = trim($_POST['internal_notes']??'');
+            $arrestDetails=trim($_POST['arrest_details']??'');
+            if($arrestDetails===''||strtolower($arrestDetails)==='null') $arrestDetails=null;
             $evidenceUrls=[];
             if(!empty($_POST['evidence_urls'])){
                 foreach(preg_split('/[
@@ -275,6 +355,8 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['edit_report'])) {
             $hasLocation=in_array('location',$existingCols);
             $hasVehicles=in_array('vehicles',$existingCols);
             $hasNotes   =in_array('internal_notes',$existingCols);
+            $hasArrest  =in_array('arrest_details',$existingCols);
+            $hasDoj     =in_array('doj_alert',$existingCols);
 
             $sets=[]; $vals=[];
             $sets[]='type=?';              $vals[]=$type;
@@ -292,6 +374,8 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['edit_report'])) {
             if($hasLocation){ $sets[]='location=?';       $vals[]=$location?:null; $sets[]='incident_at=?'; $vals[]=$incidentAt; }
             if($hasVehicles){ $sets[]='vehicles=?';       $vals[]=$vehicles; }
             if($hasNotes)   { $sets[]='internal_notes=?'; $vals[]=$internalNotes?:null; }
+            if($hasArrest)  { $sets[]='arrest_details=?'; $vals[]=$arrestDetails; }
+            if($hasDoj)     { $sets[]='doj_alert=?';     $vals[]=lspd_tags_trigger_doj($db,$_POST['tags']??[]); }
             $vals[]=$rid;
             $db->prepare("UPDATE reports SET ".implode(',',$sets)." WHERE id=?")->execute($vals);
 
@@ -300,23 +384,45 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['edit_report'])) {
             if(!empty($_POST['penal_codes'])){
                 $pcIds=json_decode($_POST['penal_codes'],true);
                 if(is_array($pcIds)){
-                    $sp=$db->prepare("INSERT IGNORE INTO report_penal_codes (report_id,penal_code_id) VALUES (?,?)");
+                    $sp = $__pccHasQty
+                        ? $db->prepare("INSERT IGNORE INTO report_penal_codes (report_id,penal_code_id,quantity) VALUES (?,?,?)")
+                        : $db->prepare("INSERT IGNORE INTO report_penal_codes (report_id,penal_code_id) VALUES (?,?)");
                     foreach($pcIds as $pcEntry){
                         $pcId=is_array($pcEntry)?intval($pcEntry['id']):intval($pcEntry);
-                        if($pcId>0) $sp->execute([$rid,$pcId]);
+                        $qty =is_array($pcEntry)?max(1,intval($pcEntry['qty']??1)):1;
+                        if($pcId>0){ $__pccHasQty ? $sp->execute([$rid,$pcId,$qty]) : $sp->execute([$rid,$pcId]); }
                     }
                 }
             }
+            // ── RÉGÉNÉRATION DU DOCUMENT OFFICIEL ────────────────────────
+            try {
+                $rowD=$db->prepare("SELECT r.*,u.username AS auteur FROM reports r LEFT JOIN users u ON u.id=r.created_by WHERE r.id=?");
+                $rowD->execute([$rid]); $rowD=$rowD->fetch(PDO::FETCH_ASSOC);
+                if($rowD){ $du=lspd_build_report_document($db,$rowD); if($du){ $db->prepare("UPDATE reports SET document_url=? WHERE id=?")->execute([$du,$rid]); } }
+            } catch(Exception $eD){ error_log('LSPD doc regen: '.$eD->getMessage()); }
+            lspd_log($db,$uid,'edit_report','reports',$rid,'Rapport #'.str_pad($rid,6,'0',STR_PAD_LEFT),$type.' — '.$title);
             header('Location: reports.php?id='.$rid.'&edited=1'); exit;
-        lspd_log($db,$uid,'edit_report','reports',$rid,'Rapport #'.str_pad($rid,6,'0',STR_PAD_LEFT),$type.' — '.$title);
         } catch(Exception $e){ $msg=$e->getMessage(); $msgType='error'; }
     }
 }
 
 // ── DATA FOR FORM ─────────────────────────────────────────────────────────
-$officers_list=[];try{$officers_list=$db->query("SELECT id,username,faction,faction_grade FROM users WHERE faction IN ('LSPD','LSSD') AND is_active=1 ORDER BY username")->fetchAll();}catch(Exception $e){}
-$profiles_list=[];try{$profiles_list=$db->query("SELECT id,firstname,lastname FROM profiles ORDER BY lastname,firstname LIMIT 300")->fetchAll();}catch(Exception $e){}
-$vehicles_list=[];try{$vehicles_list=$db->query("SELECT v.id,v.plate,v.model,CONCAT(p.firstname,' ',p.lastname) AS owner_name FROM vehicles v LEFT JOIN profiles p ON p.id=v.owner_id ORDER BY v.plate LIMIT 200")->fetchAll();}catch(Exception $e){}
+$officers_list=[];try{$officers_list=$db->query("SELECT u.id,u.username,u.faction,u.faction_grade,u.avatar,pr.firstname,pr.lastname FROM users u LEFT JOIN profiles pr ON pr.id=u.profile_id WHERE u.faction IN ('LSPD','LSSD') AND u.is_active=1 ORDER BY u.username")->fetchAll();}catch(Exception $e){}
+$profiles_list=[];try{$profiles_list=$db->query("SELECT id,firstname,lastname,phone,avatar FROM profiles ORDER BY lastname,firstname LIMIT 800")->fetchAll();}catch(Exception $e){}
+$vehicles_list=[];try{$vehicles_list=$db->query("SELECT v.id,v.plate,v.model,CONCAT(p.firstname,' ',p.lastname) AS owner_name FROM vehicles v LEFT JOIN profiles p ON p.id=v.owner_id ORDER BY v.plate LIMIT 400")->fetchAll();}catch(Exception $e){}
+
+// ── Jeux de données pour le sélecteur (MdtPicker) — format {id,name,sub,avatar} ──
+$officersPicker=[];foreach($officers_list as $o){
+    $__nm=mdt_rp_display_name($o['firstname']??'',$o['lastname']??'',$o['username']??'');
+    $__sub=trim(($o['faction']??'').(!empty($o['faction_grade'])?' · '.$o['faction_grade']:''));
+    $officersPicker[]=['id'=>(int)$o['id'],'name'=>$__nm,'sub'=>$__sub,'avatar'=>$o['avatar']??null];
+}
+$profilesPicker=[];foreach($profiles_list as $p){
+    $profilesPicker[]=['id'=>(int)$p['id'],'name'=>trim(($p['firstname']??'').' '.($p['lastname']??'')),'sub'=>$p['phone']??'','avatar'=>$p['avatar']??null];
+}
+$vehiclesPicker=[];foreach($vehicles_list as $v){
+    $vehiclesPicker[]=['id'=>(int)$v['id'],'name'=>$v['plate'],'sub'=>trim(($v['model']??'').(!empty($v['owner_name'])?' · '.$v['owner_name']:'')),'avatar'=>null];
+}
 $penalCodes=[];try{$penalCodes=$db->query("SELECT id,code,nom_code,title,category,min_fine,max_fine,min_jail_months,max_jail_months,severity,gravity_fines,gravity_up FROM penal_code WHERE active=1 ORDER BY category,severity DESC,code LIMIT 500")->fetchAll();}catch(Exception $e){}
 
 // Tags from DB (staff-managed)
@@ -347,7 +453,7 @@ if($viewId>0){$s=$db->prepare("SELECT r.*,u.username AS auteur FROM reports r LE
 
 // ── Mode édition ──────────────────────────────────────────────────────────
 $editId = intval($_GET['edit']??0);
-$editReport = null; $editPenalCodes = [];
+$editReport = null; $editPenalCodes = []; $editPenalQty = [];
 if ($editId > 0) {
     $s2=$db->prepare("SELECT r.*,u.username AS auteur FROM reports r LEFT JOIN users u ON u.id=r.created_by WHERE r.id=? AND r.faction='LSPD'");
     $s2->execute([$editId]); $editReport=$s2->fetch();
@@ -357,9 +463,13 @@ if ($editId > 0) {
     }
     if ($editReport) {
         try {
-            $epSt=$db->prepare("SELECT rpc.penal_code_id AS id FROM report_penal_codes rpc WHERE rpc.report_id=?");
+            $epSt=$db->prepare($__pccHasQty
+                ? "SELECT rpc.penal_code_id AS id, rpc.quantity FROM report_penal_codes rpc WHERE rpc.report_id=?"
+                : "SELECT rpc.penal_code_id AS id, 1 AS quantity FROM report_penal_codes rpc WHERE rpc.report_id=?");
             $epSt->execute([$editId]);
-            $editPenalCodes=array_column($epSt->fetchAll(PDO::FETCH_ASSOC),'id');
+            $__epRows=$epSt->fetchAll(PDO::FETCH_ASSOC);
+            $editPenalCodes=array_column($__epRows,'id');
+            foreach($__epRows as $__r){ $editPenalQty[(int)$__r['id']]=max(1,(int)($__r['quantity']??1)); }
         } catch(Exception $e){}
     }
 }
@@ -409,6 +519,17 @@ $RTYPES=['RA'=>['RA — Rapport d\'Arrestation','bg-red'],'Shooting Report'=>['R
 $RSTATUS=['draft'=>['Brouillon','bg-gray'],'submitted'=>['Soumis','bg-blue'],'approved'=>['Approuvé','bg-green'],'closed'=>['Clôturé','bg-gray']];
 $RPRIO=['low'=>['Basse','bg-green'],'normal'=>['Normale','bg-blue'],'high'=>['Haute','bg-yellow'],'critical'=>['Critique','bg-red']];
 
+// ── Contexte formulaire (création/édition) pour l'initialisation du MdtPicker ──
+$__isForm = (isset($_GET['new']) || ($editId>0 && $editReport));
+$__inEdit = ($editId>0 && $editReport);
+$__presel = [
+    'officers'  => $__inEdit ? (json_decode($editReport['officers']??'[]',true)?:[]) : [$uid],
+    'suspects'  => $__inEdit ? (json_decode($editReport['suspects']??'[]',true)?:[]) : [],
+    'civilians' => $__inEdit ? (json_decode($editReport['civilians']??'[]',true)?:[]) : [],
+    'witnesses' => $__inEdit ? (json_decode($editReport['witnesses']??'[]',true)?:[]) : [],
+    'vehicles'  => $__inEdit ? (json_decode($editReport['vehicles']??'[]',true)?:[]) : [],
+];
+
 include __DIR__ . '/includes/header.php';
 ?>
 <style>
@@ -428,7 +549,7 @@ include __DIR__ . '/includes/header.php';
 .ebtn{width:28px;height:28px;border-radius:5px;background:transparent;border:1px solid transparent;color:var(--txt-s);cursor:pointer;transition:all .15s;font-size:.78rem}
 .ebtn:hover{background:rgba(37,99,235,.1);border-color:rgba(37,99,235,.2);color:var(--blue-xl)}
 .esel{background:rgba(0,0,0,.2);border:1px solid rgba(37,99,235,.12);border-radius:5px;color:var(--txt-s);font-size:.72rem;padding:3px 6px}.esel option{background:#0a1020}
-.re{min-height:200px;padding:1rem;background:rgba(0,0,0,.08);color:var(--txt);font-family:'IBM Plex Sans',inherit;font-size:.86rem;line-height:1.7;outline:none}
+.re{min-height:200px;padding:1rem;background:rgba(0,0,0,.08);color:var(--txt);font-family:'Inter',inherit;font-size:.86rem;line-height:1.7;outline:none}
 .re:empty::before{content:attr(data-ph);color:var(--txt-m);font-style:italic}
 /* MultiSelect */
 .msb{max-height:180px;overflow-y:auto;background:rgba(0,0,0,.15);border:1px solid rgba(37,99,235,.18);border-radius:9px}
@@ -481,6 +602,12 @@ include __DIR__ . '/includes/header.php';
 .pc-grav-btn.active{background:var(--lc,#3b82f6)25;border-color:var(--lc,#3b82f6);box-shadow:0 0 10px var(--lc,#3b82f6)22;transform:scale(1.05)}
 .pc-grav-result{margin-top:.45rem;padding:.3rem .55rem;background:rgba(37,99,235,.08);border:1px solid rgba(37,99,235,.18);border-radius:6px;font-size:.7rem;display:flex;gap:.65rem;align-items:center}
 .pc-grav-result span{font-family:'IBM Plex Mono',monospace;font-weight:700}
+.pc-qty{display:none;align-items:center;justify-content:space-between;gap:.5rem;margin-top:.55rem;padding-top:.5rem;border-top:1px solid rgba(37,99,235,.12)}
+.pc-qty-lbl{font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--txt-m)}
+.pc-qty-ctl{display:flex;align-items:center;gap:.4rem}
+.pc-qty-btn{width:24px;height:24px;border-radius:6px;border:1px solid rgba(37,99,235,.3);background:rgba(37,99,235,.1);color:var(--blue-xl);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.6rem;transition:all .15s;font-family:inherit}
+.pc-qty-btn:hover{background:rgba(37,99,235,.22);border-color:var(--blue)}
+.pc-qty-val{min-width:34px;text-align:center;font-family:'IBM Plex Mono',monospace;font-weight:800;font-size:.82rem;color:#fde68a}
 .pcc:hover{background:rgba(37,99,235,.07);border-color:rgba(37,99,235,.2);transform:translateY(-1px)}
 .pcc.sel{background:rgba(37,99,235,.12);border-color:var(--blue)}
 .pcc.sel::after{content:'\f00c';font-family:'Font Awesome 5 Free';font-weight:900;position:absolute;top:6px;right:6px;width:18px;height:18px;background:var(--blue);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;color:#fff}
@@ -507,16 +634,29 @@ include __DIR__ . '/includes/header.php';
 /* Submit bar */
 .subbar{position:sticky;bottom:0;background:rgba(3,8,15,.95);backdrop-filter:blur(10px);border-top:1px solid var(--bdr);padding:.9rem 1.65rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin:0 -1.65rem -1.4rem;z-index:50}
 @media(max-width:1100px){.rp-layout{grid-template-columns:1fr}}
+
+/* ── Scrollbar personnalisée (page création de rapports) ── */
+html{scrollbar-width:thin;scrollbar-color:rgba(37,99,235,.5) transparent}
+*{scrollbar-width:thin;scrollbar-color:rgba(37,99,235,.45) transparent}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:rgba(3,8,15,.4);border-radius:8px}
+::-webkit-scrollbar-thumb{background:linear-gradient(180deg,rgba(96,165,250,.6),rgba(37,99,235,.45));border-radius:8px;border:2px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-thumb:hover{background:linear-gradient(180deg,rgba(147,197,253,.85),rgba(37,99,235,.65));background-clip:padding-box}
+::-webkit-scrollbar-corner{background:transparent}
+/* Le rail de la sidebar (.ls-sb) garde son style dédié via un sélecteur plus spécifique. */
 </style>
 
 <?php // ── SUCCESS STATE ────────────────────────────────────────────────
 if($msgType==='success'&&$newId):?>
 <div style="text-align:center;padding:4rem 2rem;background:var(--bg-c);border:1px solid rgba(16,185,129,.3);border-radius:16px">
     <div style="width:72px;height:72px;border-radius:50%;background:rgba(16,185,129,.15);border:2px solid rgba(16,185,129,.4);display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem;font-size:1.75rem;color:#6ee7b7"><i class="fas fa-check"></i></div>
-    <div style="font-family:'Syne',serif;font-size:1.4rem;font-weight:800;color:#fff;margin-bottom:.5rem">Rapport créé avec succès</div>
+    <div style="font-family:'Montserrat',sans-serif;font-size:1.4rem;font-weight:800;color:#fff;margin-bottom:.5rem">Rapport créé avec succès</div>
     <div style="font-family:'IBM Plex Mono',monospace;font-size:1.1rem;color:#6ee7b7;margin-bottom:1rem">#<?php echo str_pad($newId,6,'0',STR_PAD_LEFT);?></div>
     <div style="display:flex;gap:.75rem;justify-content:center;flex-wrap:wrap">
-        <a href="reports.php" class="btn btn-secondary"><i class="fas fa-list"></i> Tous les rapports</a>
+        <?php if(!empty($newDocUrl)):?>
+        <a href="<?php echo htmlspecialchars($newDocUrl);?>" target="_blank" onclick="return mdtOpenDoc('<?php echo htmlspecialchars($newDocUrl);?>','doc','Rapport #<?php echo str_pad($newId,6,'0',STR_PAD_LEFT);?>')" class="btn btn-secondary"><i class="fas fa-file-lines"></i> Voir le document</a>
+        <?php endif;?>
+        <a href="reports.php?id=<?php echo (int)$newId;?>" class="btn btn-secondary"><i class="fas fa-eye"></i> Voir le rapport</a>
         <a href="reports.php?new=1" class="btn btn-primary"><i class="fas fa-plus"></i> Nouveau rapport</a>
     </div>
 </div>
@@ -531,6 +671,11 @@ elseif($viewReport):
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.1rem;flex-wrap:wrap;gap:.75rem">
     <a href="reports.php" class="btn btn-ghost btn-sm"><i class="fas fa-arrow-left"></i> Rapports</a>
     <div style="display:flex;gap:.5rem">
+        <?php if(!empty($viewReport['document_url'])):?>
+        <a href="<?php echo htmlspecialchars($viewReport['document_url']);?>" target="_blank" onclick="return mdtOpenDoc('<?php echo htmlspecialchars($viewReport['document_url']);?>','doc','Rapport #<?php echo str_pad($viewReport['id'],6,'0',STR_PAD_LEFT);?>')" class="btn btn-secondary btn-sm"><i class="fas fa-file-lines"></i> Voir le document</a>
+        <?php elseif($viewReport['created_by']==$uid||$_canAdmin):?>
+        <form method="POST" style="margin:0"><input type="hidden" name="generate_document" value="1"><input type="hidden" name="report_id" value="<?php echo $viewReport['id'];?>"><button type="submit" class="btn btn-secondary btn-sm"><i class="fas fa-file-circle-plus"></i> Générer le document</button></form>
+        <?php endif;?>
         <?php if($viewReport['created_by']==$uid||$_canAdmin):?>
         <a href="reports.php?edit=<?php echo $viewReport['id'];?>" class="btn btn-secondary btn-sm">
             <i class="fas fa-pen-to-square"></i> Modifier
@@ -544,7 +689,7 @@ elseif($viewReport):
     <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.75rem">
         <div>
             <span class="badge <?php echo $rtb;?>" style="margin-bottom:.45rem;font-size:.72rem"><?php echo $rtl;?></span>
-            <div style="font-family:'Syne',serif;font-size:1.2rem;font-weight:800;color:#fff"><?php echo htmlspecialchars($viewReport['title']);?></div>
+            <div style="font-family:'Montserrat',sans-serif;font-size:1.2rem;font-weight:800;color:#fff"><?php echo htmlspecialchars($viewReport['title']);?></div>
         </div>
         <div style="text-align:right">
             <div style="font-size:.72rem;color:var(--txt-m)">Par <strong style="color:var(--txt)"><?php echo htmlspecialchars($viewReport['auteur']??'—');?></strong></div>
@@ -639,9 +784,9 @@ $isEdit = ($editId>0 && $editReport);
     <div class="s-line" id="sl2"></div>
     <div class="step" id="stp3"><div class="s-num">3</div><span class="s-lbl">Code Pénal</span></div>
     <div class="s-line" id="sl3"></div>
-    <div class="step" id="stp4"><div class="s-num">4</div><span class="s-lbl">Description</span></div>
+    <div class="step" id="stp4"><div class="s-num">4</div><span class="s-lbl">Saisies</span></div>
     <div class="s-line" id="sl4"></div>
-    <div class="step" id="stp5"><div class="s-num">5</div><span class="s-lbl">Saisies</span></div>
+    <div class="step" id="stp5"><div class="s-num">5</div><span class="s-lbl">Description</span></div>
     <div class="s-line" id="sl5"></div>
     <div class="step" id="stp6"><div class="s-num">6</div><span class="s-lbl">Preuves</span></div>
 </div>
@@ -657,6 +802,7 @@ $isEdit = ($editId>0 && $editReport);
 <input type="hidden" name="description_rich" id="dRichInput">
 <input type="hidden" name="saisies_data" id="saisiesInput" value="[]">
 <input type="hidden" name="linked_saisies_ids" id="linkedSaisiesInput" value="[]">
+<input type="hidden" name="arrest_details" id="arrestDetailsInput" value="<?php echo $isEdit?htmlspecialchars($editReport['arrest_details']??'',ENT_QUOTES):'';?>">
 
 <!-- 1. TYPE & INFOS -->
 <div class="card" id="s1">
@@ -712,33 +858,31 @@ $isEdit = ($editId>0 && $editReport);
     <div class="card-title"><i class="fas fa-users"></i> Personnes Impliquées</div>
     <div class="form-grid">
         <div class="form-group"><label class="form-label"><i class="fas fa-shield-halved" style="color:var(--blue-l)"></i> Officiers impliqués</label>
-            <div class="msb"><div class="ms-sw"><i class="fas fa-search"></i><input type="text" class="ms-si" placeholder="Filtrer..." oninput="fMS(this)"></div>
-                <?php foreach($officers_list as $o):?><div class="msi"><input type="checkbox" name="officers[]" value="<?php echo $o['id'];?>" id="o<?php echo $o['id'];?>" onchange="cntMS(this,'offCnt')" <?php echo $o['id']==$uid?'checked':'';?>><label for="o<?php echo $o['id'];?>"><?php echo htmlspecialchars($o['username']);?></label><span class="ms-bge"><?php echo $o['faction'];echo $o['faction_grade']?' · '.htmlspecialchars($o['faction_grade']):'';?></span></div><?php endforeach;?>
-            </div><div style="font-size:.7rem;color:var(--txt-m);margin-top:.3rem"><span id="offCnt">1</span> sélectionné(s)</div>
+            <button type="button" class="btn btn-secondary btn-sm mp-trigger" onclick="pickFields.officers&&pickFields.officers.open()"><i class="fas fa-user-plus"></i> Sélectionner des officiers</button>
+            <div class="mp-chips" id="officersChips"></div>
+            <div style="font-size:.7rem;color:var(--txt-m);margin-top:.3rem"><span id="offCnt">0</span> sélectionné(s)</div>
         </div>
         <div class="form-group"><label class="form-label"><i class="fas fa-user-secret" style="color:#ef4444"></i> Suspects</label>
-            <div class="msb"><div class="ms-sw"><i class="fas fa-search"></i><input type="text" class="ms-si" placeholder="Filtrer..." oninput="fMS(this)"></div>
-                <?php foreach($profiles_list as $p):?><div class="msi"><input type="checkbox" name="suspects[]" value="<?php echo $p['id'];?>" id="su<?php echo $p['id'];?>" onchange="cntMS(this,'susCnt')"><label for="su<?php echo $p['id'];?>"><?php echo htmlspecialchars($p['firstname'].' '.$p['lastname']);?></label></div><?php endforeach;?>
-            </div><div style="font-size:.7rem;color:var(--txt-m);margin-top:.3rem"><span id="susCnt">0</span> sélectionné(s)</div>
+            <button type="button" class="btn btn-secondary btn-sm mp-trigger" onclick="pickFields.suspects&&pickFields.suspects.open()"><i class="fas fa-user-plus"></i> Sélectionner des suspects</button>
+            <div class="mp-chips" id="suspectsChips"></div>
+            <div style="font-size:.7rem;color:var(--txt-m);margin-top:.3rem"><span id="susCnt">0</span> sélectionné(s)</div>
         </div>
         <div class="form-group"><label class="form-label"><i class="fas fa-user" style="color:#22c55e"></i> Civils impliqués</label>
-            <div class="msb"><div class="ms-sw"><i class="fas fa-search"></i><input type="text" class="ms-si" placeholder="Filtrer..." oninput="fMS(this)"></div>
-                <?php foreach($profiles_list as $p):?><div class="msi"><input type="checkbox" name="civilians[]" value="<?php echo $p['id'];?>" id="ci<?php echo $p['id'];?>" onchange="cntMS(this,'civCnt')"><label for="ci<?php echo $p['id'];?>"><?php echo htmlspecialchars($p['firstname'].' '.$p['lastname']);?></label></div><?php endforeach;?>
-            </div><div style="font-size:.7rem;color:var(--txt-m);margin-top:.3rem"><span id="civCnt">0</span> sélectionné(s)</div>
+            <button type="button" class="btn btn-secondary btn-sm mp-trigger" onclick="pickFields.civilians&&pickFields.civilians.open()"><i class="fas fa-user-plus"></i> Sélectionner des civils</button>
+            <div class="mp-chips" id="civiliansChips"></div>
+            <div style="font-size:.7rem;color:var(--txt-m);margin-top:.3rem"><span id="civCnt">0</span> sélectionné(s)</div>
         </div>
         <div class="form-group"><label class="form-label"><i class="fas fa-eye" style="color:#f59e0b"></i> Témoins</label>
-            <div class="msb"><div class="ms-sw"><i class="fas fa-search"></i><input type="text" class="ms-si" placeholder="Filtrer..." oninput="fMS(this)"></div>
-                <?php foreach($profiles_list as $p):?><div class="msi"><input type="checkbox" name="witnesses[]" value="<?php echo $p['id'];?>" id="wi<?php echo $p['id'];?>" onchange="cntMS(this,'witCnt')"><label for="wi<?php echo $p['id'];?>"><?php echo htmlspecialchars($p['firstname'].' '.$p['lastname']);?></label></div><?php endforeach;?>
-            </div><div style="font-size:.7rem;color:var(--txt-m);margin-top:.3rem"><span id="witCnt">0</span> sélectionné(s)</div>
+            <button type="button" class="btn btn-secondary btn-sm mp-trigger" onclick="pickFields.witnesses&&pickFields.witnesses.open()"><i class="fas fa-user-plus"></i> Sélectionner des témoins</button>
+            <div class="mp-chips" id="witnessesChips"></div>
+            <div style="font-size:.7rem;color:var(--txt-m);margin-top:.3rem"><span id="witCnt">0</span> sélectionné(s)</div>
         </div>
     </div>
-    <?php if(!empty($vehicles_list)):?>
     <div style="margin-top:1rem"><label class="form-label"><i class="fas fa-car" style="color:var(--blue-l)"></i> Véhicules impliqués</label>
-        <div class="msb"><div class="ms-sw"><i class="fas fa-search"></i><input type="text" class="ms-si" placeholder="Filtrer par plaque..." oninput="fMS(this)"></div>
-            <?php foreach($vehicles_list as $v):?><div class="msi"><input type="checkbox" name="vehicles[]" value="<?php echo $v['id'];?>" id="ve<?php echo $v['id'];?>" onchange="cntMS(this,'vehCnt')"><label for="ve<?php echo $v['id'];?>"><span style="font-family:'IBM Plex Mono',monospace;color:var(--blue-xl);font-size:.75rem"><?php echo htmlspecialchars($v['plate']);?></span> — <?php echo htmlspecialchars($v['model']);?></label><?php if(!empty($v['owner_name'])):?><span class="ms-bge"><?php echo htmlspecialchars($v['owner_name']);?></span><?php endif;?></div><?php endforeach;?>
-        </div><div style="font-size:.7rem;color:var(--txt-m);margin-top:.3rem"><span id="vehCnt">0</span> véhicule(s)</div>
+        <button type="button" class="btn btn-secondary btn-sm mp-trigger" onclick="pickFields.vehicles&&pickFields.vehicles.open()"><i class="fas fa-magnifying-glass"></i> Rechercher un véhicule</button>
+        <div class="mp-chips" id="vehiclesChips"></div>
+        <div style="font-size:.7rem;color:var(--txt-m);margin-top:.3rem"><span id="vehCnt">0</span> véhicule(s)</div>
     </div>
-    <?php endif;?>
 </div>
 
 <!-- 3. CODE PÉNAL -->
@@ -813,33 +957,7 @@ $isEdit = ($editId>0 && $editReport);
 </div>
 <?php endif;?>
 
-<!-- 4. DESCRIPTION -->
-<div class="card" id="s4">
-    <div class="card-title"><i class="fas fa-pen-fancy"></i> Description du rapport *</div>
-    <div class="ew">
-        <div class="etb">
-            <select class="esel" onchange="fmtB(this.value);this.selectedIndex=0"><option value="">Paragraphe</option><option value="h2">Titre</option><option value="h3">Sous-titre</option></select>
-            <button type="button" class="ebtn" onclick="ec('bold')" title="Gras"><i class="fas fa-bold"></i></button>
-            <button type="button" class="ebtn" onclick="ec('italic')" title="Italique"><i class="fas fa-italic"></i></button>
-            <button type="button" class="ebtn" onclick="ec('underline')" title="Souligné"><i class="fas fa-underline"></i></button>
-            <button type="button" class="ebtn" onclick="ec('strikeThrough')"><i class="fas fa-strikethrough"></i></button>
-            <span style="width:1px;background:rgba(255,255,255,.06);margin:4px 2px"></span>
-            <button type="button" class="ebtn" onclick="ec('insertUnorderedList')"><i class="fas fa-list-ul"></i></button>
-            <button type="button" class="ebtn" onclick="ec('insertOrderedList')"><i class="fas fa-list-ol"></i></button>
-            <span style="width:1px;background:rgba(255,255,255,.06);margin:4px 2px"></span>
-            <button type="button" class="ebtn" onclick="ec('justifyLeft')"><i class="fas fa-align-left"></i></button>
-            <button type="button" class="ebtn" onclick="ec('justifyCenter')"><i class="fas fa-align-center"></i></button>
-            <button type="button" class="ebtn" onclick="ec('justifyRight')"><i class="fas fa-align-right"></i></button>
-            <span style="width:1px;background:rgba(255,255,255,.06);margin:4px 2px"></span>
-            <button type="button" class="ebtn" onclick="ec('insertHTML','<hr style=&quot;border-color:rgba(37,99,235,.3)&quot;>')"><i class="fas fa-minus"></i></button>
-            <button type="button" class="ebtn" onclick="ec('removeFormat')"><i class="fas fa-eraser"></i></button>
-        </div>
-        <div id="rEditor" class="re" contenteditable="true" data-ph="Décrivez les faits, le déroulement de l'intervention, les observations, les actions entreprises..." oninput="updCC()"></div>
-    </div>
-    <div style="font-size:.68rem;color:var(--txt-m);text-align:right;margin-top:.35rem"><span id="charCnt">0</span> caractères</div>
-</div>
-
-<!-- 5. SAISIES -->
+<!-- 4. SAISIES (repositionnées avant la description) -->
 <div class="card" id="s5">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
         <div class="card-title" style="margin:0"><i class="fas fa-box-archive"></i> Objets saisis</div>
@@ -963,11 +1081,42 @@ $isEdit = ($editId>0 && $editReport);
     </div>
 </div>
 
+<!-- 5. DESCRIPTION (repositionnée après les saisies) -->
+<div class="card" id="s4">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;margin-bottom:1rem">
+        <div class="card-title" style="margin:0"><i class="fas fa-pen-fancy"></i> Description du rapport *</div>
+        <button type="button" class="btn btn-primary btn-sm" onclick="openGenModal()"><i class="fas fa-wand-magic-sparkles"></i> Générer le rapport</button>
+    </div>
+    <div class="ew">
+        <div class="etb">
+            <select class="esel" onchange="fmtB(this.value);this.selectedIndex=0"><option value="">Paragraphe</option><option value="h2">Titre</option><option value="h3">Sous-titre</option></select>
+            <button type="button" class="ebtn" onclick="ec('bold')" title="Gras"><i class="fas fa-bold"></i></button>
+            <button type="button" class="ebtn" onclick="ec('italic')" title="Italique"><i class="fas fa-italic"></i></button>
+            <button type="button" class="ebtn" onclick="ec('underline')" title="Souligné"><i class="fas fa-underline"></i></button>
+            <button type="button" class="ebtn" onclick="ec('strikeThrough')"><i class="fas fa-strikethrough"></i></button>
+            <span style="width:1px;background:rgba(255,255,255,.06);margin:4px 2px"></span>
+            <button type="button" class="ebtn" onclick="ec('insertUnorderedList')"><i class="fas fa-list-ul"></i></button>
+            <button type="button" class="ebtn" onclick="ec('insertOrderedList')"><i class="fas fa-list-ol"></i></button>
+            <span style="width:1px;background:rgba(255,255,255,.06);margin:4px 2px"></span>
+            <button type="button" class="ebtn" onclick="ec('justifyLeft')"><i class="fas fa-align-left"></i></button>
+            <button type="button" class="ebtn" onclick="ec('justifyCenter')"><i class="fas fa-align-center"></i></button>
+            <button type="button" class="ebtn" onclick="ec('justifyRight')"><i class="fas fa-align-right"></i></button>
+            <span style="width:1px;background:rgba(255,255,255,.06);margin:4px 2px"></span>
+            <button type="button" class="ebtn" onclick="ec('insertHTML','<hr style=&quot;border-color:rgba(37,99,235,.3)&quot;>')"><i class="fas fa-minus"></i></button>
+            <button type="button" class="ebtn" onclick="ec('removeFormat')"><i class="fas fa-eraser"></i></button>
+        </div>
+        <div id="rEditor" class="re" contenteditable="true" data-ph="Décrivez les faits, le déroulement de l'intervention, les observations, les actions entreprises..." oninput="updCC()"></div>
+    </div>
+    <div style="font-size:.68rem;color:var(--txt-m);text-align:right;margin-top:.35rem"><span id="charCnt">0</span> caractères</div>
+</div>
+
 <!-- 6. PREUVES -->
 <div class="card" id="s6">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem"><div class="card-title" style="margin:0"><i class="fas fa-camera"></i> Preuves & Pièces jointes</div><span id="evCnt" style="font-size:.65rem;color:var(--txt-m)">0 fichier(s)</span></div>
-    <textarea name="evidence_urls" class="form-textarea" rows="3" placeholder="Une URL par ligne&#10;https://i.imgur.com/exemple.jpg" oninput="updEC()"><?php if($isEdit&&!empty($editReport['evidence'])){$__evArr=json_decode($editReport['evidence'],true)?:[];echo htmlspecialchars(implode("
-",$__evArr));}?></textarea>
+    <div style="font-size:.72rem;color:var(--txt-m);margin-bottom:.7rem"><i class="fas fa-circle-info" style="color:var(--blue-l);margin-right:.35rem"></i>Ajoutez des images depuis un <strong>fichier local</strong>, une <strong>URL directe</strong> ou le <strong>CDN interne LSPD</strong>. Prévisualisation et suppression avant validation.</div>
+    <div id="evidenceImagesField"></div>
+    <input type="hidden" id="evidenceImagesInput" value="<?php echo $isEdit&&!empty($editReport['evidence'])?htmlspecialchars($editReport['evidence'],ENT_QUOTES):'[]';?>">
+    <input type="hidden" name="evidence_urls" id="evidenceUrlsHidden" value="">
 </div>
 
 <!-- NOTES INTERNES -->
@@ -991,6 +1140,98 @@ $isEdit = ($editId>0 && $editReport);
     </div>
 </div>
 </form>
+
+<!-- ══ MODALE : GÉNÉRATION ASSISTÉE DU RAPPORT ══════════════════════════════ -->
+<div id="genModal" class="gen-ov">
+  <div class="gen-modal">
+    <div class="gen-hd">
+      <h2><i class="fas fa-wand-magic-sparkles"></i> Générer le rapport</h2>
+      <button type="button" class="gen-x" onclick="closeGenModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="gen-bd">
+      <div class="gen-sec"><i class="fas fa-circle-info"></i> Circonstances</div>
+      <div class="gen-grid">
+        <div class="gen-f"><label>Moyen d'information</label><input type="text" id="gen_moyen" class="form-input" placeholder="Patrouille, appel 911, flagrant délit…"></div>
+        <div class="gen-f"><label>Localisation exacte</label><input type="text" id="gen_loc" class="form-input" placeholder="Ex: Vinewood Blvd, station essence"></div>
+      </div>
+      <div class="gen-f"><label>Secteur</label>
+        <div class="gen-chips">
+          <?php foreach(['10','14','16','30','35','36'] as $sec):?>
+          <label class="chip" style="background:rgba(37,99,235,.12);border-color:rgba(37,99,235,.3);color:var(--blue-xl)"><input type="radio" name="gen_secteur" value="<?php echo $sec;?>" style="display:none">Secteur <?php echo $sec;?></label>
+          <?php endforeach;?>
+        </div>
+      </div>
+
+      <div class="gen-sec"><i class="fas fa-person-walking"></i> Comportement</div>
+      <div class="gen-grid">
+        <div class="gen-f"><label>Lors de l'arrestation</label>
+          <div class="gen-chips">
+            <?php foreach(['Coopératif'=>'#22c55e','Fuyant'=>'#f59e0b','Agressif'=>'#ef4444'] as $b=>$c):?>
+            <label class="chip" style="background:<?php echo $c;?>1a;border-color:<?php echo $c;?>33;color:<?php echo $c;?>"><input type="radio" name="gen_comp_arrestation" value="<?php echo $b;?>" style="display:none"><?php echo $b;?></label>
+            <?php endforeach;?>
+          </div>
+        </div>
+        <div class="gen-f"><label>Au poste</label>
+          <div class="gen-chips">
+            <?php foreach(['Coopératif'=>'#22c55e','Fuyant'=>'#f59e0b','Agressif'=>'#ef4444'] as $b=>$c):?>
+            <label class="chip" style="background:<?php echo $c;?>1a;border-color:<?php echo $c;?>33;color:<?php echo $c;?>"><input type="radio" name="gen_comp_poste" value="<?php echo $b;?>" style="display:none"><?php echo $b;?></label>
+            <?php endforeach;?>
+          </div>
+        </div>
+      </div>
+
+      <div class="gen-sec"><i class="fas fa-clock"></i> Garde à vue & lecture des droits</div>
+      <div class="gen-grid gen-grid-3">
+        <div class="gen-f"><label>Entrée en cellule</label><input type="text" id="gen_cell_in" class="form-input" placeholder="HH:MM"></div>
+        <div class="gen-f"><label>Sortie de cellule</label><input type="text" id="gen_cell_out" class="form-input" placeholder="HH:MM"></div>
+        <div class="gen-f"><label>Lecture Miranda</label><input type="text" id="gen_miranda" class="form-input" placeholder="HH:MM"></div>
+      </div>
+
+      <div class="gen-sec"><i class="fas fa-scale-balanced"></i> Suites</div>
+      <div class="gen-grid">
+        <div class="gen-f"><label>Amende payée</label>
+          <div class="gen-chips">
+            <?php foreach(['Oui'=>'#22c55e','Non'=>'#ef4444','En attente du DOJ'=>'#f59e0b'] as $b=>$c):?>
+            <label class="chip" style="background:<?php echo $c;?>1a;border-color:<?php echo $c;?>33;color:<?php echo $c;?>"><input type="radio" name="gen_amende" value="<?php echo htmlspecialchars($b,ENT_QUOTES);?>" style="display:none"><?php echo $b;?></label>
+            <?php endforeach;?>
+          </div>
+        </div>
+        <div class="gen-f"><label>Intervention médicale</label>
+          <div class="gen-chips">
+            <?php foreach(['Oui'=>'#22c55e','Non'=>'#94a3b8'] as $b=>$c):?>
+            <label class="chip" style="background:<?php echo $c;?>1a;border-color:<?php echo $c;?>33;color:<?php echo $c;?>"><input type="radio" name="gen_medical" value="<?php echo $b;?>" style="display:none"><?php echo $b;?></label>
+            <?php endforeach;?>
+          </div>
+        </div>
+      </div>
+
+      <div class="gen-sec"><i class="fas fa-align-left"></i> Faits</div>
+      <div class="gen-f"><textarea id="gen_faits" class="form-textarea" rows="4" placeholder="Décrivez brièvement les faits…"></textarea></div>
+    </div>
+    <div class="gen-ft">
+      <button type="button" class="btn btn-ghost btn-sm" onclick="closeGenModal()">Annuler</button>
+      <button type="button" class="btn btn-primary" id="genSubmitBtn" onclick="generateReport()"><i class="fas fa-file-lines"></i> Générer et insérer</button>
+    </div>
+  </div>
+</div>
+<style>
+.gen-ov{position:fixed;inset:0;z-index:100040;display:none;align-items:center;justify-content:center;background:rgba(3,6,15,.82);backdrop-filter:blur(6px);padding:4vh 3vw}
+.gen-modal{width:min(720px,96vw);max-height:90vh;display:flex;flex-direction:column;background:var(--bg-c,#0f1220);border:1px solid var(--bdr);border-radius:14px;overflow:hidden;box-shadow:0 25px 80px rgba(0,0,0,.6)}
+.gen-hd{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.2rem;border-bottom:1px solid var(--bdr)}
+.gen-hd h2{margin:0;font:800 1rem/1.2 'Montserrat','Segoe UI',sans-serif;color:#fff;display:flex;align-items:center;gap:.5rem}
+.gen-hd h2 i{color:var(--blue-l)}
+.gen-x{width:30px;height:30px;border-radius:8px;border:1px solid rgba(239,68,68,.25);background:rgba(239,68,68,.12);color:#fca5a5;cursor:pointer;font-family:inherit}
+.gen-bd{flex:1;overflow-y:auto;padding:1.1rem 1.2rem}
+.gen-sec{font-size:.66rem;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:var(--blue-l);margin:1.1rem 0 .6rem;display:flex;align-items:center;gap:.4rem}
+.gen-sec:first-child{margin-top:0}
+.gen-grid{display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin-bottom:.3rem}
+.gen-grid-3{grid-template-columns:1fr 1fr 1fr}
+.gen-f{margin-bottom:.65rem}
+.gen-f>label{display:block;font-size:.7rem;font-weight:600;color:var(--txt-m);margin-bottom:.3rem}
+.gen-chips{display:flex;flex-wrap:wrap;gap:.35rem}
+.gen-ft{display:flex;justify-content:flex-end;gap:.5rem;padding:.9rem 1.2rem;border-top:1px solid var(--bdr)}
+@media(max-width:640px){.gen-grid,.gen-grid-3{grid-template-columns:1fr}}
+</style>
 
 <?php // ── LIST ─────────────────────────────────────────────────────────────
 else:?>
@@ -1047,6 +1288,7 @@ else:?>
                 $tc='#94a3b8'; foreach($predefinedTags as $pt){if($pt['label']===$t){$tc=$pt['color'];break;}}
             ?><span style="padding:.18rem .52rem;border-radius:4px;font-size:.63rem;font-weight:700;border:1px solid <?php echo $tc;?>33;background:<?php echo $tc;?>1a;color:<?php echo $tc;?>"><?php echo htmlspecialchars($t);?></span><?php endforeach;?>
             <?php if(!empty($evid)):?><span class="badge bg-blue" style="font-size:.62rem"><i class="fas fa-camera"></i><?php echo count($evid);?></span><?php endif;?>
+            <?php if(!empty($r['document_url'])):?><a href="<?php echo htmlspecialchars($r['document_url']);?>" target="_blank" onclick="event.stopPropagation();return mdtOpenDoc('<?php echo htmlspecialchars($r['document_url']);?>','doc','Rapport #<?php echo str_pad($r['id'],6,'0',STR_PAD_LEFT);?>')" class="badge bg-green" style="font-size:.62rem;text-decoration:none;cursor:pointer"><i class="fas fa-file-lines"></i> Document</a><?php endif;?>
         </div>
     </div>
     <?php endforeach;endif;?>
@@ -1105,18 +1347,20 @@ function togPC(card) {
         card.querySelectorAll('.pc-grav-btn').forEach(b=>b.classList.remove('active'));
         const res = card.querySelector('.pc-grav-result');
         if (res) res.remove();
+        hidePcQty(card);
     } else {
         // Sélectionner
-        sPC.set(id, {level: null, fine: 0, up: 0});
+        sPC.set(id, {level: null, fine: 0, up: 0, qty: 1});
         card.classList.add('sel');
         // Afficher le sélecteur de niveau si disponible
         const sel = document.getElementById('pgsel_'+id);
         if (sel) {
             sel.style.display = 'block';
-            // Si pas de gravity définie → utiliser valeur max par défaut
+            // Les boutons +/- de quantité apparaissent après le choix du niveau.
         } else {
-            // Pas de gravity → utiliser data-fm / data-jm
-            sPC.set(id, {level: 'nominal', fine: parseFloat(card.dataset.fm)||0, up: parseFloat(card.dataset.jm)||0});
+            // Pas de gravity → utiliser data-fm / data-jm, quantité modifiable directement
+            sPC.set(id, {level: 'nominal', fine: parseFloat(card.dataset.fm)||0, up: parseFloat(card.dataset.jm)||0, qty: 1});
+            pcQtyControl(id);
         }
     }
     updPCT();
@@ -1131,7 +1375,8 @@ function selectGravLvl(id, btn) {
     const f = parseFloat(btn.dataset.f) || 0;
     const u = parseFloat(btn.dataset.u) || 0;
     const lvl = btn.dataset.lvl;
-    sPC.set(id, {level: lvl, fine: f, up: u});
+    const prev = sPC.get(id) || {};
+    sPC.set(id, {level: lvl, fine: f, up: u, qty: prev.qty || 1});
     // Update result preview inside card
     let res = card.querySelector('.pc-grav-result');
     if (!res) {
@@ -1143,6 +1388,41 @@ function selectGravLvl(id, btn) {
         '<i class="fas fa-check-circle" style="color:'+btn.dataset.col+';font-size:.7rem"></i>'+
         '<span style="color:#fde68a">$'+f.toLocaleString('fr-FR')+'</span>'+
         (u>0?'<span style="color:#fca5a5">'+u+'h UP</span>':'');
+    pcQtyControl(id);          // affiche les boutons +/- après le choix du niveau
+    updPCT();
+}
+
+// ── Multiplicateur de quantité d'une infraction ──────────────────────────────
+function pcQtyControl(id) {
+    const card = document.querySelector('.pcc[data-id="'+id+'"]');
+    if (!card) return;
+    const data = sPC.get(id) || {};
+    const qty  = data.qty || 1;
+    let q = card.querySelector('.pc-qty');
+    if (!q) {
+        q = document.createElement('div');
+        q.className = 'pc-qty';
+        q.onclick = e => e.stopPropagation();
+        q.innerHTML =
+            '<span class="pc-qty-lbl"><i class="fas fa-layer-group" style="font-size:.55rem;margin-right:.25rem"></i>Quantité</span>' +
+            '<div class="pc-qty-ctl">' +
+              '<button type="button" class="pc-qty-btn" data-d="-1"><i class="fas fa-minus"></i></button>' +
+              '<span class="pc-qty-val">×1</span>' +
+              '<button type="button" class="pc-qty-btn" data-d="1"><i class="fas fa-plus"></i></button>' +
+            '</div>';
+        q.querySelectorAll('.pc-qty-btn').forEach(b => b.addEventListener('click', ev => { ev.stopPropagation(); changePcQty(id, parseInt(b.dataset.d, 10)); }));
+        card.appendChild(q);
+    }
+    q.querySelector('.pc-qty-val').textContent = '×' + qty;
+    q.style.display = 'flex';
+}
+function hidePcQty(card) { const q = card.querySelector('.pc-qty'); if (q) q.style.display = 'none'; }
+function changePcQty(id, delta) {
+    const data = sPC.get(id); if (!data) return;
+    data.qty = Math.max(1, (data.qty || 1) + delta);
+    sPC.set(id, data);
+    const card = document.querySelector('.pcc[data-id="'+id+'"]');
+    const v = card && card.querySelector('.pc-qty-val'); if (v) v.textContent = '×' + data.qty;
     updPCT();
 }
 
@@ -1164,9 +1444,10 @@ function updPCT() {
     sPC.forEach((data, id) => {
         const card = document.querySelector('.pcc[data-id="'+id+'"]');
         if (!card) return;
-        tf += data.fine;
-        tu += data.up;
-        pcArr.push({id, level: data.level || 'nominal', fine: data.fine, up: data.up});
+        const qty = data.qty || 1;
+        tf += data.fine * qty;
+        tu += data.up * qty;
+        pcArr.push({id, level: data.level || 'nominal', fine: data.fine, up: data.up, qty});
         // Tag badge
         const t = document.createElement('span');
         t.className = 'badge bg-blue';
@@ -1174,8 +1455,9 @@ function updPCT() {
         t.style.cursor   = 'pointer';
         const code = card.querySelector('.pccode')?.textContent || '#'+id;
         const lvlTxt = data.level ? ' ['+data.level+']' : '';
-        t.innerHTML = code+lvlTxt+' <i class="fas fa-times"></i>';
-        t.onclick = ()=>{ sPC.delete(id); card.classList.remove('sel'); const sel=document.getElementById('pgsel_'+id); if(sel)sel.style.display='none'; card.querySelectorAll('.pc-grav-btn').forEach(b=>b.classList.remove('active')); updPCT(); };
+        const qtyTxt = qty > 1 ? ' ×'+qty : '';
+        t.innerHTML = code+lvlTxt+qtyTxt+' <i class="fas fa-times"></i>';
+        t.onclick = ()=>{ sPC.delete(id); card.classList.remove('sel'); const sel=document.getElementById('pgsel_'+id); if(sel)sel.style.display='none'; card.querySelectorAll('.pc-grav-btn').forEach(b=>b.classList.remove('active')); hidePcQty(card); updPCT(); };
         tags.appendChild(t);
     });
     document.getElementById('pcTotC').textContent = sPC.size;
@@ -1245,14 +1527,14 @@ function selectAllSz(val) {
 }
 
 // ── CRÉER NOUVELLES SAISIES ───────────────────────────────────────────────
+function escHtml(s){const d=document.createElement('div');d.textContent=s==null?'':s;return d.innerHTML;}
 function getSuspectOptions() {
     const opts = ['<option value="">— Sans citoyen —</option>'];
-    document.querySelectorAll('#rForm .msb input[name="suspects[]"]:checked').forEach(cb => {
-        const lbl = cb.closest('.msi')?.querySelector('label');
-        if (lbl) opts.push(`<option value="${cb.value}">${lbl.textContent.trim()}</option>`);
-    });
+    const ids = (window.pickFields && window.pickFields.suspects) ? window.pickFields.suspects.getIds() : [];
+    ids.forEach(id => { const it = (window.PROFILE_BY_ID || {})[id]; if (it) opts.push(`<option value="${escHtml(it.id)}">${escHtml(it.name)}</option>`); });
     return opts.join('');
 }
+function refreshSuspectOptions(){ document.querySelectorAll('.sz-cit').forEach(sel => { const prev = sel.value; sel.innerHTML = getSuspectOptions(); if (prev) sel.value = prev; }); }
 
 let szCounter = 0;
 
@@ -1356,15 +1638,8 @@ function updSzTotals() {
     if (inp) inp.value = JSON.stringify(arr);
 }
 
-// Mettre à jour les options suspects dans les lignes saisies quand on coche/décoche
-document.addEventListener('change', function(e) {
-    if (!e.target.name || e.target.name !== 'suspects[]') return;
-    document.querySelectorAll('.sz-cit').forEach(sel => {
-        const prev = sel.value;
-        sel.innerHTML = getSuspectOptions();
-        if (prev) sel.value = prev;
-    });
-});
+// Les options « citoyen » des lignes de saisies sont rafraîchies via
+// refreshSuspectOptions(), appelée par le onChange du champ Suspects (MdtPicker).
 
 (function(){
     const s = document.createElement('style');
@@ -1377,6 +1652,8 @@ function prepSub(){
     const el=document.getElementById('rEditor');
     if(el) document.getElementById('dRichInput').value=el.innerHTML;
     updSzTotals(); // Sérialiser les saisies au dernier moment
+    // Preuves : liste d'images (JSON) → evidence_urls (une URL par ligne, compat serveur)
+    try{ const imgs=JSON.parse(document.getElementById('evidenceImagesInput')?.value||'[]'); const eh=document.getElementById('evidenceUrlsHidden'); if(eh) eh.value=(Array.isArray(imgs)?imgs:[]).join('\n'); }catch(e){}
 }
 document.getElementById('rForm')?.addEventListener('submit', prepSub);
 
@@ -1417,49 +1694,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (c) c.textContent = n === 0 ? 'Aucun tag sélectionné' : (n + ' tag' + (n>1?'s':'') + ' sélectionné' + (n>1?'s':''));
     })();
 
-    // 4. Officiers
-    (function(){
-        const ids = <?php echo json_encode(json_decode($editReport['officers']??'[]',true)?:[]); ?>;
-        ids.forEach(id => {
-            const cb = document.querySelector('input[name="officers[]"][value="'+id+'"]');
-            if (cb) { cb.checked = true; cntMS(cb,'offCnt'); }
-        });
-        const cnt = document.querySelectorAll('input[name="officers[]"]:checked').length;
-        const el = document.getElementById('offCnt'); if(el) el.textContent = cnt;
-    })();
-
-    // 5. Suspects
-    (function(){
-        const ids = <?php echo json_encode(json_decode($editReport['suspects']??'[]',true)?:[]); ?>;
-        ids.forEach(id => {
-            const cb = document.querySelector('input[name="suspects[]"][value="'+id+'"]');
-            if (cb) { cb.checked = true; }
-        });
-        const cnt = document.querySelectorAll('input[name="suspects[]"]:checked').length;
-        const el = document.getElementById('susCnt'); if(el) el.textContent = cnt;
-    })();
-
-    // 6. Civils
-    (function(){
-        const ids = <?php echo json_encode(json_decode($editReport['civilians']??'[]',true)?:[]); ?>;
-        ids.forEach(id => {
-            const cb = document.querySelector('input[name="civilians[]"][value="'+id+'"]');
-            if (cb) cb.checked = true;
-        });
-        const cnt = document.querySelectorAll('input[name="civilians[]"]:checked').length;
-        const el = document.getElementById('civCnt'); if(el) el.textContent = cnt;
-    })();
-
-    // 7. Témoins
-    (function(){
-        const ids = <?php echo json_encode(json_decode($editReport['witnesses']??'[]',true)?:[]); ?>;
-        ids.forEach(id => {
-            const cb = document.querySelector('input[name="witnesses[]"][value="'+id+'"]');
-            if (cb) cb.checked = true;
-        });
-        const cnt = document.querySelectorAll('input[name="witnesses[]"]:checked').length;
-        const el = document.getElementById('witCnt'); if(el) el.textContent = cnt;
-    })();
+    // 4-7. Officiers / Suspects / Civils / Témoins / Véhicules :
+    //       pré-sélection gérée par l'initialisation du MdtPicker (bloc plus bas),
+    //       via $__presel — rien à faire ici.
 
     // 8. Description rich (rEditor)
     (function(){
@@ -1470,25 +1707,27 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     })();
 
-    // 9. Codes pénaux
+    // 9. Codes pénaux (+ restauration de la quantité)
     (function(){
         const pcIds = <?php echo json_encode(array_map('intval',$editPenalCodes)); ?>;
+        const pcQty = <?php echo json_encode((object)$editPenalQty); ?>;
         pcIds.forEach(id => {
             const card = document.querySelector('.pcc[data-id="'+id+'"]');
             if (card && !sPC.has(id)) {
                 togPC(card);
+                const q = parseInt(pcQty[id] || 1, 10);
+                if (q > 1 && sPC.has(id)) { const d = sPC.get(id); d.qty = q; sPC.set(id, d); pcQtyControl(id); updPCT(); }
             }
         });
     })();
 
-    // 10. Compteur preuves
-    updEC();
+    // 10. Preuves : le compteur est géré par l'observateur du champ image (mdtImageField).
 });
 <?php endif; ?>
 
 // Steps scroll — 6 steps
 function updSteps(){
-    const secs=[{id:'s1',n:1},{id:'s2',n:2},{id:'s3',n:3},{id:'s4',n:4},{id:'s5',n:5},{id:'s6',n:6}];
+    const secs=[{id:'s1',n:1},{id:'s2',n:2},{id:'s3',n:3},{id:'s5',n:4},{id:'s4',n:5},{id:'s6',n:6}];
     let act=1;
     const winY=window.scrollY+120;
     secs.forEach(s=>{const el=document.getElementById(s.id);if(el&&el.getBoundingClientRect().top+window.scrollY<=winY)act=s.n;});
@@ -1498,5 +1737,180 @@ function updSteps(){
     }
 }
 document.addEventListener('scroll',updSteps,{passive:true});
+
+<?php if($__isForm): ?>
+// ══ Sélecteurs de personnes / véhicules (MdtPicker) ═══════════════════════════
+window.PK = {
+  officers:  <?php echo json_encode($officersPicker, JSON_UNESCAPED_UNICODE); ?>,
+  profiles:  <?php echo json_encode($profilesPicker, JSON_UNESCAPED_UNICODE); ?>,
+  vehicles:  <?php echo json_encode($vehiclesPicker, JSON_UNESCAPED_UNICODE); ?>
+};
+window.PROFILE_BY_ID = {}; PK.profiles.forEach(p => { PROFILE_BY_ID[p.id] = p; });
+<?php $__szExisting=[]; foreach(($existingSaisies?:[]) as $s){ $__szExisting[(int)$s['id']] = $s['description'].(!empty($s['numero_evidence'])?' ('.$s['numero_evidence'].')':''); } ?>
+window.SZ_EXISTING = <?php echo json_encode((object)$__szExisting, JSON_UNESCAPED_UNICODE); ?>;
+window.pickFields = {};
+const AI_FACTS_URL = '<?php echo htmlspecialchars(SITE_URL, ENT_QUOTES); ?>/pages/lspd/ajax/ai_rewrite_facts.php';
+function setCnt(id,n){const el=document.getElementById(id);if(el)el.textContent=n;}
+document.addEventListener('DOMContentLoaded', function(){
+  const presel = <?php echo json_encode($__presel); ?>;
+  pickFields.officers  = mdtMultiField({chips:'officersChips',  name:'officers',  items:PK.officers,  title:'Officiers impliqués (LSPD / LSSD)', selected:presel.officers,  onChange:n=>setCnt('offCnt',n)});
+  pickFields.suspects  = mdtMultiField({chips:'suspectsChips',  name:'suspects',  items:PK.profiles,  title:'Suspects',            selected:presel.suspects,  onChange:n=>{setCnt('susCnt',n);refreshSuspectOptions();}});
+  pickFields.civilians = mdtMultiField({chips:'civiliansChips', name:'civilians', items:PK.profiles,  title:'Civils impliqués',     selected:presel.civilians, onChange:n=>setCnt('civCnt',n)});
+  pickFields.witnesses = mdtMultiField({chips:'witnessesChips', name:'witnesses', items:PK.profiles,  title:'Témoins',              selected:presel.witnesses, onChange:n=>setCnt('witCnt',n)});
+  pickFields.vehicles  = mdtMultiField({chips:'vehiclesChips',  name:'vehicles',  items:PK.vehicles,  title:'Véhicules impliqués',  selected:presel.vehicles,  onChange:n=>setCnt('vehCnt',n)});
+  // Preuves & pièces jointes : composant image réutilisable (fichier local / URL / CDN LSPD)
+  if(window.mdtImageField){
+    mdtImageField({container:'evidenceImagesField', hidden:'evidenceImagesInput', max:12,
+      uploadUrl:'<?php echo htmlspecialchars(SITE_URL,ENT_QUOTES); ?>/pages/lspd/reports.php',
+      listUrl:'<?php echo htmlspecialchars(SITE_URL,ENT_QUOTES); ?>/pages/lspd/reports.php?img_action=cdn_list'});
+  }
+  (function(){ const f=document.getElementById('evidenceImagesField'), c=document.getElementById('evCnt');
+    if(f&&c){ const upd=()=>{ c.textContent=f.querySelectorAll('.mdt-imgf-item').length+' fichier(s)'; };
+      new MutationObserver(upd).observe(f,{childList:true,subtree:true}); upd(); } })();
+});
+
+// ══ GÉNÉRATION ASSISTÉE DU RAPPORT ════════════════════════════════════════════
+function genGetChip(name){const el=document.querySelector('input[name="'+name+'"]:checked');return el?el.value:'';}
+function genSetChip(name,val){
+  document.querySelectorAll('input[name="'+name+'"]').forEach(i=>{
+    const l=i.closest('label'); i.checked=(String(i.value)===String(val));
+    if(l){ l.style.outline=i.checked?'2px solid currentColor':''; l.style.boxShadow=i.checked?'0 0 10px currentColor':''; }
+  });
+}
+function genFmtTime(t){ return (t && /^\d{1,2}:\d{2}/.test(t)) ? t : (t||''); }
+
+function openGenModal(){
+  const loc = document.querySelector('input[name="location"]')?.value || '';
+  const gl = document.getElementById('gen_loc'); if(gl && !gl.value) gl.value = loc;
+  // Restaurer d'éventuelles valeurs déjà générées (arrest_details)
+  try{
+    const saved = JSON.parse(document.getElementById('arrestDetailsInput')?.value || '{}');
+    if(saved && typeof saved === 'object'){
+      const setV=(id,v)=>{const e=document.getElementById(id); if(e && v!=null && v!=='') e.value=v;};
+      setV('gen_moyen',saved.moyen); setV('gen_loc',saved.localisation||loc);
+      setV('gen_cell_in',saved.cell_in); setV('gen_cell_out',saved.cell_out); setV('gen_miranda',saved.miranda);
+      setV('gen_faits',saved.faits);
+      genSetChip('gen_secteur',saved.secteur); genSetChip('gen_comp_arrestation',saved.comp_arrestation);
+      genSetChip('gen_comp_poste',saved.comp_poste); genSetChip('gen_amende',saved.amende); genSetChip('gen_medical',saved.medical);
+    }
+  }catch(e){}
+  const ov=document.getElementById('genModal'); if(ov){ ov.style.display='flex'; document.body.style.overflow='hidden'; }
+}
+function closeGenModal(){ const ov=document.getElementById('genModal'); if(ov){ ov.style.display='none'; document.body.style.overflow=''; } }
+
+function collectGenData(){
+  const incidentRaw = document.querySelector('input[name="incident_at"]')?.value || '';
+  let dateArr='', heureArr='';
+  if(incidentRaw){ const m = incidentRaw.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/); if(m){ dateArr = m[3]+'/'+m[2]+'/'+m[1]; heureArr = m[4]+':'+m[5]; } }
+  let identite='', phone='';
+  if(window.pickFields && pickFields.suspects){ const id=pickFields.suspects.getIds()[0]; const it=id?(PROFILE_BY_ID||{})[id]:null; if(it){ identite=it.name||''; phone=it.sub||''; } }
+  const objs=[];
+  try{ (JSON.parse(document.getElementById('saisiesInput')?.value||'[]')||[]).forEach(s=>{ if(s.description) objs.push(s.description + (s.quantite?(' ('+s.quantite+')'):'')); }); }catch(e){}
+  try{ (JSON.parse(document.getElementById('linkedSaisiesInput')?.value||'[]')||[]).forEach(id=>{ const d=(window.SZ_EXISTING||{})[id]; if(d) objs.push(d); }); }catch(e){}
+  return {
+    moyen: document.getElementById('gen_moyen')?.value.trim()||'',
+    localisation: document.getElementById('gen_loc')?.value.trim()||'',
+    secteur: genGetChip('gen_secteur'),
+    identite, phone,
+    date_arrestation: dateArr, heure_arrestation: heureArr,
+    miranda: genFmtTime(document.getElementById('gen_miranda')?.value||''),
+    comp_arrestation: genGetChip('gen_comp_arrestation'),
+    comp_poste: genGetChip('gen_comp_poste'),
+    cell_in: genFmtTime(document.getElementById('gen_cell_in')?.value||''),
+    cell_out: genFmtTime(document.getElementById('gen_cell_out')?.value||''),
+    amende: genGetChip('gen_amende'),
+    medical: genGetChip('gen_medical'),
+    faits: document.getElementById('gen_faits')?.value.trim()||'',
+    objets: objs
+  };
+}
+
+function buildReportText(d){
+  const v=x=>escHtml((x!=null&&x!=='')?x:'—');
+  const objets = (d.objets && d.objets.length) ? escHtml(d.objets.join(', ')) : '—';
+  return ''+
+  '<h3>Circonstances de l\'arrestation</h3>'+
+  '<ul>'+
+    '<li><strong>Moyen d\'information :</strong> '+v(d.moyen)+'</li>'+
+    '<li><strong>Localisation exacte :</strong> '+v(d.localisation)+'</li>'+
+    '<li><strong>Secteur :</strong> '+(d.secteur?('Secteur '+escHtml(d.secteur)):'—')+'</li>'+
+  '</ul>'+
+  '<h3>Détails de l\'intervention</h3>'+
+  '<ul>'+
+    '<li><strong>Identité de l\'individu :</strong> '+v(d.identite)+'</li>'+
+    '<li><strong>Date de l\'arrestation :</strong> '+v(d.date_arrestation)+'</li>'+
+    '<li><strong>Heure de l\'arrestation :</strong> '+v(d.heure_arrestation)+'</li>'+
+    '<li><strong>Heure de lecture des droits Miranda :</strong> '+v(d.miranda)+'</li>'+
+    '<li><strong>Comportement lors de l\'arrestation :</strong> '+v(d.comp_arrestation)+'</li>'+
+    '<li><strong>Comportement au poste :</strong> '+v(d.comp_poste)+'</li>'+
+    '<li><strong>Objet(s) saisi(s) :</strong> '+objets+'</li>'+
+  '</ul>'+
+  '<h3>Gestion au poste</h3>'+
+  '<ul>'+
+    '<li><strong>Heure d\'entrée en cellule :</strong> '+v(d.cell_in)+'</li>'+
+    '<li><strong>Heure de sortie de cellule :</strong> '+v(d.cell_out)+'</li>'+
+    '<li><strong>Amende payée :</strong> '+v(d.amende)+'</li>'+
+    '<li><strong>Intervention médicale :</strong> '+v(d.medical)+'</li>'+
+    '<li><strong>Numéro de téléphone :</strong> '+v(d.phone)+'</li>'+
+  '</ul>'+
+  '<h3>Faits</h3>'+
+  '<p>'+(d.faits?escHtml(d.faits).replace(/\n/g,'<br>'):'—')+'</p>';
+}
+
+// Contexte complet envoyé à l'IA (faits + toutes les données du rapport).
+function buildAiContext(d){
+  const names = key => (window.pickFields && pickFields[key]) ? pickFields[key].getItems().map(it=>it.name) : [];
+  const infractions = Array.from(document.querySelectorAll('.pcc.sel')).map(c=>{
+    const code=(c.querySelector('.pccode')?.textContent||'').trim(), t=(c.querySelector('.pctitle')?.textContent||'').trim();
+    return (code+' '+t).trim();
+  }).filter(Boolean);
+  return Object.assign({}, d, {
+    officers: names('officers'), suspects: names('suspects'), civils: names('civilians'),
+    temoins: names('witnesses'), vehicules: names('vehicles'), infractions: infractions,
+    type: document.querySelector('input[name="type"]:checked')?.value || '',
+    titre: document.querySelector('input[name="title"]')?.value || '',
+    lieu_incident: document.querySelector('input[name="location"]')?.value || '',
+    date_incident: document.querySelector('input[name="incident_at"]')?.value || ''
+  });
+}
+function setGenLoading(on){
+  const b=document.getElementById('genSubmitBtn'); if(!b) return;
+  if(on){ b.dataset.prev=b.innerHTML; b.disabled=true; b.style.opacity='.75'; b.style.pointerEvents='none'; b.innerHTML='<i class="fas fa-spinner fa-spin"></i> Rédaction IA…'; }
+  else { b.disabled=false; b.style.opacity=''; b.style.pointerEvents=''; if(b.dataset.prev){ b.innerHTML=b.dataset.prev; delete b.dataset.prev; } }
+}
+// Génère le rapport ; réécrit la section « Faits » via l'IA si un brouillon est saisi.
+async function doGenerate(){
+  const d = collectGenData();
+  if(d.faits && d.faits.trim()){
+    setGenLoading(true);
+    try{
+      const resp = await fetch(AI_FACTS_URL, {method:'POST',headers:{'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'},body:JSON.stringify(buildAiContext(d))});
+      const j = await resp.json().catch(()=>null);
+      if(j && j.success && j.text && j.text.trim()){ d.faits = j.text.trim(); }
+      else if(window.LSPD && LSPD.toast){ LSPD.toast((j&&j.error)?('IA : '+j.error+' — brouillon conservé'):'IA indisponible — brouillon conservé','warning',4600); }
+    }catch(e){ if(window.LSPD && LSPD.toast) LSPD.toast('IA injoignable — brouillon conservé','warning',4600); }
+    finally{ setGenLoading(false); }
+  }
+  const editor=document.getElementById('rEditor');
+  if(editor){ editor.innerHTML = buildReportText(d); updCC(); }
+  const hid=document.getElementById('arrestDetailsInput'); if(hid) hid.value = JSON.stringify(d);
+  closeGenModal();
+  if(window.LSPD && LSPD.toast) LSPD.toast('Rapport généré — vous pouvez le modifier librement.','success');
+}
+function generateReport(){
+  const editor=document.getElementById('rEditor');
+  const hasText = editor && editor.innerText.trim().length>0;
+  if(hasText && window.LSPD && LSPD.confirm){
+    LSPD.confirm({title:'Remplacer la description ?',msg:'La description contient déjà du texte. Le remplacer par le rapport généré ?',icon:'fas fa-wand-magic-sparkles',okLabel:'Remplacer',okClass:'btn-primary',color:'rgba(37,99,235,.12)',border:'rgba(37,99,235,.3)',textColor:'var(--blue-xl)',callback:doGenerate});
+  } else if(hasText){
+    if(confirm('Remplacer la description existante par le rapport généré ?')) doGenerate();
+  } else { doGenerate(); }
+}
+// Fermer la modale de génération au clic sur le fond / Échap
+document.getElementById('genModal')?.addEventListener('click',function(e){ if(e.target===this) closeGenModal(); });
+document.addEventListener('keydown',function(e){ if(e.key==='Escape'){ const g=document.getElementById('genModal'); if(g && g.style.display==='flex') closeGenModal(); } });
+<?php endif; ?>
 </script>
+<?php require_once ROOT_PATH . '/includes/mdt_picker.php'; ?>
+<?php require_once ROOT_PATH . '/includes/doc_viewer.php'; ?>
 <?php include __DIR__ . '/includes/footer.php';?>

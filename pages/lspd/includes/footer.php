@@ -73,8 +73,8 @@ if (!defined('MDT_SHARED_COMPONENTS')) {
 .djs-panel,.djt-pop{z-index:100060 !important}
 .dp-ov,.dj-confirm-ov{z-index:100050 !important}
 /* Police cohérente avec le thème LSPD */
-.djs-control,.djs-panel,.djs-opt,.djs-search input,.djs-value,.djt-pop,.dp-modal,.dp-item,.dp-search input,.dp-hd h2{font-family:'IBM Plex Sans',system-ui,sans-serif !important}
-.dp-hd h2,.djs-group{font-family:'Syne',sans-serif !important}
+.djs-control,.djs-panel,.djs-opt,.djs-search input,.djs-value,.djt-pop,.dp-modal,.dp-item,.dp-search input,.dp-hd h2{font-family:'Inter',system-ui,sans-serif !important}
+.dp-hd h2,.djs-group{font-family:'Montserrat',sans-serif !important}
 </style>
 <script>
 /* Les <select> sont remplacés par DojSelect, dont l'affichage ne se met à jour

@@ -14,6 +14,14 @@ if (!hasRole(['*','Administrateur','Développeur','Staff','Modérateur','Helper'
 $db  = Database::getInstance()->getConnection();
 $msg = ''; $msgType = '';
 
+// Paramètre extensible des tags : « Alerte DOJ » (colonne ajoutée idempotemment).
+try {
+    $__rtCols = array_column($db->query("SHOW COLUMNS FROM report_tags")->fetchAll(PDO::FETCH_ASSOC), 'Field');
+    if (!in_array('doj_alert', $__rtCols, true)) {
+        $db->exec("ALTER TABLE report_tags ADD COLUMN doj_alert TINYINT(1) NOT NULL DEFAULT 0");
+    }
+} catch (Throwable $e) {}
+
 // ── AJAX reorder ──────────────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'reorder') {
     header('Content-Type: application/json');
@@ -31,13 +39,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'create') {
         $label = trim($_POST['label'] ?? '');
         $color = trim($_POST['color'] ?? '#94a3b8');
+        $dojAlert = !empty($_POST['doj_alert']) ? 1 : 0;
         if (!$label) {
             $msg = 'Le nom du tag est obligatoire.'; $msgType = 'error';
         } else {
             try {
-                $db->prepare("INSERT INTO report_tags (label, color, sort_order)
-                              VALUES (?, ?, (SELECT COALESCE(MAX(t2.sort_order),0)+1 FROM report_tags t2))")
-                   ->execute([$label, $color]);
+                $db->prepare("INSERT INTO report_tags (label, color, doj_alert, sort_order)
+                              VALUES (?, ?, ?, (SELECT COALESCE(MAX(t2.sort_order),0)+1 FROM report_tags t2))")
+                   ->execute([$label, $color, $dojAlert]);
                 $msg = "Tag « ".htmlspecialchars($label)." » créé avec succès.";
                 $msgType = 'success';
             } catch (Exception $e) {
@@ -52,12 +61,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $id    = intval($_POST['id'] ?? 0);
         $label = trim($_POST['label'] ?? '');
         $color = trim($_POST['color'] ?? '#94a3b8');
+        $dojAlert = !empty($_POST['doj_alert']) ? 1 : 0;
         if (!$id || !$label) {
             $msg = 'Données invalides.'; $msgType = 'error';
         } else {
             try {
-                $db->prepare("UPDATE report_tags SET label=?, color=? WHERE id=?")
-                   ->execute([$label, $color, $id]);
+                $db->prepare("UPDATE report_tags SET label=?, color=?, doj_alert=? WHERE id=?")
+                   ->execute([$label, $color, $dojAlert, $id]);
                 $msg = "Tag mis à jour."; $msgType = 'success';
             } catch (Exception $e) {
                 $msg = strpos($e->getMessage(),'Duplicate') !== false
@@ -172,6 +182,20 @@ include __DIR__ . '/../includes/header.php';
   display:flex; align-items:center; justify-content:center; font-size:.95rem; transition:all .18s; }
 .rt-modal-cl:hover { background:rgba(239,68,68,.1); border-color:rgba(239,68,68,.28); color:#ef4444; }
 .rt-modal-ft { display:flex; gap:.6rem; justify-content:flex-end; margin-top:1.3rem; }
+
+/* ── Switch (paramètre de tag) ── */
+.rt-switch-row { display:flex; align-items:flex-start; gap:.7rem; margin-top:1.1rem;
+  padding:.8rem .95rem; background:rgba(139,92,246,.05); border:1px solid rgba(139,92,246,.18); border-radius:10px; }
+.rt-switch { position:relative; display:inline-block; width:42px; height:23px; flex-shrink:0; }
+.rt-switch input { opacity:0; width:0; height:0; }
+.rt-switch .sl { position:absolute; inset:0; cursor:pointer; background:rgba(255,255,255,.12);
+  border:1px solid var(--border); border-radius:23px; transition:.2s; }
+.rt-switch .sl:before { content:''; position:absolute; width:17px; height:17px; left:2px; top:2px;
+  background:#fff; border-radius:50%; transition:.2s; }
+.rt-switch input:checked + .sl { background:#8b5cf6; border-color:#8b5cf6; }
+.rt-switch input:checked + .sl:before { transform:translateX(19px); }
+.rt-switch-row .txt { font-size:.84rem; font-weight:600; color:var(--text-primary); cursor:pointer; display:block; }
+.rt-switch-row .hint { font-size:.72rem; color:var(--text-secondary); margin-top:.15rem; }
 </style>
 
 <div class="rt-wrap">
@@ -205,6 +229,13 @@ include __DIR__ . '/../includes/header.php';
         <button type="submit" class="btn btn-primary" style="flex-shrink:0">
           <i class="fas fa-plus"></i> Créer
         </button>
+      </div>
+      <div class="rt-switch-row">
+        <label class="rt-switch"><input type="checkbox" name="doj_alert" id="cDojAlert" value="1"><span class="sl"></span></label>
+        <div>
+          <label for="cDojAlert" class="txt"><i class="fas fa-scale-balanced" style="color:#8b5cf6;margin-right:.35rem"></i>Alerte DOJ</label>
+          <div class="hint">Les rapports LSPD portant ce tag seront automatiquement signalés au DOJ (rapport en attente de traitement).</div>
+        </div>
       </div>
       <div class="rt-preview-row">
         <span class="lbl">Aperçu :</span>
@@ -248,7 +279,7 @@ include __DIR__ . '/../includes/header.php';
         </div>
         <div class="rt-actions">
           <button type="button" class="rt-btn" title="Modifier"
-            onclick="openEdit(<?php echo $t['id']; ?>,'<?php echo addslashes($t['label']); ?>','<?php echo $c; ?>')">
+            onclick="openEdit(<?php echo $t['id']; ?>,'<?php echo addslashes($t['label']); ?>','<?php echo $c; ?>',<?php echo (int)($t['doj_alert'] ?? 0); ?>)">
             <i class="fas fa-pen"></i>
           </button>
           <form method="POST" style="margin:0" onsubmit="return confirm('Supprimer « <?php echo addslashes($t['label']); ?> » ?')">
@@ -288,6 +319,13 @@ include __DIR__ . '/../includes/header.php';
           <span class="rt-color-hex" id="eHex">#94a3b8</span>
         </div>
       </div>
+      <div class="rt-switch-row">
+        <label class="rt-switch"><input type="checkbox" name="doj_alert" id="eDojAlert" value="1"><span class="sl"></span></label>
+        <div>
+          <label for="eDojAlert" class="txt"><i class="fas fa-scale-balanced" style="color:#8b5cf6;margin-right:.35rem"></i>Alerte DOJ</label>
+          <div class="hint">Signale automatiquement au DOJ les rapports portant ce tag.</div>
+        </div>
+      </div>
       <div class="rt-preview-row">
         <span class="lbl">Aperçu :</span>
         <span id="ePrev" class="tag-chip"><i class="fas fa-tag"></i> Aperçu</span>
@@ -313,10 +351,11 @@ function livePreview(label, hex, previewId, hexId) {
   el.innerHTML = `<i class="fas fa-tag" style="font-size:.58rem;opacity:.65"></i> ${label || 'Aperçu'}`;
 }
 
-function openEdit(id, label, color) {
+function openEdit(id, label, color, dojAlert) {
   document.getElementById('eId').value    = id;
   document.getElementById('eLabel').value = label;
   document.getElementById('eColor').value = color;
+  document.getElementById('eDojAlert').checked = !!dojAlert;
   livePreview(label, color, 'ePrev', 'eHex');
   document.getElementById('editModal').classList.add('open');
   setTimeout(() => document.getElementById('eLabel').focus(), 100);

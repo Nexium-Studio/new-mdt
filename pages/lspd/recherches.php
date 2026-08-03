@@ -93,7 +93,7 @@ $WTYPE=['arrest'=>'Arrestation','search'=>'Perquisition','seizure'=>'Saisie'];
                 <span class="badge bg-gray"><?php echo $WTYPE[$w['warrant_type']]??$w['warrant_type'];?></span>
                 <?php if($w['bail_amount']>0):?><span class="badge bg-yellow" style="font-size:.63rem">Caution $<?php echo number_format($w['bail_amount'],0);?></span><?php endif;?>
             </div>
-            <div style="font-family:'Syne',serif;font-size:1rem;font-weight:800;color:<?php echo in_array($w['severity'],['critical','high'])?'#fca5a5':'#f9fafb';?>"><?php echo htmlspecialchars($w['citoyen']);?></div>
+            <div style="font-family:'Montserrat',sans-serif;font-size:1rem;font-weight:800;color:<?php echo in_array($w['severity'],['critical','high'])?'#fca5a5':'#f9fafb';?>"><?php echo htmlspecialchars($w['citoyen']);?></div>
             <div style="font-size:.82rem;color:var(--txt-s);margin-top:.15rem"><?php echo htmlspecialchars($w['offense_title']);?> <span class="mono" style="color:var(--txt-m);font-size:.72rem"><?php echo htmlspecialchars($w['offense_code']);?></span></div>
         </div>
         <div style="text-align:right;flex-shrink:0">

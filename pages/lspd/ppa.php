@@ -196,7 +196,7 @@ include __DIR__ . '/includes/header.php';
 .ppa-av {
     width:36px; height:36px; border-radius:9px;
     overflow:hidden; display:flex; align-items:center; justify-content:center;
-    font-family:'Syne',serif; font-weight:800; font-size:.9rem;
+    font-family:'Montserrat',sans-serif; font-weight:800; font-size:.9rem;
     flex-shrink:0;
 }
 .ppa-av img { width:100%; height:100%; object-fit:cover; }

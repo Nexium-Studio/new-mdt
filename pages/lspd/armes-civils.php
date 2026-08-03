@@ -207,7 +207,7 @@ include __DIR__ . '/includes/header.php';
 .cit-av {
     width:34px; height:34px; border-radius:8px;
     overflow:hidden; display:inline-flex; align-items:center; justify-content:center;
-    font-family:'Syne',serif; font-weight:800; font-size:.85rem; flex-shrink:0;
+    font-family:'Montserrat',sans-serif; font-weight:800; font-size:.85rem; flex-shrink:0;
     vertical-align:middle;
 }
 .cit-av img { width:100%; height:100%; object-fit:cover; }

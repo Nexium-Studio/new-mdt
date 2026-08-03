@@ -43,9 +43,29 @@ $stmt = $db->query("
 ");
 $activeWarrantsList = $stmt->fetchAll();
 
+// Rapports LSPD en attente de traitement DOJ (déclenché par un tag « Alerte DOJ »).
+// Calculé dynamiquement : disparaît dès que tous les rapports concernés sont traités.
+$dojPending = 0;
+try {
+    $dojPending = (int)$db->query("SELECT COUNT(*) FROM reports WHERE faction='LSPD' AND doj_alert=1 AND doj_treated=0")->fetchColumn();
+} catch (Throwable $e) { $dojPending = 0; }
+
 $pageTitle = 'Dashboard DOJ';
 include __DIR__ . '/includes/header.php';
 ?>
+
+<?php if ($dojPending > 0): ?>
+<a href="<?php echo SITE_URL; ?>/pages/doj/rapports.php?pending=1" style="text-decoration:none;display:block">
+  <div style="display:flex;align-items:center;gap:1rem;padding:1rem 1.25rem;margin-bottom:1.5rem;background:rgba(139,92,246,.1);border:1px solid rgba(139,92,246,.3);border-radius:12px;transition:background .2s" onmouseover="this.style.background='rgba(139,92,246,.17)'" onmouseout="this.style.background='rgba(139,92,246,.1)'">
+    <div style="width:44px;height:44px;border-radius:11px;background:rgba(139,92,246,.18);display:flex;align-items:center;justify-content:center;color:#a78bfa;font-size:1.1rem;flex-shrink:0"><i class="fas fa-scale-balanced"></i></div>
+    <div style="flex:1">
+      <div style="font-weight:700;color:#f1f5f9;font-size:.95rem">Vous avez <?php echo $dojPending; ?> rapport<?php echo $dojPending>1?'s':''; ?> LSPD en attente de traitement.</div>
+      <div style="font-size:.78rem;color:#94a3b8;margin-top:.15rem">Cliquez pour consulter les rapports signalés au DOJ.</div>
+    </div>
+    <i class="fas fa-chevron-right" style="color:#a78bfa"></i>
+  </div>
+</a>
+<?php endif; ?>
 
 <div class="doj-stats">
     <div class="doj-stat">

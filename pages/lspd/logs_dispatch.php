@@ -102,7 +102,7 @@ include __DIR__ . '/includes/header.php';
 
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.3rem;flex-wrap:wrap;gap:.7rem">
   <div>
-    <h1 style="font-family:'Syne',serif;font-size:1.35rem;font-weight:800;color:#fff;margin:0 0 .25rem;display:flex;align-items:center;gap:.5rem"><i class="fas fa-clock-rotate-left" style="color:var(--blue-l)"></i> Logs Dispatch — Cartes archivées</h1>
+    <h1 style="font-family:'Montserrat',sans-serif;font-size:1.35rem;font-weight:800;color:#fff;margin:0 0 .25rem;display:flex;align-items:center;gap:.5rem"><i class="fas fa-clock-rotate-left" style="color:var(--blue-l)"></i> Logs Dispatch — Cartes archivées</h1>
     <div style="font-size:.76rem;color:var(--txt-s)"><?php echo count($cards);?> carte(s) supprimée(s) · historique complet conservé</div>
   </div>
   <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">

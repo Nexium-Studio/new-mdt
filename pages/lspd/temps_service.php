@@ -214,7 +214,7 @@ $fmtMin = fn($m) => intdiv((int)$m,60).'h '.((int)$m%60).'min';
 
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.3rem;flex-wrap:wrap;gap:.7rem">
   <div>
-    <h1 style="font-family:'Syne',serif;font-size:1.35rem;font-weight:800;color:#fff;margin:0 0 .25rem;display:flex;align-items:center;gap:.5rem"><i class="fas fa-business-time" style="color:var(--blue-l)"></i> Temps de Service & Paie</h1>
+    <h1 style="font-family:'Montserrat',sans-serif;font-size:1.35rem;font-weight:800;color:#fff;margin:0 0 .25rem;display:flex;align-items:center;gap:.5rem"><i class="fas fa-business-time" style="color:var(--blue-l)"></i> Temps de Service & Paie</h1>
     <div style="font-size:.76rem;color:var(--txt-s)">Saison en cours · salaire horaire par grade (divisions) · paie par agent</div>
   </div>
 </div>

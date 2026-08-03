@@ -7,6 +7,67 @@ if ($_SESSION['user_faction'] !== 'DOJ' && !hasRole(['*','Administrateur','Déve
 $pageTitle = 'Rapports SASP';
 $db = Database::getInstance()->getConnection();
 
+// ── Colonnes workflow DOJ (idempotent, aligné sur reports.php) ──────────────
+try {
+    $__rc = array_column($db->query("SHOW COLUMNS FROM reports")->fetchAll(PDO::FETCH_ASSOC),'Field');
+    if(!in_array('doj_alert',$__rc))   $db->exec("ALTER TABLE reports ADD COLUMN doj_alert TINYINT(1) NOT NULL DEFAULT 0");
+    if(!in_array('doj_treated',$__rc)) $db->exec("ALTER TABLE reports ADD COLUMN doj_treated TINYINT(1) NOT NULL DEFAULT 0");
+} catch(Throwable $e){}
+
+// ── Action : marquer un rapport LSPD comme traité / non traité par le DOJ ────
+if ($_SERVER['REQUEST_METHOD']==='POST' && ($_POST['action'] ?? '')==='mark_treated') {
+    header('Content-Type: application/json');
+    $rid = intval($_POST['id'] ?? 0);
+    $val = !empty($_POST['treated']) ? 1 : 0;
+    try { $db->prepare("UPDATE reports SET doj_treated=? WHERE id=? AND faction='LSPD'")->execute([$val,$rid]); echo json_encode(['success'=>true,'treated'=>$val]); }
+    catch(Throwable $e){ echo json_encode(['success'=>false,'error'=>'Échec de la mise à jour']); }
+    exit;
+}
+
+// ── AJAX : détail d'un rapport LSPD (JSON) — DOIT rester avant tout HTML ──────
+if (isset($_GET['ajax']) && isset($_GET['id'])) {
+    header('Content-Type: application/json; charset=utf-8');
+    try {
+        $rid = intval($_GET['id']);
+        $s = $db->prepare("SELECT r.*, u.username AS auteur FROM reports r LEFT JOIN users u ON u.id=r.created_by WHERE r.id=? AND r.faction='LSPD'");
+        $s->execute([$rid]); $rpt = $s->fetch(PDO::FETCH_ASSOC);
+        if (!$rpt) { echo json_encode(['error'=>'Rapport introuvable']); exit; }
+
+        $jd = function($v){ $a=json_decode((string)$v,true); return is_array($a)?$a:[]; };
+        $profNames = function(array $ids) use ($db){
+            $ids=array_values(array_filter(array_map('intval',$ids))); if(!$ids)return[];
+            $ph=implode(',',array_fill(0,count($ids),'?'));
+            $st=$db->prepare("SELECT id,firstname,lastname FROM profiles WHERE id IN ($ph)"); $st->execute($ids);
+            $m=[]; foreach($st->fetchAll(PDO::FETCH_ASSOC) as $r)$m[(int)$r['id']]=trim($r['firstname'].' '.$r['lastname']);
+            return array_values(array_map(fn($i)=>$m[$i]??('#'.$i),$ids));
+        };
+        // Officiers (users + profil)
+        $offIds=array_map('intval',$jd($rpt['officers'] ?? ($rpt['officers_involved']??''))); $offNames=[];
+        if($offIds){ $ph=implode(',',array_fill(0,count($offIds),'?')); $st=$db->prepare("SELECT u.id,u.username,pr.firstname,pr.lastname FROM users u LEFT JOIN profiles pr ON pr.id=u.profile_id WHERE u.id IN ($ph)"); $st->execute($offIds); $m=[]; foreach($st->fetchAll(PDO::FETCH_ASSOC) as $r){ $nm=trim(($r['firstname']??'').' '.($r['lastname']??'')); $m[(int)$r['id']]=$nm!==''?$nm:($r['username']??('#'.$r['id'])); } $offNames=array_values(array_map(fn($i)=>$m[$i]??('#'.$i),$offIds)); }
+        // Véhicules
+        $vehIds=array_map('intval',$jd($rpt['vehicles']??'')); $vehNames=[];
+        if($vehIds){ $ph=implode(',',array_fill(0,count($vehIds),'?')); $st=$db->prepare("SELECT id,plate,model FROM vehicles WHERE id IN ($ph)"); $st->execute($vehIds); $m=[]; foreach($st->fetchAll(PDO::FETCH_ASSOC) as $r)$m[(int)$r['id']]=trim($r['plate'].' — '.$r['model']); $vehNames=array_values(array_map(fn($i)=>$m[$i]??('#'.$i),$vehIds)); }
+        $rpt['officers_names']  = $offNames;
+        $rpt['suspects_names']  = $profNames($jd($rpt['suspects']??''));
+        $rpt['civilians_names'] = $profNames($jd($rpt['civilians']??''));
+        $rpt['witnesses_names'] = $profNames($jd($rpt['witnesses']??''));
+        $rpt['vehicles_names']  = $vehNames;
+        // Saisies liées
+        $saisies=[]; try{ $st=$db->prepare("SELECT categorie,description,quantite,valeur_estimee,numero_evidence FROM lspd_saisies WHERE report_id=? ORDER BY id"); $st->execute([$rid]); $saisies=$st->fetchAll(PDO::FETCH_ASSOC); }catch(Throwable $e){}
+        $rpt['saisies'] = $saisies;
+        // Document officiel : le générer s'il manque (réutilise le générateur LSPD)
+        if (empty($rpt['document_url'])) {
+            try {
+                require_once ROOT_PATH.'/pages/lspd/includes/report_document.php';
+                $du = lspd_build_report_document($db,$rpt);
+                if($du){ $db->prepare("UPDATE reports SET document_url=? WHERE id=?")->execute([$du,$rid]); $rpt['document_url']=$du; }
+            } catch(Throwable $e){}
+        }
+        echo json_encode(['report'=>$rpt], JSON_UNESCAPED_UNICODE);
+    } catch(Throwable $e){ echo json_encode(['error'=>'Erreur lors du chargement : '.$e->getMessage()]); }
+    exit;
+}
+
 // ── Filtres ───────────────────────────────────────────────────────────────
 $search   = trim($_GET['q']  ?? '');
 $typeF    = trim($_GET['t']  ?? '');
@@ -14,10 +75,12 @@ $statusF  = trim($_GET['s']  ?? '');
 $page     = max(1, (int)($_GET['page'] ?? 1));
 $perPage  = 30;
 
+$pendingF = !empty($_GET['pending']);   // rapports en attente de traitement DOJ
 $where = ["r.faction='LSPD'"]; $params = [];
 if ($search)  { $where[] = "(r.title LIKE ? OR u.username LIKE ?)"; $params[] = "%$search%"; $params[] = "%$search%"; }
 if ($typeF)   { $where[] = "r.type=?"; $params[] = $typeF; }
 if ($statusF) { $where[] = "r.status=?"; $params[] = $statusF; }
+if ($pendingF){ $where[] = "r.doj_alert=1 AND r.doj_treated=0"; }
 $whereStr = implode(' AND ', $where);
 
 $totalRows = 0;
@@ -33,6 +96,7 @@ try {
     $stmt = $db->prepare("
         SELECT r.id, r.type, r.title, r.status, r.priority, r.location, r.incident_at,
                r.tags, r.officers, r.civilians, r.suspects, r.created_at, r.faction,
+               r.doj_alert, r.doj_treated,
                u.username AS auteur
         FROM reports r
         LEFT JOIN users u ON u.id = r.created_by
@@ -193,6 +257,8 @@ include __DIR__ . '/includes/header.php';
             <td><span style="font-size:.72rem;padding:.2rem .5rem;background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.18);border-radius:5px;color:#60a5fa;font-weight:600"><?php echo htmlspecialchars($tl);?></span></td>
             <td>
                 <div style="font-weight:600;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><?php echo htmlspecialchars($r['title']);?></div>
+                <?php if((int)($r['doj_alert']??0)===1 && (int)($r['doj_treated']??0)===0):?><span style="display:inline-block;margin-top:.25rem;font-size:.62rem;font-weight:700;padding:.12rem .45rem;border-radius:4px;background:rgba(139,92,246,.12);border:1px solid rgba(139,92,246,.3);color:#a78bfa"><i class="fas fa-scale-balanced" style="font-size:.55rem"></i> En attente DOJ</span>
+                <?php elseif((int)($r['doj_alert']??0)===1):?><span style="display:inline-block;margin-top:.25rem;font-size:.62rem;font-weight:700;padding:.12rem .45rem;border-radius:4px;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.28);color:#10b981">✓ Traité DOJ</span><?php endif;?>
             </td>
             <td style="font-size:.8rem;color:#94a3b8"><?php echo htmlspecialchars($r['auteur']??'—');?></td>
             <td style="font-size:.78rem;color:#64748b"><?php echo htmlspecialchars(mb_substr($r['location']??'—',0,25));?></td>
@@ -210,11 +276,11 @@ include __DIR__ . '/includes/header.php';
 <div class="rpt-pages">
     <span style="color:#475569"><?php echo $totalRows;?> rapport(s) · Page <?php echo $page;?>/<?php echo $totalPages;?></span>
     <div style="display:flex;gap:.3rem">
-        <?php if($page>1):?><a href="?page=<?php echo $page-1;?>&q=<?php echo urlencode($search);?>&t=<?php echo urlencode($typeF);?>&s=<?php echo urlencode($statusF);?>" class="rpt-page-btn">←</a><?php endif;?>
+        <?php if($page>1):?><a href="?page=<?php echo $page-1;?>&q=<?php echo urlencode($search);?>&t=<?php echo urlencode($typeF);?>&s=<?php echo urlencode($statusF);?>&pending=<?php echo $pendingF?'1':'';?>" class="rpt-page-btn">←</a><?php endif;?>
         <?php for($i=max(1,$page-2);$i<=min($totalPages,$page+2);$i++):?>
-        <a href="?page=<?php echo $i;?>&q=<?php echo urlencode($search);?>&t=<?php echo urlencode($typeF);?>&s=<?php echo urlencode($statusF);?>" class="rpt-page-btn <?php echo $i===$page?'active':'';?>"><?php echo $i;?></a>
+        <a href="?page=<?php echo $i;?>&q=<?php echo urlencode($search);?>&t=<?php echo urlencode($typeF);?>&s=<?php echo urlencode($statusF);?>&pending=<?php echo $pendingF?'1':'';?>" class="rpt-page-btn <?php echo $i===$page?'active':'';?>"><?php echo $i;?></a>
         <?php endfor;?>
-        <?php if($page<$totalPages):?><a href="?page=<?php echo $page+1;?>&q=<?php echo urlencode($search);?>&t=<?php echo urlencode($typeF);?>&s=<?php echo urlencode($statusF);?>" class="rpt-page-btn">→</a><?php endif;?>
+        <?php if($page<$totalPages):?><a href="?page=<?php echo $page+1;?>&q=<?php echo urlencode($search);?>&t=<?php echo urlencode($typeF);?>&s=<?php echo urlencode($statusF);?>&pending=<?php echo $pendingF?'1':'';?>" class="rpt-page-btn">→</a><?php endif;?>
     </div>
 </div>
 <?php endif;?>
@@ -244,51 +310,61 @@ function viewReport(id) {
     fetch('<?php echo SITE_URL;?>/pages/doj/rapports.php?id='+id+'&ajax=1', {headers:{'X-Requested-With':'XMLHttpRequest'}})
         .then(r=>r.json())
         .then(d=>{
-            if (d.error) { document.getElementById('rdContent').innerHTML='<p style="color:#ef4444">'+d.error+'</p>'; return; }
+            if (d.error) { document.getElementById('rdContent').innerHTML='<p style="color:#ef4444;padding:1rem">'+d.error+'</p>'; return; }
             const r=d.report;
+            const esc = s => { const el=document.createElement('div'); el.textContent = s==null?'':s; return el.innerHTML; };
             const TYPE_LABELS = <?php echo json_encode($TYPE_LABELS);?>;
-            const STATUS_CFG  = <?php echo json_encode(array_map(fn($v)=>$v,array_map(fn($v)=>[$v[0],$v[1]],$STATUS_CFG)));?>;
+            const STATUS_CFG  = <?php echo json_encode(array_map(fn($v)=>[$v[0],$v[1]],$STATUS_CFG));?>;
             const PRIORITY_CFG= <?php echo json_encode($PRIORITY_CFG);?>;
-            const tl = TYPE_LABELS[r.type] || r.type;
+            const tl = TYPE_LABELS[r.type] || r.type || '—';
             const [sc,scolor] = STATUS_CFG[r.status] || ['—','#64748b'];
             const [pc,pl] = PRIORITY_CFG[r.priority] || ['#64748b','—'];
-            const parseArr = v => { try { return JSON.parse(v||'[]'); } catch(e){ return []; }};
-            const officers  = parseArr(r.officers);
-            const suspects  = parseArr(r.suspects);
-            const civilians = parseArr(r.civilians);
+            const chips = (arr,color) => (arr&&arr.length) ? '<div style="display:flex;gap:.4rem;flex-wrap:wrap">'+arr.map(x=>`<span style="padding:.2rem .6rem;background:${color}14;border:1px solid ${color}33;border-radius:5px;font-size:.75rem;color:${color}">${esc(x)}</span>`).join('')+'</div>' : '';
+            const section = (icon,title,body) => body ? `<div class="rpt-section-title"><i class="fas fa-${icon}"></i>${title}</div><div style="margin-bottom:1rem">${body}</div>` : '';
+            let tags=[]; try{ tags=JSON.parse(r.tags||'[]')||[]; }catch(e){}
+            let evid=[]; try{ evid=JSON.parse(r.evidence||'[]')||[]; }catch(e){}
+            const evidHtml = evid.length ? '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:.5rem">'+evid.map(u=>{ const img=/\.(jpe?g|png|gif|webp)(\?.*)?$/i.test(u); return img?`<a href="${esc(u)}" target="_blank" onclick="return mdtOpenDoc('${esc(u)}','img','Preuve')"><img src="${esc(u)}" style="width:100%;height:88px;object-fit:cover;border-radius:7px;border:1px solid rgba(59,130,246,.2)"></a>`:`<a href="${esc(u)}" target="_blank" style="font-size:.72rem;color:#60a5fa">${esc(u.slice(0,32))}</a>`; }).join('')+'</div>' : '';
+            const saisiesHtml = (r.saisies&&r.saisies.length) ? r.saisies.map(s=>`<div style="display:flex;justify-content:space-between;gap:.5rem;padding:.4rem .6rem;background:rgba(15,23,42,.5);border:1px solid rgba(59,130,246,.1);border-radius:7px;margin-bottom:.3rem;font-size:.78rem"><span>${esc(s.description)}${s.quantite?(' · '+esc(s.quantite)):''}</span><span style="color:#60a5fa">${esc(s.numero_evidence||'')}</span></div>`).join('') : '';
+            const treated = parseInt(r.doj_treated||0,10)===1;
+            const docBtn = r.document_url ? `<a href="${esc(r.document_url)}" target="_blank" onclick="return mdtOpenDoc('${esc(r.document_url)}','doc','Rapport #'+String(r.id).padStart(6,'0'))" class="btn btn-primary" style="text-decoration:none"><i class="fas fa-file-lines"></i> Voir le document officiel</a>` : '';
+            const treatBtn = `<button type="button" onclick="markTreated(${r.id},${treated?0:1})" class="btn ${treated?'btn-secondary':'btn-primary'}"><i class="fas fa-${treated?'rotate-left':'check'}"></i> ${treated?'Rouvrir (non traité)':'Marquer comme traité'}</button>`;
 
             document.getElementById('rdContent').innerHTML = `
-                <div style="display:flex;gap:.5rem;margin-bottom:1.25rem;flex-wrap:wrap">
+                <div style="display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap">
                     <span style="padding:.28rem .75rem;border-radius:6px;font-size:.73rem;font-weight:700;background:${scolor}18;border:1px solid ${scolor}33;color:${scolor}">${sc}</span>
                     <span style="padding:.28rem .75rem;border-radius:6px;font-size:.73rem;font-weight:700;background:${pc}18;border:1px solid ${pc}33;color:${pc}">${pl}</span>
-                    <span style="padding:.28rem .75rem;border-radius:6px;font-size:.73rem;font-weight:700;background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.25);color:#60a5fa">${tl}</span>
+                    <span style="padding:.28rem .75rem;border-radius:6px;font-size:.73rem;font-weight:700;background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.25);color:#60a5fa">${esc(tl)}</span>
+                    ${parseInt(r.doj_alert||0,10)===1?'<span style="padding:.28rem .75rem;border-radius:6px;font-size:.73rem;font-weight:700;background:rgba(139,92,246,.12);border:1px solid rgba(139,92,246,.3);color:#a78bfa">⚖ Alerte DOJ</span>':''}
+                    ${treated?'<span style="padding:.28rem .75rem;border-radius:6px;font-size:.73rem;font-weight:700;background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.3);color:#10b981">✓ Traité DOJ</span>':''}
                 </div>
-                <div style="font-size:1.1rem;font-weight:700;margin-bottom:1.25rem">${r.title}</div>
+                <div style="font-size:1.1rem;font-weight:700;margin-bottom:1rem">${esc(r.title)}</div>
+                <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1.25rem">${docBtn}${treatBtn}</div>
                 <div style="background:rgba(15,23,42,.5);border:1px solid rgba(59,130,246,.1);border-radius:10px;padding:1rem;margin-bottom:1.25rem">
-                    ${[['Auteur',r.auteur||'—'],['Date',r.created_at?new Date(r.created_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—'],['Lieu',r.location||'—'],['Faction',r.faction||'—']].map(([l,v])=>`<div style="display:grid;grid-template-columns:120px 1fr;gap:.5rem;padding:.45rem 0;border-bottom:1px solid rgba(59,130,246,.06);font-size:.82rem"><span style="color:#475569;font-size:.75rem">${l}</span><span style="color:#f1f5f9;font-weight:500">${v}</span></div>`).join('')}
+                    ${[['Auteur',r.auteur||'—'],['Date',r.created_at?new Date(r.created_at).toLocaleString('fr-FR'):'—'],['Lieu',r.location||'—']].map(([l,v])=>`<div style="display:grid;grid-template-columns:120px 1fr;gap:.5rem;padding:.4rem 0;border-bottom:1px solid rgba(59,130,246,.06);font-size:.82rem"><span style="color:#475569;font-size:.75rem">${l}</span><span style="color:#f1f5f9;font-weight:500">${esc(v)}</span></div>`).join('')}
                 </div>
-                ${officers.length?`<div class="rpt-section-title"><i class="fas fa-user-shield"></i>Officiers impliqués</div><div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:1rem">${officers.map(o=>`<span style="padding:.2rem .6rem;background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.2);border-radius:5px;font-size:.75rem;color:#60a5fa">${typeof o==='object'?o.username||o.name||JSON.stringify(o):o}</span>`).join('')}</div>`:''}
-                ${suspects.length?`<div class="rpt-section-title"><i class="fas fa-user-slash"></i>Suspects</div><div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:1rem">${suspects.map(s=>`<span style="padding:.2rem .6rem;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:5px;font-size:.75rem;color:#ef4444">${typeof s==='object'?s.name||JSON.stringify(s):s}</span>`).join('')}</div>`:''}
-                ${r.description_rich?`<div class="rpt-section-title"><i class="fas fa-file-lines"></i>Description</div><div style="background:rgba(15,23,42,.5);border:1px solid rgba(59,130,246,.1);border-radius:9px;padding:1rem;font-size:.85rem;line-height:1.7;color:#94a3b8;margin-bottom:1rem">${r.description_rich}</div>`:`${r.description?`<div class="rpt-section-title"><i class="fas fa-file-lines"></i>Description</div><div style="background:rgba(15,23,42,.5);border:1px solid rgba(59,130,246,.1);border-radius:9px;padding:1rem;font-size:.85rem;line-height:1.7;color:#94a3b8;margin-bottom:1rem">${r.description}</div>`:''}`}
+                ${section('user-shield','Officiers impliqués',chips(r.officers_names,'#3b82f6'))}
+                ${section('user-slash','Suspects',chips(r.suspects_names,'#ef4444'))}
+                ${section('user','Civils impliqués',chips(r.civilians_names,'#22c55e'))}
+                ${section('eye','Témoins',chips(r.witnesses_names,'#f59e0b'))}
+                ${section('car','Véhicules',chips(r.vehicles_names,'#60a5fa'))}
+                ${section('tags','Tags',chips(tags,'#8b5cf6'))}
+                ${section('box-archive','Objets saisis',saisiesHtml)}
+                ${r.description_rich?section('file-lines','Description',`<div style="background:rgba(15,23,42,.5);border:1px solid rgba(59,130,246,.1);border-radius:9px;padding:1rem;font-size:.85rem;line-height:1.7;color:#cbd5e1">${r.description_rich}</div>`):''}
+                ${section('camera','Preuves & pièces jointes',evidHtml)}
             `;
         })
         .catch(()=>{ document.getElementById('rdContent').innerHTML='<p style="color:#ef4444;padding:1rem">Erreur lors du chargement du rapport.</p>'; });
 }
+
+function markTreated(id, val){
+    const fd=new FormData(); fd.append('action','mark_treated'); fd.append('id',id); fd.append('treated',val);
+    fetch('<?php echo SITE_URL;?>/pages/doj/rapports.php', {method:'POST', body:fd, headers:{'X-Requested-With':'XMLHttpRequest'}})
+        .then(r=>r.json())
+        .then(j=>{ if(j&&j.success){ viewReport(id); if(window.DOJ&&DOJ.toast) DOJ.toast(val?'Rapport marqué comme traité.':'Rapport rouvert.','success'); }
+                   else { if(window.DOJ&&DOJ.toast) DOJ.toast('Échec de la mise à jour.','error'); } })
+        .catch(()=>{ if(window.DOJ&&DOJ.toast) DOJ.toast('Erreur réseau.','error'); });
+}
 </script>
 
-<?php
-// ── AJAX handler ───────────────────────────────────────────────────────────
-if (isset($_GET['ajax']) && isset($_GET['id'])) {
-    header('Content-Type: application/json');
-    try {
-        $s = $db->prepare("SELECT r.*, u.username AS auteur FROM reports r LEFT JOIN users u ON u.id=r.created_by WHERE r.id=? AND r.faction='LSPD'");
-        $s->execute([$viewId ?: intval($_GET['id'])]);
-        $rpt = $s->fetch(PDO::FETCH_ASSOC);
-        if (!$rpt) { echo json_encode(['error'=>'Rapport introuvable']); exit; }
-        echo json_encode(['report'=>$rpt]);
-    } catch(Exception $e) { echo json_encode(['error'=>$e->getMessage()]); }
-    exit;
-}
-?>
-
+<?php require_once ROOT_PATH . '/includes/doc_viewer.php'; ?>
 <?php include __DIR__ . '/includes/footer.php'; ?>

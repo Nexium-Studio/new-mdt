@@ -142,7 +142,7 @@ if ($viewAgentId > 0) {
             <?php else:?>
             <div style="width:96px;height:96px;border-radius:24px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);display:grid;place-items:center;font-size:2.2rem;font-weight:800;color:#fff;margin:0 auto .8rem"><?php echo htmlspecialchars($agInit);?></div>
             <?php endif;?>
-            <div style="font-family:'Syne',serif;font-size:1.2rem;font-weight:800;color:#fff"><?php echo htmlspecialchars($agName);?></div>
+            <div style="font-family:'Montserrat',sans-serif;font-size:1.2rem;font-weight:800;color:#fff"><?php echo htmlspecialchars($agName);?></div>
             <div style="margin-top:.4rem"><span class="badge bg-blue"><i class="fas fa-shield-halved"></i> <?php echo htmlspecialchars($agRank?:'—');?></span></div>
             <div style="margin-top:.5rem;font-family:'IBM Plex Mono',monospace;font-size:.8rem;color:var(--blue-xl)"><i class="fas fa-hashtag" style="opacity:.6"></i> <?php echo $agMat?htmlspecialchars($agMat):'<span style="color:var(--txt-m)">Aucun matricule</span>';?></div>
             <?php if($nbActiveSanc>0):?><div style="margin-top:.6rem"><span class="badge bg-yellow"><i class="fas fa-triangle-exclamation"></i> <?php echo $nbActiveSanc;?> sanction(s) active(s)</span></div><?php endif;?>

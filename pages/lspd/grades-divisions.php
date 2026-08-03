@@ -178,7 +178,7 @@ include __DIR__ . '/includes/header.php';
     cursor: pointer;
     position: relative;
     transition: all 0.3s;
-    font-family: 'Chakra Petch', sans-serif;
+    font-family: 'Inter', sans-serif;
 }
 
 .tab-btn.active {
@@ -244,11 +244,11 @@ include __DIR__ . '/includes/header.php';
     justify-content: center;
     font-weight: 700;
     color: #60a5fa;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'IBM Plex Mono', monospace;
 }
 
 .rank-name-cell {
-    font-family: 'Orbitron', monospace;
+    font-family: 'Montserrat', sans-serif;
     font-weight: 700;
     font-size: 0.95rem;
     color: #e8edf5;
@@ -261,14 +261,14 @@ include __DIR__ . '/includes/header.php';
     background: rgba(59, 130, 246, 0.1);
     border: 1px solid rgba(59, 130, 246, 0.3);
     border-radius: 6px;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'IBM Plex Mono', monospace;
     font-weight: 700;
     color: #60a5fa;
     font-size: 0.85rem;
 }
 
 .salary-cell {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'IBM Plex Mono', monospace;
     font-weight: 700;
     color: #22c55e;
     font-size: 0.95rem;
@@ -281,7 +281,7 @@ include __DIR__ . '/includes/header.php';
     border: 1px solid rgba(59, 130, 246, 0.2);
     border-radius: 6px;
     color: #e8edf5;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'IBM Plex Mono', monospace;
     font-size: 0.85rem;
 }
 
@@ -327,7 +327,7 @@ include __DIR__ . '/includes/header.php';
 }
 
 .division-title {
-    font-family: 'Orbitron', monospace;
+    font-family: 'Montserrat', sans-serif;
     font-size: 1.1rem;
     font-weight: 700;
     color: #e8edf5;
@@ -335,7 +335,7 @@ include __DIR__ . '/includes/header.php';
 }
 
 .division-abbr {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'IBM Plex Mono', monospace;
     font-size: 0.85rem;
     color: #64748b;
     font-weight: 700;

@@ -213,12 +213,12 @@ include __DIR__ . '/includes/header.php';
     justify-content: center;
     font-size: 1.5rem;
     color: #3b82f6;
-    font-family: 'Orbitron', monospace;
+    font-family: 'Montserrat', sans-serif;
     font-weight: 700;
 }
 
 .employee-info h3 {
-    font-family: 'Orbitron', monospace;
+    font-family: 'Montserrat', sans-serif;
     font-size: 1rem;
     color: #e8edf5;
     margin-bottom: 0.25rem;
@@ -227,7 +227,7 @@ include __DIR__ . '/includes/header.php';
 .employee-rank {
     font-size: 0.85rem;
     color: #64748b;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'IBM Plex Mono', monospace;
 }
 
 .badge-matricule {
@@ -242,7 +242,7 @@ include __DIR__ . '/includes/header.php';
     border: 1px solid rgba(59, 130, 246, 0.3);
     border-radius: 6px;
     font-size: 0.75rem;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'IBM Plex Mono', monospace;
     color: #60a5fa;
     font-weight: 700;
 }
@@ -270,7 +270,7 @@ include __DIR__ . '/includes/header.php';
 .stat-value {
     font-weight: 600;
     color: #e8edf5;
-    font-family: 'Chakra Petch', sans-serif;
+    font-family: 'Inter', sans-serif;
 }
 
 .divisions-badges {
@@ -288,7 +288,7 @@ include __DIR__ . '/includes/header.php';
     font-size: 0.75rem;
     font-weight: 700;
     color: #60a5fa;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'IBM Plex Mono', monospace;
 }
 
 .sanctions-warning {
@@ -345,7 +345,7 @@ include __DIR__ . '/includes/header.php';
             <i class="fas fa-user-plus"></i> Recruter un Citoyen
         </button>
     <?php endif; ?>
-    <span style="font-family: 'JetBrains Mono', monospace; padding: 0.75rem 1.5rem; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 10px; color: #60a5fa;">
+    <span style="font-family: 'IBM Plex Mono', monospace; padding: 0.75rem 1.5rem; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 10px; color: #60a5fa;">
         <i class="fas fa-users"></i> <?php echo count($employees); ?> employé(s)
     </span>
 </div>

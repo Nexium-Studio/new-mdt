@@ -181,11 +181,11 @@ $__navPages = [
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title><?php echo htmlspecialchars($pageTitle??'LSPD'); ?> — <?php echo htmlspecialchars($__lspdName); ?></title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 :root{--blue:#2563eb;--blue-l:#60a5fa;--blue-xl:#bfdbfe;--bg:#03080f;--bg-c:#060d1a;--bg-e:#0a1020;--bg-ov:#0e1830;--bdr:rgba(37,99,235,.14);--bdr-h:rgba(37,99,235,.35);--txt:#e8edf5;--txt-s:#94a3b8;--txt-m:#374151;--green:#10b981;--red:#ef4444;--yellow:#f59e0b;--purple:#8b5cf6}
-body{font-family:'IBM Plex Sans',system-ui,sans-serif;background:var(--bg);color:var(--txt);overflow-x:hidden;font-size:14px}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--txt);overflow-x:hidden;font-size:14px}
 /* ═══════════════ SIDEBAR (v2 — refined) ═══════════════
    Amélioration UX : indicateur d'actif animé, accent par section,
    zone de clic élargie, transitions fluides, meilleur contraste.
@@ -202,7 +202,7 @@ body{font-family:'IBM Plex Sans',system-ui,sans-serif;background:var(--bg);color
 .ls-brand::after{content:'';position:absolute;bottom:-1px;left:1.2rem;right:1.2rem;height:1px;background:linear-gradient(90deg,transparent,rgba(37,99,235,.35),transparent)}
 .ls-brand-ico{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.1rem;flex-shrink:0;box-shadow:0 4px 18px rgba(37,99,235,.45),inset 0 1px 0 rgba(255,255,255,.15);position:relative;overflow:hidden}
 .ls-brand-ico::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,transparent 40%,rgba(255,255,255,.12) 50%,transparent 60%);pointer-events:none}
-.ls-brand-name{font-family:'Syne',serif;font-size:.95rem;font-weight:800;color:#fff;letter-spacing:.02em}
+.ls-brand-name{font-family:'Montserrat',sans-serif;font-size:.95rem;font-weight:800;color:#fff;letter-spacing:.02em}
 .ls-brand-sub{font-size:.6rem;color:var(--txt-m);letter-spacing:.11em;text-transform:uppercase;margin-top:.15rem}
 /* User card */
 .ls-user{margin:.75rem 1rem;padding:.65rem .85rem;background:linear-gradient(135deg,rgba(37,99,235,.09),rgba(37,99,235,.04));border:1px solid rgba(37,99,235,.22);border-radius:10px;display:flex;align-items:center;gap:.6rem;transition:border-color .2s,background .2s}
@@ -232,7 +232,7 @@ body{font-family:'IBM Plex Sans',system-ui,sans-serif;background:var(--bg);color
 /* MAIN */
 .ls-main{margin-left:262px;min-height:100vh}
 .ls-topbar{position:sticky;top:0;z-index:100;background:rgba(3,8,15,.96);backdrop-filter:blur(12px);border-bottom:1px solid var(--bdr);padding:.85rem 1.65rem;display:flex;justify-content:space-between;align-items:center}
-.ls-topbar-title{font-family:'Syne',serif;font-size:1.1rem;font-weight:800;color:#fff;display:flex;align-items:center;gap:.65rem}
+.ls-topbar-title{font-family:'Montserrat',sans-serif;font-size:1.1rem;font-weight:800;color:#fff;display:flex;align-items:center;gap:.65rem}
 .ls-topbar-title i{color:var(--blue-l);font-size:.9rem}
 .ls-topbar-sub{font-size:.69rem;color:var(--txt-s);margin-top:.1rem}
 .ls-topbar-right{display:flex;align-items:center;gap:.6rem}
@@ -260,13 +260,13 @@ body{font-family:'IBM Plex Sans',system-ui,sans-serif;background:var(--bg);color
 .btn-warning{background:rgba(245,158,11,.1);color:#fde68a;border:1px solid rgba(245,158,11,.25)}.btn-sm{padding:.33rem .72rem;font-size:.75rem}.btn-xs{padding:.2rem .52rem;font-size:.69rem}
 .form-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:1.05rem}.form-full{grid-column:1/-1}.form-group{display:flex;flex-direction:column;gap:.3rem}
 .form-label{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--txt-m)}
-.form-input,.form-select,.form-textarea{width:100%;padding:.62rem .88rem;background:#020508;border:1px solid rgba(37,99,235,.2);border-radius:7px;color:var(--txt);font-family:'IBM Plex Sans',inherit;font-size:.83rem;transition:all .17s}
+.form-input,.form-select,.form-textarea{width:100%;padding:.62rem .88rem;background:#020508;border:1px solid rgba(37,99,235,.2);border-radius:7px;color:var(--txt);font-family:'Inter',inherit;font-size:.83rem;transition:all .17s}
 .form-input:focus,.form-select:focus,.form-textarea:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.12)}.form-input::placeholder{color:var(--txt-m)}.form-select option{background:#0a1020}.form-textarea{resize:vertical;min-height:85px}
 .modal-ov{position:fixed;inset:0;background:rgba(0,0,0,.88);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;z-index:9999;padding:1.5rem}.modal-ov:not(.hidden){display:flex}
 .modal{background:linear-gradient(140deg,var(--bg-e),var(--bg));border:1px solid rgba(37,99,235,.28);border-radius:15px;box-shadow:0 0 80px rgba(0,0,0,.7);width:90%;max-width:640px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden}
 .modal-sm{max-width:430px}.modal-lg{max-width:850px}.modal-xl{max-width:1100px}
 .modal-hd{padding:1.15rem 1.45rem;border-bottom:1px solid var(--bdr);display:flex;justify-content:space-between;align-items:center;background:rgba(37,99,235,.04)}
-.modal-hd h2{font-family:'Syne',serif;font-size:.95rem;font-weight:800;color:#fff;display:flex;align-items:center;gap:.62rem}.modal-hd h2 i{color:var(--blue-l)}
+.modal-hd h2{font-family:'Montserrat',sans-serif;font-size:.95rem;font-weight:800;color:#fff;display:flex;align-items:center;gap:.62rem}.modal-hd h2 i{color:var(--blue-l)}
 .modal-cl{width:28px;height:28px;border-radius:7px;background:rgba(37,99,235,.08);border:1px solid var(--bdr);color:var(--txt-s);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1rem;transition:all .17s}
 .modal-cl:hover{background:rgba(239,68,68,.15);color:#fca5a5;transform:rotate(90deg)}
 .modal-bd{padding:1.45rem;overflow-y:auto;flex:1}.modal-ft{padding:1rem 1.45rem;border-top:1px solid var(--bdr);background:rgba(0,0,0,.2);display:flex;justify-content:flex-end;gap:.6rem}
@@ -390,7 +390,7 @@ html[data-theme="gradient"] .ls-link.active{background:linear-gradient(90deg,rgb
 <div style="background:linear-gradient(140deg,var(--bg-e),var(--bg));border:1px solid rgba(239,68,68,.3);border-radius:15px;max-width:400px;width:90%;overflow:hidden;box-shadow:0 0 80px rgba(0,0,0,.7)">
     <div style="padding:2rem 1.5rem 1rem;text-align:center">
         <div id="lspd-confirm-ico" style="width:64px;height:64px;border-radius:50%;margin:0 auto .85rem;display:flex;align-items:center;justify-content:center;font-size:1.5rem;background:rgba(239,68,68,.12);border:2px solid rgba(239,68,68,.3);color:#fca5a5"><i class="fas fa-trash"></i></div>
-        <div id="lspd-confirm-title" style="font-family:'Syne',serif;font-size:1.05rem;font-weight:800;color:#fff;margin-bottom:.5rem">Confirmer la suppression</div>
+        <div id="lspd-confirm-title" style="font-family:'Montserrat',sans-serif;font-size:1.05rem;font-weight:800;color:#fff;margin-bottom:.5rem">Confirmer la suppression</div>
         <div id="lspd-confirm-msg" style="font-size:.83rem;color:var(--txt-s);line-height:1.55">Cette action est <strong>irréversible</strong>.</div>
         <div id="lspd-confirm-target" style="display:none;margin-top:.65rem;padding:.4rem .8rem;background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.2);border-radius:7px;font-family:'IBM Plex Mono',monospace;font-size:.75rem;color:#fca5a5"></div>
     </div>

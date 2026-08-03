@@ -83,7 +83,7 @@ include __DIR__ . '/includes/header.php';
 .sv-hero-ico{width:58px;height:58px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:1.5rem;background:rgba(37,99,235,.12);color:var(--blue-l);border:2px solid rgba(37,99,235,.25);flex-shrink:0}
 .sv-hero.on .sv-hero-ico{background:rgba(16,185,129,.12);color:#6ee7b7;border-color:rgba(16,185,129,.35);box-shadow:0 0 0 6px rgba(16,185,129,.07)}
 .sv-hero-body{flex:1;min-width:240px}
-.sv-hero-title{font-family:'Syne',serif;font-size:1.05rem;font-weight:800;color:#fff;margin-bottom:.18rem}
+.sv-hero-title{font-family:'Montserrat',sans-serif;font-size:1.05rem;font-weight:800;color:#fff;margin-bottom:.18rem}
 .sv-hero-sub{font-size:.79rem;color:var(--txt-s)}
 .sv-hero-timer{font-family:'IBM Plex Mono',monospace;font-size:1.85rem;font-weight:800;color:#6ee7b7;letter-spacing:.04em;line-height:1}
 .sv-hero-actions{display:flex;gap:.55rem;flex-wrap:wrap}

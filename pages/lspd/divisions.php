@@ -456,7 +456,7 @@ include __DIR__ . '/includes/header.php';
 <!-- ══ PAGE HEADER ══ -->
 <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1.4rem;gap:1rem;flex-wrap:wrap;">
     <div>
-        <h1 style="font-family:'Syne',serif;font-size:1.4rem;font-weight:800;color:#fff;margin:0 0 .3rem;display:flex;align-items:center;gap:.55rem;">
+        <h1 style="font-family:'Montserrat',sans-serif;font-size:1.4rem;font-weight:800;color:#fff;margin:0 0 .3rem;display:flex;align-items:center;gap:.55rem;">
             <i class="fas fa-shield-halved" style="color:var(--blue);"></i>
             Grades & Divisions — LSPD
         </h1>

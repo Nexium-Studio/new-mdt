@@ -53,13 +53,13 @@ include __DIR__ . '/includes/header.php';
 .off-search-wrap input {
     width:100%; padding:0.75rem 1.25rem 0.75rem 3rem;
     background:rgba(0,0,0,0.3); border:1px solid rgba(0,255,255,0.15);
-    border-radius:10px; color:#e2e8f0; font-family:'Chakra Petch',sans-serif; font-size:0.9rem;
+    border-radius:10px; color:#e2e8f0; font-family:'Inter',sans-serif; font-size:0.9rem;
     transition:all 0.3s;
 }
 .off-search-wrap input:focus { border-color:rgba(0,255,255,0.4); outline:none; box-shadow:0 0 15px rgba(0,255,255,0.1); }
 .off-search-wrap input::placeholder { color:#475569; }
 .off-search-wrap i { position:absolute; left:1rem; top:50%; transform:translateY(-50%); color:#64748b; font-size:0.85rem; }
-.off-total { margin-left:auto; font-family:'JetBrains Mono',monospace; font-size:0.85rem; color:#94a3b8; display:flex; align-items:center; gap:8px; }
+.off-total { margin-left:auto; font-family:'IBM Plex Mono',monospace; font-size:0.85rem; color:#94a3b8; display:flex; align-items:center; gap:8px; }
 .off-total i { color:var(--primary, #00e5ff); }
 
 /* Category section */
@@ -73,11 +73,11 @@ include __DIR__ . '/includes/header.php';
     content:''; position:absolute; left:0; top:0; bottom:0; width:4px;
 }
 .off-cat-header h2 {
-    font-family:'Orbitron',monospace; font-size:1rem; font-weight:700;
+    font-family:'Montserrat',sans-serif; font-size:1rem; font-weight:700;
     letter-spacing:1.5px; margin:0; text-transform:uppercase;
 }
 .off-cat-header .off-count {
-    font-family:'JetBrains Mono',monospace; font-size:0.82rem;
+    font-family:'IBM Plex Mono',monospace; font-size:0.82rem;
     opacity:0.7; font-weight:400;
 }
 .off-cat-header i { font-size:1.15rem; }
@@ -103,11 +103,11 @@ include __DIR__ . '/includes/header.php';
 
 /* Card header */
 .off-card-head { display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; margin-bottom:0.75rem; }
-.off-card-code { font-family:'Orbitron',monospace; font-size:1rem; font-weight:800; letter-spacing:1px; }
-.off-card-title { font-family:'Chakra Petch',sans-serif; font-size:0.92rem; font-weight:600; color:#cbd5e1; margin-top:4px; }
+.off-card-code { font-family:'Montserrat',sans-serif; font-size:1rem; font-weight:800; letter-spacing:1px; }
+.off-card-title { font-family:'Inter',sans-serif; font-size:0.92rem; font-weight:600; color:#cbd5e1; margin-top:4px; }
 
 /* Severity level */
-.off-sev { padding:4px 12px; border-radius:6px; font-family:'JetBrains Mono',monospace; font-size:0.7rem; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; white-space:nowrap; }
+.off-sev { padding:4px 12px; border-radius:6px; font-family:'IBM Plex Mono',monospace; font-size:0.7rem; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; white-space:nowrap; }
 .off-sev-1 { background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.3); color:#22c55e; }
 .off-sev-2 { background:rgba(59,130,246,0.1); border:1px solid rgba(59,130,246,0.3); color:#3b82f6; }
 .off-sev-3 { background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.3); color:#f59e0b; }
@@ -130,7 +130,7 @@ include __DIR__ . '/includes/header.php';
     padding-top:0.85rem; border-top:1px solid rgba(255,255,255,0.04);
 }
 .off-penalty-label { font-size:0.62rem; font-weight:700; text-transform:uppercase; letter-spacing:1.2px; color:#475569; margin-bottom:2px; }
-.off-penalty-val { font-family:'JetBrains Mono',monospace; font-size:0.88rem; font-weight:700; }
+.off-penalty-val { font-family:'IBM Plex Mono',monospace; font-size:0.88rem; font-weight:700; }
 
 .off-empty { padding:2.5rem; text-align:center; color:#475569; font-style:italic; font-size:0.9rem; background:rgba(0,0,0,0.15); border-radius:10px; border:1px dashed rgba(255,255,255,0.06); }
 
@@ -142,8 +142,8 @@ include __DIR__ . '/includes/header.php';
 .off-gtbl tbody td { padding:.3rem .55rem; font-size:.77rem; border-bottom:1px solid rgba(255,255,255,.03); vertical-align:middle; }
 .off-gtbl tbody tr:last-child td { border-bottom:none; }
 .off-gtbl tbody tr:hover td { background:rgba(255,255,255,.025); }
-.off-glvl { display:inline-block; padding:.11rem .48rem; border-radius:4px; font-family:'JetBrains Mono',monospace; font-size:.63rem; font-weight:700; border:1px solid; white-space:nowrap; }
-.off-gval { font-family:'JetBrains Mono',monospace; font-weight:600; }
+.off-glvl { display:inline-block; padding:.11rem .48rem; border-radius:4px; font-family:'IBM Plex Mono',monospace; font-size:.63rem; font-weight:700; border:1px solid; white-space:nowrap; }
+.off-gval { font-family:'IBM Plex Mono',monospace; font-weight:600; }
 .off-gnone { color:#2d3f55; font-size:.72rem; }
 
 @media (max-width: 800px) {
@@ -155,7 +155,7 @@ include __DIR__ . '/includes/header.php';
    ============================================ */
 
 /* === FONTS === */
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Chakra+Petch:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap');
 
 /* === CSS VARIABLES === */
 :root {
@@ -185,7 +185,7 @@ include __DIR__ . '/includes/header.php';
 body.lspd-panel {
     margin: 0;
     padding: 0;
-    font-family: 'Chakra Petch', sans-serif;
+    font-family: 'Inter', sans-serif;
     background: var(--lspd-bg);
     color: var(--lspd-text);
     min-height: 100vh;
@@ -228,7 +228,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
     align-items: center;
     justify-content: center;
     gap: 0.75rem;
-    font-family: 'Orbitron', monospace;
+    font-family: 'Montserrat', sans-serif;
     font-weight: 800;
     font-size: 1.15rem;
     letter-spacing: 2px;
@@ -270,7 +270,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
     border-radius: 10px;
     color: var(--lspd-text-secondary);
     text-decoration: none;
-    font-family: 'Chakra Petch', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-size: 0.88rem;
     font-weight: 500;
     transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
@@ -378,21 +378,21 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
     display: flex;
     align-items: center;
     justify-content: center;
-    font-family: 'Orbitron', monospace;
+    font-family: 'Montserrat', sans-serif;
     font-weight: 700;
     font-size: 0.9rem;
     color: var(--lspd-primary);
 }
 
 .user-name {
-    font-family: 'Chakra Petch', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-weight: 700;
     font-size: 0.85rem;
     color: var(--lspd-text);
 }
 
 .user-role {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'IBM Plex Mono', monospace;
     font-size: 0.7rem;
     color: var(--lspd-primary);
     opacity: 0.8;
@@ -440,7 +440,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
 }
 
 .page-title {
-    font-family: 'Orbitron', monospace;
+    font-family: 'Montserrat', sans-serif;
     font-size: 1.1rem;
     font-weight: 700;
     letter-spacing: 2px;
@@ -463,7 +463,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
 }
 
 .badge-lspd {
-    font-family: 'Orbitron', monospace;
+    font-family: 'Montserrat', sans-serif;
     font-size: 0.65rem;
     font-weight: 600;
     letter-spacing: 1.5px;
@@ -507,7 +507,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
 }
 
 .card-header h2 {
-    font-family: 'Orbitron', monospace;
+    font-family: 'Montserrat', sans-serif;
     font-size: 0.85rem;
     font-weight: 700;
     letter-spacing: 1.5px;
@@ -589,7 +589,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
 .stat-content { flex: 1; }
 
 .stat-label {
-    font-family: 'Orbitron', monospace;
+    font-family: 'Montserrat', sans-serif;
     font-size: 0.62rem;
     font-weight: 600;
     letter-spacing: 1.5px;
@@ -599,7 +599,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
 }
 
 .stat-value {
-    font-family: 'Orbitron', monospace;
+    font-family: 'Montserrat', sans-serif;
     font-size: 1.75rem;
     font-weight: 800;
     color: var(--lspd-primary);
@@ -611,7 +611,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
     font-size: 0.75rem;
     color: var(--lspd-text-muted);
     margin-top: 6px;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'IBM Plex Mono', monospace;
     font-size: 0.68rem;
 }
 
@@ -645,7 +645,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
 }
 
 .welcome-content h1 {
-    font-family: 'Orbitron', monospace;
+    font-family: 'Montserrat', sans-serif;
     font-size: 2rem;
     font-weight: 800;
     color: var(--lspd-primary);
@@ -654,7 +654,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
 }
 
 .welcome-content p {
-    font-family: 'Chakra Petch', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-size: 1rem;
     color: var(--lspd-text-secondary);
     margin: 0 0 1.5rem 0;
@@ -674,7 +674,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
     background: rgba(0, 229, 255, 0.06);
     border: 1px solid rgba(0, 229, 255, 0.12);
     border-radius: 10px;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'IBM Plex Mono', monospace;
     font-weight: 600;
     font-size: 0.85rem;
     color: var(--lspd-primary);
@@ -744,7 +744,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
 }
 
 .quick-action-content h3 {
-    font-family: 'Orbitron', monospace;
+    font-family: 'Montserrat', sans-serif;
     font-size: 0.85rem;
     font-weight: 700;
     letter-spacing: 1px;
@@ -768,7 +768,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
 }
 
 .table thead th {
-    font-family: 'Orbitron', monospace;
+    font-family: 'Montserrat', sans-serif;
     font-size: 0.65rem;
     font-weight: 700;
     letter-spacing: 1.5px;
@@ -809,7 +809,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
     gap: 5px;
     padding: 4px 12px;
     border-radius: 6px;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'IBM Plex Mono', monospace;
     font-size: 0.68rem;
     font-weight: 700;
     text-transform: uppercase;
@@ -855,7 +855,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
     gap: 8px;
     padding: 0.75rem 1.5rem;
     border-radius: 10px;
-    font-family: 'Chakra Petch', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-size: 0.85rem;
     font-weight: 600;
     text-decoration: none;
@@ -912,7 +912,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
 
 .form-label {
     display: block;
-    font-family: 'Orbitron', monospace;
+    font-family: 'Montserrat', sans-serif;
     font-size: 0.62rem;
     font-weight: 600;
     letter-spacing: 1.5px;
@@ -930,7 +930,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
     border: 1px solid var(--lspd-border);
     border-radius: 10px;
     color: var(--lspd-text);
-    font-family: 'Chakra Petch', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-size: 0.88rem;
     transition: all 0.3s;
 }
@@ -1023,7 +1023,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
 }
 
 .modal-header h2 {
-    font-family: 'Orbitron', monospace;
+    font-family: 'Montserrat', sans-serif;
     font-size: 0.85rem;
     font-weight: 700;
     letter-spacing: 1.5px;
@@ -1119,7 +1119,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
     border: 1px solid var(--lspd-border);
     border-radius: 10px;
     color: var(--lspd-text);
-    font-family: 'Chakra Petch', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-size: 0.88rem;
     min-width: 300px;
     transition: all 0.3s;
@@ -1182,14 +1182,14 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
 }
 
 .profile-name {
-    font-family: 'Chakra Petch', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-size: 1.05rem;
     font-weight: 700;
     color: var(--lspd-text);
 }
 
 .profile-id {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'IBM Plex Mono', monospace;
     font-size: 0.72rem;
     color: var(--lspd-primary);
     margin-top: 3px;
@@ -1210,7 +1210,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
 }
 
 .profile-info-label {
-    font-family: 'Orbitron', monospace;
+    font-family: 'Montserrat', sans-serif;
     font-size: 0.55rem;
     font-weight: 600;
     letter-spacing: 1.2px;
@@ -1221,7 +1221,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
 }
 
 .profile-info-value {
-    font-family: 'Chakra Petch', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-size: 0.88rem;
     font-weight: 600;
     color: var(--lspd-text);
@@ -1239,7 +1239,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
 .license-badge {
     padding: 4px 12px;
     border-radius: 6px;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'IBM Plex Mono', monospace;
     font-size: 0.68rem;
     font-weight: 700;
     text-transform: uppercase;
@@ -1290,7 +1290,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
 .vehicle-card:hover::before { opacity: 1; }
 
 .vehicle-model {
-    font-family: 'Chakra Petch', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-size: 1.05rem;
     font-weight: 700;
     color: var(--lspd-text);
@@ -1298,7 +1298,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
 }
 
 .vehicle-plate {
-    font-family: 'Orbitron', monospace;
+    font-family: 'Montserrat', sans-serif;
     font-size: 1rem;
     font-weight: 800;
     letter-spacing: 3px;
@@ -1362,7 +1362,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
 }
 
 .report-type {
-    font-family: 'Orbitron', monospace;
+    font-family: 'Montserrat', sans-serif;
     font-size: 0.78rem;
     font-weight: 700;
     letter-spacing: 1px;
@@ -1371,7 +1371,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
 }
 
 .report-id {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'IBM Plex Mono', monospace;
     font-size: 0.75rem;
     color: var(--lspd-text-muted);
 }
@@ -1421,7 +1421,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
 }
 
 .wanted-card h3 {
-    font-family: 'Chakra Petch', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-size: 1.25rem;
     font-weight: 800;
     color: var(--lspd-text);
@@ -1432,7 +1432,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
     display: inline-block;
     padding: 4px 14px;
     border-radius: 6px;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'IBM Plex Mono', monospace;
     font-size: 0.7rem;
     font-weight: 800;
     text-transform: uppercase;

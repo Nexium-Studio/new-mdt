@@ -57,29 +57,29 @@ include __DIR__ . '/includes/header.php';
 @keyframes critPulse { 0%,100%{opacity:0.4;} 50%{opacity:1;} }
 
 .warrant-citizen { display:flex; align-items:center; gap:1rem; margin-bottom:1.25rem; padding-bottom:1rem; border-bottom:1px solid rgba(0,229,255,0.06); }
-.warrant-avatar { width:48px; height:48px; border-radius:12px; background:linear-gradient(135deg,rgba(239,68,68,0.15),rgba(239,68,68,0.3)); border:1px solid rgba(239,68,68,0.25); display:flex; align-items:center; justify-content:center; font-family:'Orbitron',monospace; font-weight:800; font-size:1rem; color:#ef4444; flex-shrink:0; }
-.warrant-citizen-name { font-family:'Chakra Petch',sans-serif; font-weight:700; font-size:1rem; color:var(--lspd-text); }
-.warrant-citizen-meta { font-family:'JetBrains Mono',monospace; font-size:0.72rem; color:var(--lspd-text-muted); margin-top:2px; }
+.warrant-avatar { width:48px; height:48px; border-radius:12px; background:linear-gradient(135deg,rgba(239,68,68,0.15),rgba(239,68,68,0.3)); border:1px solid rgba(239,68,68,0.25); display:flex; align-items:center; justify-content:center; font-family:'Montserrat',sans-serif; font-weight:800; font-size:1rem; color:#ef4444; flex-shrink:0; }
+.warrant-citizen-name { font-family:'Inter',sans-serif; font-weight:700; font-size:1rem; color:var(--lspd-text); }
+.warrant-citizen-meta { font-family:'IBM Plex Mono',monospace; font-size:0.72rem; color:var(--lspd-text-muted); margin-top:2px; }
 
 .warrant-offense { margin-bottom:1rem; }
-.warrant-offense-code { font-family:'Orbitron',monospace; font-size:0.85rem; font-weight:800; letter-spacing:1px; color:var(--lspd-primary); }
+.warrant-offense-code { font-family:'Montserrat',sans-serif; font-size:0.85rem; font-weight:800; letter-spacing:1px; color:var(--lspd-primary); }
 .warrant-offense-title { font-size:0.88rem; color:var(--lspd-text-secondary); margin-top:3px; }
 
 .warrant-tags { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:1rem; }
-.warrant-tag { padding:4px 10px; border-radius:6px; font-family:'JetBrains Mono',monospace; font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; display:inline-flex; align-items:center; gap:5px; }
+.warrant-tag { padding:4px 10px; border-radius:6px; font-family:'IBM Plex Mono',monospace; font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; display:inline-flex; align-items:center; gap:5px; }
 
 .warrant-details { display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; padding-top:0.75rem; border-top:1px solid rgba(0,229,255,0.04); }
-.warrant-detail-label { font-family:'Orbitron',monospace; font-size:0.55rem; font-weight:600; letter-spacing:1.2px; text-transform:uppercase; color:var(--lspd-text-muted); margin-bottom:2px; }
-.warrant-detail-value { font-family:'JetBrains Mono',monospace; font-size:0.85rem; font-weight:600; }
+.warrant-detail-label { font-family:'Montserrat',sans-serif; font-size:0.55rem; font-weight:600; letter-spacing:1.2px; text-transform:uppercase; color:var(--lspd-text-muted); margin-bottom:2px; }
+.warrant-detail-value { font-family:'IBM Plex Mono',monospace; font-size:0.85rem; font-weight:600; }
 
 /* View modal */
 .warrant-view-section { margin-bottom:1.5rem; }
 .warrant-view-section:last-child { margin-bottom:0; }
-.warrant-view-label { font-family:'Orbitron',monospace; font-size:0.6rem; font-weight:600; letter-spacing:1.5px; text-transform:uppercase; color:var(--lspd-text-muted); margin-bottom:6px; }
+.warrant-view-label { font-family:'Montserrat',sans-serif; font-size:0.6rem; font-weight:600; letter-spacing:1.5px; text-transform:uppercase; color:var(--lspd-text-muted); margin-bottom:6px; }
 .warrant-view-value { font-size:0.9rem; color:var(--lspd-text); line-height:1.6; }
 
 .filter-bar { display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap; }
-.filter-btn { padding:0.5rem 1rem; border-radius:8px; font-family:'Chakra Petch',sans-serif; font-size:0.82rem; font-weight:600; border:1px solid rgba(0,229,255,0.1); background:transparent; color:var(--lspd-text-muted); cursor:pointer; text-decoration:none; transition:all 0.2s; }
+.filter-btn { padding:0.5rem 1rem; border-radius:8px; font-family:'Inter',sans-serif; font-size:0.82rem; font-weight:600; border:1px solid rgba(0,229,255,0.1); background:transparent; color:var(--lspd-text-muted); cursor:pointer; text-decoration:none; transition:all 0.2s; }
 .filter-btn:hover { border-color:rgba(0,229,255,0.2); color:var(--lspd-text); }
 .filter-btn.active { background:rgba(0,229,255,0.08); border-color:rgba(0,229,255,0.3); color:var(--lspd-primary); }
 /* ============================================
@@ -88,7 +88,7 @@ include __DIR__ . '/includes/header.php';
    ============================================ */
 
 /* === FONTS === */
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Chakra+Petch:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap');
 
 /* === CSS VARIABLES === */
 :root {
@@ -118,7 +118,7 @@ include __DIR__ . '/includes/header.php';
 body.lspd-panel {
     margin: 0;
     padding: 0;
-    font-family: 'Chakra Petch', sans-serif;
+    font-family: 'Inter', sans-serif;
     background: var(--lspd-bg);
     color: var(--lspd-text);
     min-height: 100vh;
@@ -161,7 +161,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
     align-items: center;
     justify-content: center;
     gap: 0.75rem;
-    font-family: 'Orbitron', monospace;
+    font-family: 'Montserrat', sans-serif;
     font-weight: 800;
     font-size: 1.15rem;
     letter-spacing: 2px;
@@ -203,7 +203,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
     border-radius: 10px;
     color: var(--lspd-text-secondary);
     text-decoration: none;
-    font-family: 'Chakra Petch', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-size: 0.88rem;
     font-weight: 500;
     transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
@@ -311,21 +311,21 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
     display: flex;
     align-items: center;
     justify-content: center;
-    font-family: 'Orbitron', monospace;
+    font-family: 'Montserrat', sans-serif;
     font-weight: 700;
     font-size: 0.9rem;
     color: var(--lspd-primary);
 }
 
 .user-name {
-    font-family: 'Chakra Petch', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-weight: 700;
     font-size: 0.85rem;
     color: var(--lspd-text);
 }
 
 .user-role {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'IBM Plex Mono', monospace;
     font-size: 0.7rem;
     color: var(--lspd-primary);
     opacity: 0.8;
@@ -373,7 +373,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
 }
 
 .page-title {
-    font-family: 'Orbitron', monospace;
+    font-family: 'Montserrat', sans-serif;
     font-size: 1.1rem;
     font-weight: 700;
     letter-spacing: 2px;
@@ -396,7 +396,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
 }
 
 .badge-lspd {
-    font-family: 'Orbitron', monospace;
+    font-family: 'Montserrat', sans-serif;
     font-size: 0.65rem;
     font-weight: 600;
     letter-spacing: 1.5px;
@@ -440,7 +440,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
 }
 
 .card-header h2 {
-    font-family: 'Orbitron', monospace;
+    font-family: 'Montserrat', sans-serif;
     font-size: 0.85rem;
     font-weight: 700;
     letter-spacing: 1.5px;
@@ -522,7 +522,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
 .stat-content { flex: 1; }
 
 .stat-label {
-    font-family: 'Orbitron', monospace;
+    font-family: 'Montserrat', sans-serif;
     font-size: 0.62rem;
     font-weight: 600;
     letter-spacing: 1.5px;
@@ -532,7 +532,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
 }
 
 .stat-value {
-    font-family: 'Orbitron', monospace;
+    font-family: 'Montserrat', sans-serif;
     font-size: 1.75rem;
     font-weight: 800;
     color: var(--lspd-primary);
@@ -544,7 +544,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
     font-size: 0.75rem;
     color: var(--lspd-text-muted);
     margin-top: 6px;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'IBM Plex Mono', monospace;
     font-size: 0.68rem;
 }
 
@@ -578,7 +578,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
 }
 
 .welcome-content h1 {
-    font-family: 'Orbitron', monospace;
+    font-family: 'Montserrat', sans-serif;
     font-size: 2rem;
     font-weight: 800;
     color: var(--lspd-primary);
@@ -587,7 +587,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
 }
 
 .welcome-content p {
-    font-family: 'Chakra Petch', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-size: 1rem;
     color: var(--lspd-text-secondary);
     margin: 0 0 1.5rem 0;
@@ -607,7 +607,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
     background: rgba(0, 229, 255, 0.06);
     border: 1px solid rgba(0, 229, 255, 0.12);
     border-radius: 10px;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'IBM Plex Mono', monospace;
     font-weight: 600;
     font-size: 0.85rem;
     color: var(--lspd-primary);
@@ -677,7 +677,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
 }
 
 .quick-action-content h3 {
-    font-family: 'Orbitron', monospace;
+    font-family: 'Montserrat', sans-serif;
     font-size: 0.85rem;
     font-weight: 700;
     letter-spacing: 1px;
@@ -701,7 +701,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
 }
 
 .table thead th {
-    font-family: 'Orbitron', monospace;
+    font-family: 'Montserrat', sans-serif;
     font-size: 0.65rem;
     font-weight: 700;
     letter-spacing: 1.5px;
@@ -742,7 +742,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
     gap: 5px;
     padding: 4px 12px;
     border-radius: 6px;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'IBM Plex Mono', monospace;
     font-size: 0.68rem;
     font-weight: 700;
     text-transform: uppercase;
@@ -788,7 +788,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
     gap: 8px;
     padding: 0.75rem 1.5rem;
     border-radius: 10px;
-    font-family: 'Chakra Petch', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-size: 0.85rem;
     font-weight: 600;
     text-decoration: none;
@@ -845,7 +845,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
 
 .form-label {
     display: block;
-    font-family: 'Orbitron', monospace;
+    font-family: 'Montserrat', sans-serif;
     font-size: 0.62rem;
     font-weight: 600;
     letter-spacing: 1.5px;
@@ -863,7 +863,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
     border: 1px solid var(--lspd-border);
     border-radius: 10px;
     color: var(--lspd-text);
-    font-family: 'Chakra Petch', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-size: 0.88rem;
     transition: all 0.3s;
 }
@@ -956,7 +956,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
 }
 
 .modal-header h2 {
-    font-family: 'Orbitron', monospace;
+    font-family: 'Montserrat', sans-serif;
     font-size: 0.85rem;
     font-weight: 700;
     letter-spacing: 1.5px;
@@ -1052,7 +1052,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
     border: 1px solid var(--lspd-border);
     border-radius: 10px;
     color: var(--lspd-text);
-    font-family: 'Chakra Petch', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-size: 0.88rem;
     min-width: 300px;
     transition: all 0.3s;
@@ -1115,14 +1115,14 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
 }
 
 .profile-name {
-    font-family: 'Chakra Petch', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-size: 1.05rem;
     font-weight: 700;
     color: var(--lspd-text);
 }
 
 .profile-id {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'IBM Plex Mono', monospace;
     font-size: 0.72rem;
     color: var(--lspd-primary);
     margin-top: 3px;
@@ -1143,7 +1143,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
 }
 
 .profile-info-label {
-    font-family: 'Orbitron', monospace;
+    font-family: 'Montserrat', sans-serif;
     font-size: 0.55rem;
     font-weight: 600;
     letter-spacing: 1.2px;
@@ -1154,7 +1154,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
 }
 
 .profile-info-value {
-    font-family: 'Chakra Petch', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-size: 0.88rem;
     font-weight: 600;
     color: var(--lspd-text);
@@ -1172,7 +1172,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
 .license-badge {
     padding: 4px 12px;
     border-radius: 6px;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'IBM Plex Mono', monospace;
     font-size: 0.68rem;
     font-weight: 700;
     text-transform: uppercase;
@@ -1223,7 +1223,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
 .vehicle-card:hover::before { opacity: 1; }
 
 .vehicle-model {
-    font-family: 'Chakra Petch', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-size: 1.05rem;
     font-weight: 700;
     color: var(--lspd-text);
@@ -1231,7 +1231,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
 }
 
 .vehicle-plate {
-    font-family: 'Orbitron', monospace;
+    font-family: 'Montserrat', sans-serif;
     font-size: 1rem;
     font-weight: 800;
     letter-spacing: 3px;
@@ -1295,7 +1295,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
 }
 
 .report-type {
-    font-family: 'Orbitron', monospace;
+    font-family: 'Montserrat', sans-serif;
     font-size: 0.78rem;
     font-weight: 700;
     letter-spacing: 1px;
@@ -1304,7 +1304,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
 }
 
 .report-id {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'IBM Plex Mono', monospace;
     font-size: 0.75rem;
     color: var(--lspd-text-muted);
 }
@@ -1354,7 +1354,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
 }
 
 .wanted-card h3 {
-    font-family: 'Chakra Petch', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-size: 1.25rem;
     font-weight: 800;
     color: var(--lspd-text);
@@ -1365,7 +1365,7 @@ body.lspd-panel ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 
     display: inline-block;
     padding: 4px 14px;
     border-radius: 6px;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'IBM Plex Mono', monospace;
     font-size: 0.7rem;
     font-weight: 800;
     text-transform: uppercase;
@@ -1609,21 +1609,21 @@ function viewWarrantDetail(btn) {
     html += '<div style="display:flex;align-items:center;gap:1.25rem;margin-bottom:1.5rem;padding-bottom:1.5rem;border-bottom:1px solid rgba(0,229,255,0.06);">';
     html += '<div class="warrant-avatar" style="width:60px;height:60px;font-size:1.2rem;">' + w.firstname.charAt(0).toUpperCase() + w.lastname.charAt(0).toUpperCase() + '</div>';
     html += '<div><div style="font-size:1.2rem;font-weight:800;color:var(--lspd-text);">' + w.firstname + ' ' + w.lastname + '</div>';
-    html += '<div style="font-family:JetBrains Mono,monospace;font-size:0.78rem;color:var(--lspd-text-muted);margin-top:3px;">ID #' + w.citizen_id + (w.phone ? ' • ' + w.phone : '') + '</div></div>';
+    html += '<div style="font-family:IBM Plex Mono,monospace;font-size:0.78rem;color:var(--lspd-text-muted);margin-top:3px;">ID #' + w.citizen_id + (w.phone ? ' • ' + w.phone : '') + '</div></div>';
     html += '<span class="warrant-tag" style="margin-left:auto;background:' + (stC[w.status]||'#64748b') + '22;border:1px solid ' + (stC[w.status]||'#64748b') + '44;color:' + (stC[w.status]||'#64748b') + ';font-size:0.75rem;">' + (stL[w.status]||w.status) + '</span>';
     html += '</div>';
     
     // Infos grille
     html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.5rem;">';
-    html += '<div style="padding:1rem;background:rgba(0,229,255,0.04);border:1px solid rgba(0,229,255,0.08);border-radius:10px;text-align:center;"><div style="font-family:Orbitron,monospace;font-size:0.55rem;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--lspd-text-muted);margin-bottom:6px;">Type</div><div style="font-weight:700;color:var(--lspd-primary);font-size:0.85rem;">' + (typeL[w.warrant_type]||w.warrant_type) + '</div></div>';
-    html += '<div style="padding:1rem;background:' + (sevC[w.severity]||'#64748b') + '08;border:1px solid ' + (sevC[w.severity]||'#64748b') + '20;border-radius:10px;text-align:center;"><div style="font-family:Orbitron,monospace;font-size:0.55rem;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--lspd-text-muted);margin-bottom:6px;">Gravité</div><div style="font-weight:700;color:' + (sevC[w.severity]||'#64748b') + ';font-size:0.85rem;">' + (sevL[w.severity]||w.severity) + '</div></div>';
-    html += '<div style="padding:1rem;background:rgba(251,191,36,0.06);border:1px solid rgba(251,191,36,0.12);border-radius:10px;text-align:center;"><div style="font-family:Orbitron,monospace;font-size:0.55rem;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--lspd-text-muted);margin-bottom:6px;">Caution</div><div style="font-family:JetBrains Mono,monospace;font-weight:700;color:#fbbf24;font-size:0.95rem;">' + (parseFloat(w.bail_amount) > 0 ? '$' + Number(w.bail_amount).toLocaleString() : '—') + '</div></div>';
+    html += '<div style="padding:1rem;background:rgba(0,229,255,0.04);border:1px solid rgba(0,229,255,0.08);border-radius:10px;text-align:center;"><div style="font-family:Montserrat,sans-serif;font-size:0.55rem;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--lspd-text-muted);margin-bottom:6px;">Type</div><div style="font-weight:700;color:var(--lspd-primary);font-size:0.85rem;">' + (typeL[w.warrant_type]||w.warrant_type) + '</div></div>';
+    html += '<div style="padding:1rem;background:' + (sevC[w.severity]||'#64748b') + '08;border:1px solid ' + (sevC[w.severity]||'#64748b') + '20;border-radius:10px;text-align:center;"><div style="font-family:Montserrat,sans-serif;font-size:0.55rem;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--lspd-text-muted);margin-bottom:6px;">Gravité</div><div style="font-weight:700;color:' + (sevC[w.severity]||'#64748b') + ';font-size:0.85rem;">' + (sevL[w.severity]||w.severity) + '</div></div>';
+    html += '<div style="padding:1rem;background:rgba(251,191,36,0.06);border:1px solid rgba(251,191,36,0.12);border-radius:10px;text-align:center;"><div style="font-family:Montserrat,sans-serif;font-size:0.55rem;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--lspd-text-muted);margin-bottom:6px;">Caution</div><div style="font-family:IBM Plex Mono,monospace;font-weight:700;color:#fbbf24;font-size:0.95rem;">' + (parseFloat(w.bail_amount) > 0 ? '$' + Number(w.bail_amount).toLocaleString() : '—') + '</div></div>';
     html += '</div>';
     
     // Infraction
     html += '<div class="warrant-view-section"><div class="warrant-view-label">Infraction</div>';
     html += '<div style="padding:1rem;background:rgba(0,0,0,0.2);border:1px solid rgba(0,229,255,0.04);border-radius:8px;">';
-    html += '<div style="font-family:Orbitron,monospace;font-weight:800;color:var(--lspd-primary);letter-spacing:1px;">' + w.offense_code + '</div>';
+    html += '<div style="font-family:Montserrat,sans-serif;font-weight:800;color:var(--lspd-primary);letter-spacing:1px;">' + w.offense_code + '</div>';
     html += '<div style="color:var(--lspd-text);margin-top:4px;">' + w.offense_title + '</div>';
     html += '</div></div>';
     
@@ -1641,8 +1641,8 @@ function viewWarrantDetail(btn) {
     
     // Dates
     html += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:1rem;margin-top:1.5rem;padding-top:1rem;border-top:1px solid rgba(0,229,255,0.06);">';
-    html += '<div class="warrant-view-section"><div class="warrant-view-label">Émis le</div><div class="warrant-view-value" style="font-family:JetBrains Mono,monospace;font-size:0.85rem;">' + (w.issued_date ? new Date(w.issued_date).toLocaleDateString('fr-FR') : '—') + '</div></div>';
-    html += '<div class="warrant-view-section"><div class="warrant-view-label">Expiration</div><div class="warrant-view-value" style="font-family:JetBrains Mono,monospace;font-size:0.85rem;">' + (w.expiration_date ? new Date(w.expiration_date).toLocaleDateString('fr-FR') : 'Indéfini') + '</div></div>';
+    html += '<div class="warrant-view-section"><div class="warrant-view-label">Émis le</div><div class="warrant-view-value" style="font-family:IBM Plex Mono,monospace;font-size:0.85rem;">' + (w.issued_date ? new Date(w.issued_date).toLocaleDateString('fr-FR') : '—') + '</div></div>';
+    html += '<div class="warrant-view-section"><div class="warrant-view-label">Expiration</div><div class="warrant-view-value" style="font-family:IBM Plex Mono,monospace;font-size:0.85rem;">' + (w.expiration_date ? new Date(w.expiration_date).toLocaleDateString('fr-FR') : 'Indéfini') + '</div></div>';
     html += '<div class="warrant-view-section"><div class="warrant-view-label">Émis par</div><div class="warrant-view-value">' + (w.issued_by_name || '—') + '</div></div>';
     if (w.status === 'executed') {
         html += '<div class="warrant-view-section"><div class="warrant-view-label">Exécuté par</div><div class="warrant-view-value" style="color:#22c55e;">' + (w.executed_by_name || '—') + (w.execution_date ? ' le ' + new Date(w.execution_date).toLocaleDateString('fr-FR') : '') + '</div></div>';

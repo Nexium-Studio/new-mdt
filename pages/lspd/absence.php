@@ -183,7 +183,7 @@ function abs_initials($name){ $p=preg_split('/\s+/',trim((string)$name)); $i='';
 ?>
 <style>
 .ab-hero{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:1.4rem}
-.ab-hero h1{font-family:'Syne',serif;font-size:1.4rem;font-weight:900;color:#fff;margin:0;display:flex;align-items:center;gap:.6rem}
+.ab-hero h1{font-family:'Montserrat',sans-serif;font-size:1.4rem;font-weight:900;color:#fff;margin:0;display:flex;align-items:center;gap:.6rem}
 .ab-hero h1 i{color:var(--blue-l)}
 .ab-hero .sub{font-size:.82rem;color:var(--txt-s);margin-top:.25rem}
 /* Bannières */
@@ -193,7 +193,7 @@ function abs_initials($name){ $p=preg_split('/\s+/',trim((string)$name)); $i='';
 /* Calendrier */
 .ab-cal{background:var(--bg-c);border:1px solid var(--bdr);border-radius:14px;padding:1.1rem 1.2rem 1.3rem;margin-bottom:1.4rem}
 .ab-cal-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;gap:.6rem;flex-wrap:wrap}
-.ab-cal-title{font-family:'Syne',serif;font-size:1.05rem;font-weight:800;color:#fff;text-transform:capitalize;min-width:180px}
+.ab-cal-title{font-family:'Montserrat',sans-serif;font-size:1.05rem;font-weight:800;color:#fff;text-transform:capitalize;min-width:180px}
 .ab-cal-nav{display:flex;gap:.35rem;align-items:center}
 .ab-navbtn{width:34px;height:34px;border-radius:8px;background:rgba(37,99,235,.08);border:1px solid var(--bdr);color:var(--txt-s);cursor:pointer;display:grid;place-items:center;transition:all .15s;font-size:.8rem}
 .ab-navbtn:hover{background:rgba(37,99,235,.18);color:var(--blue-xl)}

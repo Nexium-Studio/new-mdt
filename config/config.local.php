@@ -24,3 +24,9 @@ define('NEXIUM_API_HMAC_KEY', 'R,PiW%PbwP:biJjQvP7)25~VP$j7_5x;28ds]#2(iQ9.9*bU9
  * Genere une valeur longue et aleatoire (48+ caracteres).
  */
 define('FIVEM_AUTH_SECRET', '9B6ZwB4iK2zATuvV7y5w9Kjy3Yz8D8');
+
+
+/**
+ * Cle liaison Groq (MDT <-> Groq) : 
+ */
+define('MDT_AI_API_KEY', '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');

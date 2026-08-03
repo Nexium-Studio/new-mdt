@@ -266,7 +266,7 @@ include __DIR__ . '/includes/header.php';
 .profile-avatar-initials {
     width:100%; height:100%;
     display:flex; align-items:center; justify-content:center;
-    font-family:'Syne',serif; font-weight:800; font-size:1.8rem; color:#f9fafb;
+    font-family:'Montserrat',sans-serif; font-weight:800; font-size:1.8rem; color:#f9fafb;
 }
 .profile-avatar-wrap.wanted-border { border-color:rgba(239,68,68,.7); box-shadow:0 0 20px rgba(239,68,68,.3); }
 
@@ -276,7 +276,7 @@ include __DIR__ . '/includes/header.php';
     overflow:hidden; flex-shrink:0;
     border:1.5px solid rgba(37,99,235,.3);
     display:flex; align-items:center; justify-content:center;
-    font-family:'Syne',serif; font-weight:800; font-size:1.15rem;
+    font-family:'Montserrat',sans-serif; font-weight:800; font-size:1.15rem;
 }
 .pcard-av img { width:100%; height:100%; object-fit:cover; }
 
@@ -332,12 +332,12 @@ $CR_ST=['active'=>'bg-red','served'=>'bg-green','pardoned'=>'bg-yellow','expired
 .cz-avatar{width:128px;height:128px;border-radius:22px;overflow:hidden;flex-shrink:0;border:2px solid rgba(37,99,235,.4);box-shadow:0 10px 40px rgba(0,0,0,.5),0 0 0 4px rgba(37,99,235,.06);cursor:pointer;transition:transform .25s,box-shadow .25s;position:relative;background:linear-gradient(135deg,rgba(37,99,235,.3),rgba(0,0,0,.5))}
 .cz-avatar:hover{transform:translateY(-3px) scale(1.02);box-shadow:0 16px 50px rgba(0,0,0,.6),0 0 0 4px rgba(37,99,235,.18)}
 .cz-avatar img{width:100%;height:100%;object-fit:cover}
-.cz-avatar .cz-av-ph{width:100%;height:100%;display:grid;place-items:center;font-family:'Syne',serif;font-weight:800;font-size:3rem;color:#fff}
+.cz-avatar .cz-av-ph{width:100%;height:100%;display:grid;place-items:center;font-family:'Montserrat',sans-serif;font-weight:800;font-size:3rem;color:#fff}
 .cz-avatar .cz-av-zoom{position:absolute;inset:0;display:grid;place-items:center;background:rgba(3,8,15,.55);color:#fff;opacity:0;transition:opacity .2s;font-size:1.3rem}
 .cz-avatar:hover .cz-av-zoom{opacity:1}
 .cz-avatar.wanted{border-color:rgba(239,68,68,.6);box-shadow:0 10px 40px rgba(239,68,68,.25),0 0 0 4px rgba(239,68,68,.1)}
 /* identity */
-.cz-name{font-family:'Syne',serif;font-weight:900;font-size:2rem;line-height:1.05;color:#fff;letter-spacing:-.02em}
+.cz-name{font-family:'Montserrat',sans-serif;font-weight:900;font-size:2rem;line-height:1.05;color:#fff;letter-spacing:-.02em}
 .cz-name small{display:block;font-size:1.05rem;font-weight:700;color:var(--blue-l);letter-spacing:0;margin-top:.1rem}
 .cz-chips{display:flex;gap:.4rem;flex-wrap:wrap;margin:.7rem 0}
 .cz-chip{display:inline-flex;align-items:center;gap:.4rem;padding:.32rem .7rem;border-radius:8px;font-size:.72rem;font-weight:700}
@@ -1022,7 +1022,7 @@ $total=count($profiles??[]);
 <div id="createModal" class="modal-ov hidden">
 <div class="modal modal-lg">
 <div class="modal-hd" style="background:rgba(0,0,0,.3);border-bottom:1px solid rgba(37,99,235,.2)">
-    <h2 style="font-family:'Syne',serif"><i class="fas fa-user-plus" style="color:var(--blue-l)"></i> Ajouter un citoyen</h2>
+    <h2 style="font-family:'Montserrat',sans-serif"><i class="fas fa-user-plus" style="color:var(--blue-l)"></i> Ajouter un citoyen</h2>
     <button class="modal-cl" onclick="LSPD.closeModal('createModal')">×</button>
 </div>
 <form method="POST" onsubmit="return pdCheckGender(this)"><div class="modal-bd" style="position:relative">
@@ -1047,7 +1047,7 @@ $total=count($profiles??[]);
 
     <!-- Aperçu initiales (fallback) -->
     <div style="text-align:center;margin-bottom:1.1rem">
-        <div id="createAvatar" style="width:52px;height:52px;border-radius:13px;background:linear-gradient(135deg,rgba(37,99,235,.3),rgba(0,0,0,.4));color:#f9fafb;display:inline-flex;align-items:center;justify-content:center;font-family:'Syne',serif;font-weight:800;font-size:1.3rem;border:2px solid rgba(37,99,235,.3)">?</div>
+        <div id="createAvatar" style="width:52px;height:52px;border-radius:13px;background:linear-gradient(135deg,rgba(37,99,235,.3),rgba(0,0,0,.4));color:#f9fafb;display:inline-flex;align-items:center;justify-content:center;font-family:'Montserrat',sans-serif;font-weight:800;font-size:1.3rem;border:2px solid rgba(37,99,235,.3)">?</div>
         <div style="font-size:.68rem;color:var(--txt-m);margin-top:.25rem">Aperçu initiales</div>
     </div>
 

@@ -273,11 +273,11 @@ include __DIR__ . '/includes/header.php';
     background:linear-gradient(135deg, rgba(16,185,129,.18), rgba(37,99,235,.16));
     color:#6ee7b7; display:grid; place-items:center; font-size:1rem; flex-shrink:0;
 }
-.vl-card-name { flex:1; min-width:0; font-family:'Syne',serif; font-weight:800; font-size:1rem; color:#fff; }
+.vl-card-name { flex:1; min-width:0; font-family:'Montserrat',sans-serif; font-weight:800; font-size:1rem; color:#fff; }
 .vl-card-name .vl-rename-input {
     width:100%; background:rgba(0,0,0,.25); border:1px solid var(--bdr);
     border-radius:6px; padding:.35rem .55rem; color:#fff;
-    font-family:'Syne',serif; font-weight:800; font-size:1rem; outline:none;
+    font-family:'Montserrat',sans-serif; font-weight:800; font-size:1rem; outline:none;
 }
 .vl-card-name .vl-rename-input:focus { border-color:var(--blue); box-shadow:0 0 0 3px rgba(37,99,235,.15); }
 .vl-card-acts { display:flex; gap:.35rem; flex-shrink:0; }
