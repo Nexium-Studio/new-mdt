@@ -19,7 +19,7 @@ $charCsrf = $_SESSION['characters_csrf'];
 require_once ROOT_PATH . '/includes/ppa.php';
 mdt_ppa_migrate($db);
 
-$siteName = 'LysoriaMDT';
+$siteName = 'Nexium MDT';
 try {
     $row = $db->query("SELECT setting_value FROM admin_settings WHERE setting_key='site_name' LIMIT 1")->fetch();
     if ($row && $row['setting_value']) $siteName = $row['setting_value'];
@@ -1430,7 +1430,7 @@ if($gsk!=='__none__'): ?><div class="law-sec"><i class="fas fa-minus" style="opa
 <footer>
     <div class="container footer-inner">
         <div>&copy; <?php echo date('Y'); ?> <a href="/pages/dashboard.php"><?php echo htmlspecialchars($siteName); ?></a>. Tous droits réservés.</div>
-        <div>Propulsé par Wolf12_ — développeur de Lysoria</div>
+        <div>Propulsé par Wolf12_ — Créateur de <a href="https://nexium-studio.com">Nexium Studio</a></div>
     </div>
 </footer>
 
@@ -1540,8 +1540,6 @@ if($gsk!=='__none__'): ?><div class="law-sec"><i class="fas fa-minus" style="opa
 .ep-sel-opt.sel{background:rgba(59,130,246,.16);color:#93c5fd}
 :root[data-theme="light"] .ep-sel-btn{background:#F5F6FA;color:#1A1F30}
 :root[data-theme="light"] .ep-sel-opt{color:#1A1F30}
-:root[data-theme="light"] .ep-drop{border-color:#D5DAE6;background:#F5F6FA}
-:root[data-theme="light"] .ep-drop-prev img{background:#eef0f6}
 /* ── Zone d'upload pièce d'identité ── */
 .ep-drop{border:1.5px dashed rgba(255,255,255,.16);border-radius:10px;background:rgba(255,255,255,.02);transition:border-color .18s,background .18s;overflow:hidden}
 .ep-drop.drag{border-color:#3b82f6;background:rgba(59,130,246,.08)}
